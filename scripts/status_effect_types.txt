@@ -1,0 +1,563 @@
+// Read by code, which generates the enum for script.
+// To generate: r2_static_128 -scriptdocs
+
+//
+//enum eStatusEffect
+//{
+/////////////////////////////
+
+	anti_slow
+	move_slow
+	turn_slow
+	dodge_speed_slow
+	dodge_regen_slow
+	move_passive_recharge_disabled
+	grapple_slow
+	speed_boost
+	sprint_boost
+	speed_boost_audio
+	stim_visual_effect
+	timeshift_visual_effect
+	enemy_only_threat_vision
+	threat_vision
+	gravity_grenade_visual
+	sonar_pulse_visuals
+    tracking_vision
+    hunt_mode
+    hunt_mode_visuals
+    hunt_mode_fov
+                          
+                      
+          
+    adrenaline_visuals
+    gas_cloud
+    shellshock
+    burning
+    //passive_cloak
+
+                
+              
+      
+
+                
+                      
+             
+      
+
+                                
+                            
+      
+	smokescreen
+
+                                    
+	temporary_self_revive
+                                          
+
+	revenge_view_visuals
+	revenge_view_visuals_enemy
+	mirage_ultimate_cancel_hint
+
+	laser_mesh
+	destroyed_by_emp
+	titan_damage_amp
+
+    sonar_blocked
+	sonar_detected
+	camera_detected
+	maphack_detected
+	lockon_detected
+    device_detected
+    device_blocked
+    area_sonar_scan
+
+	emp
+	flamethrower
+
+//%if HAS_GRAVITY_CANNON
+	gravity_cannon_flight
+//%endif
+
+	frozencontrols
+
+	placing_phase_tunnel
+
+	immune_to_abilities
+
+	camera_view
+	crypto_has_camera
+	crypto_camera_is_recalling
+	crypto_camera_is_emp
+	crypto_emp_warning
+	crypto_beacon_scan
+
+                      
+                         
+      
+
+	translocation_visual_effect
+
+    //s05t_warp_visual_effect
+
+	death_totem_visual_effect
+	death_totem_recall
+	silenced
+	silenced_rev_visuals
+
+	skyward_embark
+
+             
+                       
+      
+
+
+    shields_repairing
+    shields_repairing_fx
+
+	has_auto_loader
+	has_overheat_debuff
+                             
+                               
+      
+	void_breacher
+
+	rampart_amped_speed
+
+             
+              
+                       
+                    
+      
+
+               
+       
+      
+
+               
+	hit_by_sonar_dart
+	on_hit_list
+	arco_ult_scan
+	hit_by_sparrow_ult
+      
+
+    stuck_by_emp_grenade
+
+                         
+    stuck_by_frag_arrow
+      
+
+	script_helper
+
+	pass_through_amps_weapon
+
+	simple_timer
+
+	minimap_jammed
+	tethered
+	cockpitColor
+	damageAmpFXOnly
+	disable_wall_run
+	disable_double_jump
+	disable_automantle_hang
+	disable_dodge
+
+	damage_received_multiplier
+
+	bombardment_uses_extended_height
+
+	crypto_tt_scanned_visual
+
+                   
+	perk_survey_beacon_scanned_visual
+	perk_survey_beacon_enemies_scanned_visual
+      
+
+               
+              
+      
+
+	drone_healing
+
+	// TEMP DEV
+	phase_tunnel_visual
+	target_shields
+	target_health
+	trophy_tactical_charge
+
+	bubble_bunker
+
+	inside_echo_locator
+	interrupted
+	silenced_seer_visuals
+	seer_detected
+	seer_highlight_target
+
+    valk_tac_scan
+
+	mortar_ring_burn
+	in_mortar_ring
+	mortar_ring_push
+	in_space_elevator
+	softLandings_visuals
+	in_black_hole_field
+
+              
+                   
+                        
+              
+                  
+      
+
+              
+                           
+                      
+                              
+                            
+                              
+      
+
+                       
+	halo_visuals
+      
+
+	castle_wall_emp
+
+                                
+               
+             
+                           
+         
+                       
+           
+            
+                
+               
+                    
+                   
+                   
+                    
+                        
+                       
+                     
+      
+
+                
+           
+      
+
+            
+                
+      
+
+ring_immunity
+in_void_ring
+
+                            
+	hold_is_open
+      
+
+                      
+                        
+      
+
+    mirage_detected
+    mirage_tac_scan
+    in_campfire_radius
+
+	revealing_enemies
+	revealed_by_ash
+
+phase_gate_tracking
+in_olympus_rift
+
+               
+	is_boxing
+      
+
+	sonar_round_embedded
+
+                       
+	healing_denied
+      
+
+	ferro_darkvision
+	ferro_darkvision_team
+	reinforced
+	reinforced_blocked
+
+                           
+    electrified
+      
+
+	spawnkilling_detected
+
+                        
+    mortar_ring_reveal
+      
+
+                       
+                   
+      
+
+                    
+                           
+      
+
+                            
+                      
+      
+
+	shadow_form
+	assassins_instinct
+
+                        
+	mrb_carrier
+      
+
+                     
+             
+      
+
+
+                    
+	physical_overshield
+      
+
+	golden_horse_red
+
+                          
+	titan_sword_fuel
+	titan_sword_super
+	titan_sword_dash
+	titan_sword_dash_sickness
+      
+
+                 
+	rev_shell_targeted
+      
+
+                  
+	has_active_bounty
+      
+
+	void_vision_scan
+	phase_door_teleport_visual_effect
+
+                
+                       
+      
+
+                
+                 
+               
+      
+
+               
+                             
+                   
+         
+      
+
+             
+                             
+      
+
+                            
+    pass_through_ferro_weapon
+      
+
+    gas_cloud_hide_health
+
+                 
+	slide_gate_boosting
+      
+
+                                
+	ring_lethality_increase
+	ring_lethality_warning
+      
+
+                   
+                     
+      
+
+                        
+	structure_damage_mitigation
+      
+
+    newcastle_ult_shield_regen
+
+                       
+                   
+      
+
+                 
+	boost_kit_cooldown
+      
+
+                         
+                
+      
+
+                    
+    freespawn_victim_teammate
+      
+
+                
+             
+      
+
+                       
+                            
+      
+
+                            
+    perk_shield_breaker_assault
+    perk_shield_breaker_victim
+      
+
+                       
+                                     
+                             
+      
+
+                               
+    perk_trailblazer
+    perk_knock_expert_tac_charge
+      
+
+    ballistic_silence_visuals
+
+                  
+                      
+      
+
+                           
+	mythic_armor_upgrade
+	gold_armor_upgrade
+      
+
+                                 
+                          
+                     
+            
+      
+
+                                                                               
+    barrier
+      
+
+                      
+             
+                
+             
+      
+
+                        
+               
+      
+
+                         
+                       
+      
+
+                       
+              
+      
+
+    power_sword_buff
+    power_sword_debuff
+
+                                
+                        
+      
+
+    endorsement_airborne_scan
+    endorsement_fast_slide
+    endorsement_revive_speed_boost
+    endorsement_speed_scan
+    endorsement_silence_on_shield_break
+
+    endorsement_brainfreeze
+
+                         
+    sonar_pulse_embedded
+      
+
+    force_revive_action
+
+    octane_stim_surge
+
+    crypto_scan_debuff
+
+                        
+    bunker_buster_highlight
+      
+
+                            
+	vortex_shield_emp_ready
+	vortex_shield_active
+	vortex_shield_cooldown
+      
+
+                         
+    endorsement_vortex_heat_signature
+      
+
+                 
+    overdrive_ult_tracking
+    overdrive_ult_scan
+      
+
+              
+             
+                         
+
+                           
+                       
+                           
+                       
+
+               
+                      
+      
+
+                       
+    beamstick_stave_shield_cooldown
+      
+
+                        
+    breachglass_reinforce_cooldown
+      
+
+                  
+    hoverboard_active
+      
+
+                         
+                                  
+      
+
+                               
+                                 
+                                  
+      
+
+                               
+                                
+      
+
+                          
+    in_wraith_phase_dome
+    wraith_channeling_phase_dome
+      
+
+                            
+                     
+                          
+                               
+      
+
+    maggie_ball_visuals
+
+/////////////////////////////
+//}

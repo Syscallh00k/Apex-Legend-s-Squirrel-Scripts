@@ -1,0 +1,36 @@
+// Read by code, which generates the enum for highlight drawfunc.
+
+//
+//enum eHighlightDrawfunc
+//{
+/////////////////////////////
+
+	ALWAYS // always draw the highlight
+	OCCLUDED // draw the highlight when the object is not visible
+	LOS // draw the object only when we can see it
+	LOS_LINE // when visible, uses a line instead of hull trace
+	LOS_LINE_FADE
+	LOS_LINE_LONGFADE
+	REVENANT_ASSASSINS_INSTINCT
+	LOS_LINE_ENTSONLYCONTENTSBLOCK    // only blocked by ents with CONTENTS_BLOCKLOS
+                                 
+	LOS_LINE_ENTSONLY_BLOCKSCAN			// only blocked by ents with CONTENTS_BLOCKSCAN
+      
+	ENT_APPEAR_EFFECT
+	SPOT
+	PICKUP
+	SONAR_DETECTED
+	ALWAYS_LONG_FADE
+	CAUSTIC_THREAT
+	ABILITY_REVEAL
+	ALLIANCE_PROXIMITY
+
+	FORCE_ON
+                           
+	ENEMY_ASSIST
+      
+
+	LAST_DRAW_FUNC
+
+/////////////////////////////
+//}

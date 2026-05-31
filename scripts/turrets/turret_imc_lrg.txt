@@ -1,0 +1,97 @@
+turret_imc_lrg
+{
+//    DriverAttachment                ATTACH                  // Where player's eyes (and body for now) will be located when used (default = "")
+    MuzzleAttachment                MUZZLE_LEFT_UPPER       // Guns will fire out of this attachment (default = "")
+    AltMuzzleAttachment             MUZZLE_RIGHT_UPPER      // If specified, guns will alternate firing between this attachment too (default = "")
+
+    AmmoType                        Pistol                  // Type of ammo used when firing
+
+    YawPoseParameter                aim_yaw                 // Animation pose parameter to set when rotating turret horizontally
+    PitchPoseParameter              aim_pitch               // Animation pose parameter to set when rotating turret vertically
+
+    // Damage properties from firing
+    DamageNear                      100
+    DamageFar                       50
+    DamageNearDistance              0
+    DamageFarDistance               1000
+
+//    AttackSound                     redeye.turret_fire      // Sound to play when firing
+    AttackSound                     Airboat.FireGunHeavy	// Sound to play when firing
+    MuzzleFlashEffect               wpn_muzzleflash_droppod_turret      // Effect to play (on muzzle) when firing
+    TracerType                      weapon_tracers_xo16     // Type of tracer to[LoadScriptFile] self 0x7ff67896f188  out 0x24c2dad710  path : scripts/propdata.txt
+[dump] scripts/propdata.txt (14007 bytes)// "prop data name"
+// {
+// "property" 	"value"
+// ...
+// }
+//
+//
+// "base"		: Specify a base propdata class to derive from (base types can be found in propdata.txt)
+//
+// "blockLOS"		: Override whether this prop should block NPC's Line-Of-Sight.
+// "AIWalkable"		: Override whether AI should consider this prop as walkable on.
+// "dmg.bullets"	: Mod damage done by bullets to this prop.
+// "dmg.club"		: Mod damage done by clubs to this prop.
+// "dmg.explosive"	: Mod damage done by explosives to this prop.
+//		NOTE: Use damage modifiers to reflect differences between the amount of
+//			  damage that an object takes from different damage types. Don't
+//			  use them to reflect overall damage strength. i.e. Stone is resilient
+//			  to everything. To reflect this, increase the health of all stone
+//			  objects, don't set the damage modifiers lower.
+//
+// "damage_table"	: Specify a custom physics impact damage table for this prop.
+// "health"		: Amount of damage this prop should take before breaking.
+//
+// "explosive_damage"	: Explosive damage done by this prop.
+// "explosive_radius"	: Radius of the explosion caused by this prop when it breaks.
+//		NOTE: If these two fields are specified for a prop, then the prop will automatically
+//			  create an explosion with the specified values when the prop is broken.
+//
+// "breakable_model"	: The type of breakable gibs this prop should break into. This list is at the bottom of this file.
+// "breakable_count"	: The number of breakable gibs to break into.
+// "allowstatic"	: Allow this prop to be static as well as physically simulated.
+//
+//
+"PropData.txt"
+{
+
+//=================================================================================
+//		PAPER
+//=================================================================================
+	// Base damage modifiers for paper objects
+	// DON'T USE THIS FOR A PROP. USE THE NON.BASE ONES.
+	"Cardboard.Base"
+	{
+		"dmg.bullets"		"0.5"
+		"dmg.club"		"1.25"
+		"dmg.explosive" 	"1.5"
+	}
+
+	// Cardboard / Paper blocks, less than 1 foot cubed.
+	//	i.e. small cardboard boxes, notepads, newspapers, thin books.
+	"Cardboard.Small"
+	{
+		"base"		"Cardboard.Base"
+		"health"	"10"
+	}
+
+	// Cardboard / Paper blocks, less than 3 foot cubed.
+	//	i.e. cardboard boxes. thick books
+	"Cardboard.Medium"
+	{
+		"base"		"Cardboard.Base"
+		"health"	"20"
+	}
+
+	// Large Cardboard / Paper blocks
+	//	i.e. solid cardboard boxes
+	"Cardboard.Large"
+	{
+		"base"		"Cardboard.Base"
+		"health"	"40"
+	}
+
+//=================================================================================
+//		CLOTH
+//=================================================================================
+	// Base dama
