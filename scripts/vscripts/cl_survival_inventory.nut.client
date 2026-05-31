@@ -1,0 +1,4371 @@
+global function Cl_Survival_InventoryInit
+global function AddCallback_OnInventoryOpened
+global function RemoveCallback_OnInventoryOpened
+
+global function Survival_SwapPrimary
+global function Survival_SwapToMelee
+global function Survival_SwapToOrdnance
+
+global function ServerCallback_TryCloseInventory
+global function ServerCallback_RefreshInventory
+global function ResetInventoryMenu
+global function OpenSurvivalInventory
+global function OpenSurvivalGroundList
+
+global function Survival_IsInventoryOpen
+global function Survival_IsGroundlistOpen
+global function Survival_GetDeathBox
+global function Survival_GetDeathBoxItems
+global function Survival_GetGroundListBehavior
+
+global function BackpackAction
+global function EquipmentAction
+global function DispatchLootAction
+
+global function GroundItemUpdate
+global function OpenSwapForItem
+global function UIToClient_UpdateInventoryDpadTooltipText
+
+global function UICallback_BackpackOpened
+global function UICallback_BackpackClosed
+
+global function UIToClient_GroundlistOpened
+global function UIToClient_GroundlistClosed
+
+
+global function UIToClient_PingUpgrade
+global function UICallback_UpdateUpgradeButton
+global function UICallback_UpdateUpgradeInfo
+global function UICallback_OnUpgradeButtonAction
+global function UICallback_PingUpgrade
+
+
+
+global function UICallback_OnGrenadeInventoryButtonAction
+global function UICallback_UpdateGrenadeInventoryButton
+global function HasAvailableGrenadeInventorySlot
+
+
+global function UICallback_UpdateInventoryButton
+global function UICallback_OnInventoryButtonAction
+global function UICallback_PingInventoryItem
+
+global function UICallback_UpdateEquipmentButton
+global function UICallback_OnEquipmentButtonAction
+global function UICallback_PingEquipmentItem
+
+global function UICallback_PingRequestButton
+global function UICallback_UpdateRequestButton
+
+
+global function UICallback_PingIsMyUltimateReady
+
+
+global function UICallback_UpdateQuickSwapItem
+global function UICallback_OnQuickSwapItemClick
+global function UICallback_OnQuickSwapItemClickRight
+
+global function UICallback_UpdateQuickSwapItemButton
+
+global function UICallback_GetLootDataFromButton
+global function UICallback_GetMouseDragAllowedFromButton
+global function UICallback_OnInventoryMouseDrop
+
+global function UIToClient_WeaponSwap
+global function UICallback_UpdatePlayerInfo
+global function UICallback_UpdateTeammateInfo
+global function UICallback_UpdateUltimateInfo
+global function SetInventoryUltimatePosition
+
+
+global function GetInventoryUltimateEvoWeaponsMeter
+
+
+global function UIToClient_UpdateTeammateRuiTooltip
+
+global function UIToClient_UpdateEndorsementInventoryButtonTooltip
+global function UIToClient_OnBindEndorsementButton
+
+
+
+global function UICallback_UpdateTeammateUpgrades
+
+
+global function UICallback_BlockPingForDuration
+
+global function UICallback_EnableTriggerStrafing
+global function UICallback_DisableTriggerStrafing
+
+global function UpdateHealHint
+global function GroundListResetNextFrame
+global function GetCountForLootType
+global function TryUpdateGroundList
+global function TryResetGroundList
+global function OnLocalPlayerPickedUpItem
+
+global function IsOrdnanceEquipped
+global function SetShowUnitFrameAmmoTypeIcons
+global function GetShowUnitFrameAmmoTypeIcons
+global function EquipmentButton_SlingWarningMessage
+
+global function Survival_SetInventorySlotVisibility
+global function Survival_AddInventorySlotVisibilityCallback
+global function Survival_RemoveInventorySlotVisibilityCallback
+global function Survival_AddInventoryPreventGadgetSlotUnequipCallback
+
+global function IsItemEquipped_Gadget
+global function GetItemEquipped_GadgetCount
+
+global function RefreshUltimateRui
+
+struct InventorySlotVisibilityData
+{
+	string scriptID = ""
+	bool isVisible = true
+	bool functionref() visibilityCallback
+}
+
+global enum eGroundListBehavior
+{
+	CONTENTS,
+	NEARBY,
+}
+
+global enum eGroundListType
+{
+	DEATH_BOX,
+	GRABBER,
+	VENDINGMACHINE,
+
+
+
+	_COUNT
+}
+
+global enum eNoStartExtendedUseReason
+{
+	NONE,
+	BALLISTIC_ULT_ACTIVE_NO_DROP,
+	BALLISTIC_ULT_ACTIVE_NO_TRANSFER_FROM,
+	BALLISTIC_ULT_ACTIVE_NO_TRANSFER_TO,
+	WEAPON_NOT_ALLOWED_IN_SLING,
+	DEFAULT
+}
+
+struct CurrentGroundListData
+{
+	entity deathBox
+	int    behavior
+	int    listType
+}
+
+struct GroundLootData
+{
+	LootData&         lootData
+	array<int>        guids
+	int               count
+	bool              isUpgrade
+	bool              isRelevant
+	bool              isHeader
+}
+
+const float ULT_HINT_COOLDOWN = 90.0
+const int CAUSTIC_AMOUNT_SLOTS = 4
+
+
+
+
+
+global struct InventoryUltimatePositionData
+{
+	int pinCorner = ePinCorners.TOP_LEFT
+	int siblingCorner = ePinCorners.BOTTOM_RIGHT
+
+
+
+
+
+		float xPos = 100.0
+		float yPos = 25.0
+
+}
+
+struct {
+	table<string, void functionref( entity, string )>         itemUseFunctions
+	table<string, void functionref( entity, string, string )> specialItemUseFunctions
+	table<int, void functionref( entity, string )>            itemTypeUseFunctions
+	table<int, void functionref( entity, string, string )>    specialItemTypeUseFunctions
+	array< bool functionref(entity) > Callbacks_ShouldPreventGadgetUnequip
+
+	array<GroundLootData> allGroundItems = []
+	array<GroundLootData> filteredGroundItems = []
+
+
+	bool backpackOpened = false
+	bool groundlistOpened = false
+	bool shouldResetGroundItems = true
+	bool shouldUpdateGroundItems = false
+	bool shouldShowUnitFrameAmmoTypeIcons = true
+
+	string                swapString
+	CurrentGroundListData currentGroundListData
+
+	float                 lastHealHintDisplayTime
+	float				  lastUltHintDisplayTime
+
+
+
+	table<string, string> triggerBinds
+	var 				  slingButtonRui
+	array<entity> lastLoot
+	array<int>    visibleItemIndices
+
+	table< string, InventorySlotVisibilityData > inventorySlotVisibilityData
+
+	array<void functionref()> inventoryOpenedCallbacks
+
+	LootData& quickSwapItemData
+
+	var ultimateHud
+	InventoryUltimatePositionData& inventoryUltimatePosition
+
+
+	var evoWeaponsUltimateRui
+
+} file
+
+
+void function Cl_Survival_InventoryInit()
+{
+	
+	
+
+
+
+	file.itemTypeUseFunctions[ eLootType.HEALTH ] <- UseHealthPickupRefFromInventory
+	file.itemTypeUseFunctions[ eLootType.ORDNANCE ] <- EquipOrdnance
+	file.itemTypeUseFunctions[ eLootType.GADGET ] <- EquipGadget
+	file.specialItemTypeUseFunctions[ eLootType.ATTACHMENT ] <- EquipAttachment
+
+	file.lastUltHintDisplayTime = Time() - ULT_HINT_COOLDOWN
+
+
+
+
+	RegisterSignal( "OpenSwapForItem" )
+	RegisterSignal( "ResetInventoryMenu" )
+	RegisterSignal( "BackpackClosed" )
+	RegisterSignal( "GroundListClosed" )
+
+	AddCallback_OnUpdateTooltip( eTooltipStyle.LOOT_PROMPT, OnUpdateLootPrompt )
+	AddCallback_OnUpdateTooltip( eTooltipStyle.WEAPON_LOOT_PROMPT, OnUpdateLootPrompt )
+
+	AddCallback_LocalPlayerPickedUpLoot( OnLocalPlayerPickedUpItem )
+
+	if ( !Augments_GetInfAmmoAugReworkEnabled() )
+	{
+		AddCallback_LocalPlayerDroppedLoot( OnLocalPlayerDroppedItem )
+	}
+
+	AddLocalPlayerTookDamageCallback( TryCloseSurvivalInventoryFromDamage )
+	AddLocalPlayerTookDamageCallback( ShowHealHint )
+	AddCallback_OnPlayerConsumableInventoryChanged( ResetInventoryMenu )
+}
+
+void function AddCallback_OnInventoryOpened( void functionref() cb )
+{
+	Assert( !file.inventoryOpenedCallbacks.contains( cb ) )
+	file.inventoryOpenedCallbacks.append( cb )
+}
+
+void function RemoveCallback_OnInventoryOpened( void functionref() cb )
+{
+	Assert( file.inventoryOpenedCallbacks.contains( cb ) )
+	file.inventoryOpenedCallbacks.removebyvalue( cb )
+}
+
+void function ServerCallback_TryCloseInventory( )
+{
+	RunUIScript( "TryCloseSurvivalInventory", null )
+}
+
+void function ServerCallback_RefreshInventory()
+{
+	ResetInventoryMenu( GetLocalClientPlayer() )
+}
+
+
+void function ResetInventoryMenu( entity player )
+{
+	thread ResetInventoryMenuInternal( player )
+}
+
+
+void function ResetInventoryMenuInternal( entity player )
+{
+	clGlobal.levelEnt.Signal( "ResetInventoryMenu" )
+	clGlobal.levelEnt.EndSignal( "ResetInventoryMenu" )
+	player.EndSignal( "OnDeath" )
+	player.EndSignal( "OnDestroy" )
+
+	WaitEndFrame()
+
+	if ( IsWatchingReplay() )
+		return
+
+	if ( player != GetLocalClientPlayer() )
+		return
+
+	if ( player != GetLocalViewPlayer() )
+		return
+
+	PerfStart( PerfIndexClient.InventoryRefreshTotal )
+
+	PerfStart( PerfIndexClient.InventoryRefreshStart )
+	RunUIScript( "SurvivalInventoryMenu_BeginUpdate" )
+	PerfEnd( PerfIndexClient.InventoryRefreshStart )
+	RunUIScript( "SurvivalInventoryMenu_SetInventoryLimit", SURVIVAL_GetInventoryLimit( player ) )
+	RunUIScript( "SurvivalInventoryMenu_SetInventoryLimitMax", SURVIVAL_GetMaxInventoryLimit( player ) )
+	PerfStart( PerfIndexClient.InventoryRefreshEnd )
+	RunUIScript( "SurvivalInventoryMenu_EndUpdate" )
+	PerfEnd( PerfIndexClient.InventoryRefreshEnd )
+
+	Survival_BackpackFullyOpened()
+
+	if ( player == GetLocalClientPlayer() && player == GetLocalViewPlayer() )
+		UpdateHealHint( player )
+
+	bool useGenericSlingStyle = false
+
+		useGenericSlingStyle = MatchModifiers_Enabled() && MatchModifiers_DoesActiveModifierLockWeapons()
+
+	RunUIScript( "SurvivalInventoryMenu_SetSpaceForSling", DoesPlayerHaveWeaponSling( player ), useGenericSlingStyle )
+
+
+		if ( Arsenals_Enabled() )
+		{
+			Arsenals_CheckInventoryChanged()
+		}
+
+
+
+	RunUIScript( "ClientToUi_SetGrenadeGridVisibility", ExtraFirepower_GetMaxExtraSlotsForPlayer( player ) > 0 )
+
+
+	PerfEnd( PerfIndexClient.InventoryRefreshTotal )
+}
+
+
+void function Survival_UseInventoryItem( string ref, string secondRef )
+{
+	if ( GetLocalViewPlayer() != GetLocalClientPlayer() )
+		return
+
+	LootData data = SURVIVAL_Loot_GetLootDataByRef( ref )
+	int type      = data.lootType
+
+	if ( ref in file.itemUseFunctions )
+	{
+		file.itemUseFunctions[ ref ]( GetLocalViewPlayer(), ref )
+	}
+	else if ( ref in file.specialItemUseFunctions )
+	{
+		file.specialItemTypeUseFunctions[ type ]( GetLocalViewPlayer(), ref, secondRef )
+	}
+	else if ( type in file.itemTypeUseFunctions )
+	{
+		file.itemTypeUseFunctions[ type ]( GetLocalViewPlayer(), ref )
+	}
+	else if ( type in file.specialItemTypeUseFunctions )
+	{
+		file.specialItemTypeUseFunctions[ type ]( GetLocalViewPlayer(), ref, secondRef )
+	}
+
+	ResetInventoryMenu( GetLocalViewPlayer() )
+}
+
+
+bool function Survival_DropInventoryItem( string ref, int num )
+{
+	entity player = GetLocalViewPlayer()
+
+	if ( !Survival_PlayerCanDrop( player ) )
+		return false
+
+	entity deathbox = null
+	if ( IsValid( file.currentGroundListData.deathBox ) && file.currentGroundListData.behavior == eGroundListBehavior.CONTENTS ) 
+	{
+		deathbox = file.currentGroundListData.deathBox
+	}
+
+	LootData data = SURVIVAL_Loot_GetLootDataByRef( ref )
+
+	if ( IsValid( deathbox ) )
+	{
+		Remote_ServerCallFunction( "ClientCallback_Sur_DropBackpackItem_Box", data.index, num, deathbox.GetEncodedEHandle() )
+	}
+	else
+	{
+		Remote_ServerCallFunction( "ClientCallback_Sur_DropBackpackItem", data.index, num )
+	}
+
+	ResetInventoryMenu( player )
+
+	return true
+}
+
+
+bool function Survival_DropEquipment( string ref )
+{
+	entity player = GetLocalViewPlayer()
+
+	if ( !Survival_PlayerCanDrop( player ) )
+		return false
+
+	EquipmentSlot e = Survival_GetEquipmentSlotDataByRef( ref )
+
+
+
+
+
+
+
+
+
+	Remote_ServerCallFunction( "ClientCallback_Sur_DropEquipment", e.type )
+	ResetInventoryMenu( player )
+
+	return true
+}
+
+
+bool function BackpackAction( int lootAction, string slotIndexString )
+{
+	int slotIndex = int( slotIndexString )
+
+	entity player                                  = GetLocalClientPlayer()
+	array<ConsumableInventoryItem> playerInventory = SURVIVAL_GetPlayerInventory( player )
+	int foundIndex                                 = -1
+
+	foreach ( index, item in playerInventory )
+	{
+		if ( item.slot != slotIndex )
+			continue
+
+		foundIndex = index
+		break
+	}
+
+	if ( foundIndex < 0 )
+	{
+		RunUIScript( "SurvivalMenu_AckAction" )
+		return false
+	}
+
+	LootData lootData = SURVIVAL_Loot_GetLootDataByIndex( playerInventory[foundIndex].type )
+
+	switch ( lootAction )
+	{
+		case eLootAction.DROP:
+			int numToDrop = 1
+			if ( lootData.lootType == eLootType.AMMO )
+				numToDrop = minint( lootData.countPerDrop, playerInventory[foundIndex].count )
+			return Survival_DropInventoryItem( lootData.ref, numToDrop )
+			break
+
+		case eLootAction.DROP_ALL:
+			return Survival_DropInventoryItem( lootData.ref, playerInventory[foundIndex].count )
+			break
+
+			
+
+		case eLootAction.ATTACH_TO_ACTIVE:
+		case eLootAction.ATTACH_TO_STOWED:
+			
+			
+			
+			Remote_ServerCallFunction( "ClientCallback_Sur_EquipAttachment", lootData.index, -1 )
+			
+			break
+
+		case eLootAction.EQUIP:
+			Survival_UseInventoryItem( lootData.ref, "" )
+			RunUIScript( "SurvivalMenu_AckAction" )
+			break
+
+		case eLootAction.USE:
+			Survival_UseInventoryItem( lootData.ref, "" )
+			RunUIScript( "SurvivalMenu_AckAction" )
+			break
+
+
+
+
+
+
+
+
+
+
+	}
+
+	return true
+}
+
+bool function EquipmentAction( int lootAction, string equipmentSlot )
+{
+	switch ( lootAction )
+	{
+		case eLootAction.EQUIP:
+			entity player = GetLocalClientPlayer()
+			if ( player == GetLocalViewPlayer() )
+			{
+				string equipRef = EquipmentSlot_GetLootRefForSlot( player, equipmentSlot )
+				if( SURVIVAL_Loot_GetLootDataByRef( equipRef ).lootType == eLootType.GADGET )
+				{
+					EquipGadget(player, equipRef)
+					RunUIScript( "SurvivalMenu_AckAction" )
+				}
+
+				if ( EquipmentSlot_IsMainWeaponSlot( equipmentSlot ) )
+				{
+					EquipmentSlot es = Survival_GetEquipmentSlotDataByRef( equipmentSlot )
+					int slot         = es.weaponSlot
+					player.ClientCommand( "weaponSelectPrimary" + slot )
+					return true
+				}
+
+				if( equipmentSlot == SLING_EQUIPMENT_SLOT_NAME )
+				{
+					if( !IsPlayerWeaponSlingEmpty( player ) && !IsPlayerHoldingSlingWeapon( player ) )
+					{
+						player.ClientCommand( "weaponSelectSlingWeapon" )
+						return true
+					}
+				}
+			}
+			break
+
+		case eLootAction.DROP:
+			entity player = GetLocalClientPlayer()
+			if( player != GetLocalViewPlayer())
+				return false
+
+			if( equipmentSlot == SLING_EQUIPMENT_SLOT_NAME )
+			{
+
+					if ( MatchModifiers_DoesActiveModifierLockWeapons() )
+						return false
+
+
+				if ( IsBallisticUltActive( player ) )
+					return false
+			}
+			if ( equipmentSlot == GADGET_SLOT )
+			{
+				foreach ( callback in file.Callbacks_ShouldPreventGadgetUnequip )
+				{
+					bool preventDrop = callback( player )
+					if ( preventDrop )
+						return false
+				}
+			}
+			return Survival_DropEquipment( equipmentSlot )
+			break
+
+		case eLootAction.REMOVE_TO_GROUND:
+		case eLootAction.REMOVE:
+			entity weaponEnt = GetBaseWeaponEntForEquipmentSlot( equipmentSlot )
+			int weaponSlot = EquipmentSlot_GetWeaponSlotForEquipmentSlot( equipmentSlot )
+			if ( IsValid( weaponEnt ) )
+			{
+				EquipmentSlot es = Survival_GetEquipmentSlotDataByRef( equipmentSlot )
+				return Survival_UnequipAttachment( SURVIVAL_GetWeaponAttachmentForPoint( GetLocalViewPlayer(), weaponSlot, es.attachmentPoint ), weaponSlot, lootAction == eLootAction.REMOVE_TO_GROUND )
+			}
+			break
+
+		case eLootAction.WEAPON_TRANSFER:
+			entity weaponEnt = GetBaseWeaponEntForEquipmentSlot( equipmentSlot )
+			int weaponSlot = EquipmentSlot_GetWeaponSlotForEquipmentSlot( equipmentSlot )
+			if ( IsValid( weaponEnt ) )
+			{
+				EquipmentSlot es = Survival_GetEquipmentSlotDataByRef( equipmentSlot )
+				return Survival_TransferAttachment( SURVIVAL_GetWeaponAttachmentForPoint( GetLocalViewPlayer(), weaponSlot, es.attachmentPoint ), weaponSlot )
+			}
+			break
+
+		case eLootAction.PRIMARY_SWAP:
+			if( equipmentSlot != SLING_EQUIPMENT_SLOT_NAME )
+				Remote_ServerCallFunction( "ClientCallback_Sur_SwapPrimaryPositions" )
+			break
+
+		case eLootAction.TRANSFER_SLING_MAIN:
+			entity player = GetLocalClientPlayer()
+			if ( player != GetLocalViewPlayer() )
+				break
+
+			int slot
+			if( equipmentSlot == SLING_EQUIPMENT_SLOT_NAME )
+			{
+				if( IsBallisticUltActive( player ) )
+					break
+
+				entity weapon0 = player.GetNormalWeapon( WEAPON_INVENTORY_SLOT_PRIMARY_0 )
+				if ( IsValid( weapon0 ) && !CanPlayerEquipWeaponRefToSling( player, GetWeaponClassNameWithLockedSet( weapon0 ), false ) )
+					break
+
+				slot = WEAPON_INVENTORY_SLOT_PRIMARY_0
+			}
+			else
+			{
+				string weaponRef = EquipmentSlot_GetLootRefForSlot( player, equipmentSlot )
+				if( weaponRef != "" && !CanPlayerEquipWeaponRefToSling( player, weaponRef ) )
+					break
+
+				slot = Survival_GetEquipmentSlotDataByRef( equipmentSlot ).weaponSlot
+			}
+
+			Remote_ServerCallFunction( "ClientCallback_Sur_SlingToMainWeaponSlot", slot )
+			return true
+
+			break
+
+		case eLootAction.TRANSFER_SLING_ALT:
+			entity player = GetLocalClientPlayer()
+			if ( player != GetLocalViewPlayer() )
+				break
+
+			if( IsBallisticUltActive( player ) )
+				break
+
+			if( equipmentSlot == SLING_EQUIPMENT_SLOT_NAME )
+			{
+				entity weapon1 = player.GetNormalWeapon( WEAPON_INVENTORY_SLOT_PRIMARY_1 )
+				if ( IsValid( weapon1 ) && !CanPlayerEquipWeaponRefToSling( player, GetWeaponClassNameWithLockedSet( weapon1 ), false ) )
+					break
+
+				Remote_ServerCallFunction( "ClientCallback_Sur_SlingToMainWeaponSlot", WEAPON_INVENTORY_SLOT_PRIMARY_1 )
+				return true
+			}
+
+			break
+	}
+
+	return false
+}
+
+void function UICallback_BackpackOpened()
+{
+	file.backpackOpened = true
+
+	entity player = GetLocalClientPlayer()
+	if ( player != GetLocalViewPlayer() )
+		return
+
+	if ( IsAlive( player ) )
+		Remote_ServerCallFunction( "ClientCallback_BackpackOpened" )
+}
+
+void function Survival_BackpackFullyOpened()
+{
+	foreach ( func in file.inventoryOpenedCallbacks )
+	{
+		func()
+	}
+}
+
+
+void function UICallback_BackpackClosed()
+{
+	if ( !IsValidSignal( "BackpackClosed" ) ) 
+			return
+
+	entity oldDeathBoxEnt = file.currentGroundListData.deathBox
+	file.currentGroundListData.deathBox = null
+	file.backpackOpened = false
+	file.groundlistOpened = false
+
+	if ( !IsLobby() )
+		clGlobal.levelEnt.Signal( "BackpackClosed" )
+
+	entity player = GetLocalClientPlayer()
+	if ( player != GetLocalViewPlayer() )
+		return
+
+	if ( IsAlive( player ) )
+		Remote_ServerCallFunction( "ClientCallback_BackpackClosed" )
+
+	if ( file.currentGroundListData.listType == eGroundListType.GRABBER && IsValid( oldDeathBoxEnt ) )
+	{
+		Remote_ServerCallFunction( BLACK_MARKET_CLOSE_CMD, oldDeathBoxEnt )
+	}
+	else if ( file.currentGroundListData.listType == eGroundListType.VENDINGMACHINE && IsValid( oldDeathBoxEnt ) )
+	{
+		Remote_ServerCallFunction( VENDING_MACHINE_CLOSE_CMD, oldDeathBoxEnt )
+	}
+
+
+
+
+
+
+
+}
+
+
+void function UIToClient_GroundlistOpened()
+{
+	file.shouldResetGroundItems = true
+	file.groundlistOpened = true
+
+	entity player = GetLocalClientPlayer()
+	if ( player != GetLocalViewPlayer() )
+		return
+
+	if ( IsAlive( player ) && GetGameState() >= eGameState.Prematch )
+	{
+		entity deathbox = Survival_GetDeathBox()
+		if ( IsValid( deathbox ) && deathbox.GetNetworkedClassName() == "prop_death_box" && !IsPlayerWithinStandardDeathBoxUseDistance( player, deathbox ) )
+		{
+			Remote_ServerCallFunction( "ClientCallback_DeathboxOpenedRemotely", deathbox )
+		}
+		else
+		{
+			Remote_ServerCallFunction( "ClientCallback_DeathboxOpened" )
+		}
+	}
+}
+
+
+void function UIToClient_GroundlistClosed()
+{
+	entity oldDeathBoxEnt = file.currentGroundListData.deathBox
+	clGlobal.levelEnt.Signal( "GroundListClosed" )
+
+	file.shouldResetGroundItems = true
+	file.currentGroundListData.deathBox = null
+	file.backpackOpened = false
+	file.groundlistOpened = false
+	entity player = GetLocalClientPlayer()
+	if ( player != GetLocalViewPlayer() )
+		return
+
+	if ( IsAlive( player ) && GetGameState() >= eGameState.Prematch )
+		Remote_ServerCallFunction( "ClientCallback_BackpackClosed" )
+
+	if ( file.currentGroundListData.listType == eGroundListType.GRABBER && IsValid( oldDeathBoxEnt ) )
+	{
+		Remote_ServerCallFunction( BLACK_MARKET_CLOSE_CMD, oldDeathBoxEnt )
+	}
+	else if ( file.currentGroundListData.listType == eGroundListType.VENDINGMACHINE && IsValid( oldDeathBoxEnt ) )
+	{
+		Remote_ServerCallFunction( VENDING_MACHINE_CLOSE_CMD, oldDeathBoxEnt )
+	}
+
+
+
+
+
+
+
+}
+
+
+bool function Survival_UnequipAttachment( string ref, int weaponSlot, bool removeToGround )
+{
+	if ( GetLocalViewPlayer() != GetLocalClientPlayer() )
+		return false
+
+	if ( !SURVIVAL_Loot_IsRefValid( ref ) )
+		return false
+
+	LootData data = SURVIVAL_Loot_GetLootDataByRef( ref )
+
+	Remote_ServerCallFunction( "ClientCallback_Sur_UnequipAttachment", data.index, weaponSlot, removeToGround )
+	return true
+}
+
+
+bool function Survival_TransferAttachment( string ref, int weaponSlot )
+{
+	if ( GetLocalViewPlayer() != GetLocalClientPlayer() )
+		return false
+
+	if ( !SURVIVAL_Loot_IsRefValid( ref ) )
+		return false
+
+	LootData data = SURVIVAL_Loot_GetLootDataByRef( ref )
+	Remote_ServerCallFunction( "ClientCallback_Sur_TransferAttachment", data.index, weaponSlot )
+	return true
+}
+
+
+void function Survival_SwapPrimary()
+{
+	entity player = GetLocalViewPlayer()
+
+	if ( !CanSwapWeapons( player ) )
+		return
+
+	thread WeaponCycle( player )
+}
+
+
+void function WeaponCycle( entity player )
+{
+	player.EndSignal( "OnDestroy" )
+
+	player.ClientCommand( "invnext" )
+}
+
+
+void function Survival_SwapToMelee()
+{
+	entity player = GetLocalViewPlayer()
+
+	if ( !CanSwapWeapons( player ) )
+		return
+
+	player.ClientCommand( "+ability 10" )
+}
+
+
+void function Survival_SwapToOrdnance()
+{
+	entity player = GetLocalViewPlayer()
+
+	if ( !CanSwapWeapons( player ) )
+		return
+
+	player.ClientCommand( "weaponSelectOrdnance" )
+}
+
+
+bool function CanSwapWeapons( entity player )
+{
+	if ( player.IsTitan() )
+		return false
+
+	if ( !IsAlive( player ) )
+		return false
+
+	if ( !CanOpenInventoryInCurrentGameState() )
+		return false
+
+	if ( player.ContextAction_IsActive() && !player.ContextAction_IsRodeo() )
+		return false
+
+	if ( PlayerDrone_IsPlayerInDroneView( player ) )
+		return false
+
+	if ( Bleedout_IsBleedingOut( player ) )
+		return false
+
+	return true
+}
+
+
+void function OpenSurvivalInventory( entity player, entity deathBox = null )
+{
+	if ( !player.GetPlayerNetBool( "inventoryEnabled" ) )
+		return
+
+
+
+
+
+
+
+
+
+	SurvivalMenu_Internal( player, "OpenSurvivalInventoryMenu", deathBox )
+}
+
+void function SurvivalMenu_Internal( entity player, string uiScriptFuncName, entity deathBox = null, int groundListBehavior = eGroundListBehavior.CONTENTS, int groundListType = eGroundListType.DEATH_BOX )
+{
+	if ( !CanOpenInventory( player ) )
+		return
+
+	if ( IsEventFinale() && !IsValid(deathBox) && !player.IsWeaponTypeEnabled( WPT_GRENADE ))
+		return
+
+	ResetInventoryMenu( player )
+
+	ServerCallback_ClearHints()
+	player.ClientCommand( "-zoom" )
+
+	if ( !Crafting_IsPlayerCrafting() && !Crafting_Access_Inventory_Enabled() )
+	{
+		CommsMenu_Shutdown( false )
+	}
+
+	file.currentGroundListData.deathBox = deathBox
+	file.currentGroundListData.behavior = groundListBehavior
+	file.currentGroundListData.listType = groundListType
+
+	RunUIScript( uiScriptFuncName )
+
+	if ( IsValid( deathBox ) )
+	{
+
+		if ( uiScriptFuncName != "OpenSurvivalGroundListMenu" )
+		{
+			thread TrackCloseDeathBoxConditions( player, deathBox )
+		}
+	}
+}
+
+bool function CanOpenInventoryInCurrentGameState( )
+{
+	if( GamePlaying() || GetGameState() == eGameState.Epilogue )
+		return true
+
+	if( GetGameState() == eGameState.WaitingForPlayers )
+		return true
+
+	if(	GetGameState() == eGameState.Prematch && GetCurrentPlaylistVarBool( "allow_inventory_in_prematch", false ) )
+		return true
+
+	return false
+}
+
+bool function CanOpenInventory( entity player )
+{
+	if ( IsWatchingReplay() )
+		return false
+
+	if ( !IsAlive( player ) )
+		return false
+
+	if ( CharacterSelect_MenuIsOpen() )
+		return false
+
+	if ( !CanOpenInventoryInCurrentGameState() )
+		return false
+
+	if ( Bleedout_IsBleedingOut( player ) )
+		return false
+
+	return true
+}
+
+
+void function TrackCloseDeathBoxConditions( entity player, entity deathBox )
+{
+	player.EndSignal( "OnDeath" )
+	deathBox.EndSignal( "OnDestroy" )
+
+	OnThreadEnd(
+		function() : ()
+		{
+			if ( Survival_IsGroundlistOpen() )
+			{
+				RunUIScript( "TryCloseSurvivalInventory", null )
+			}
+		}
+	)
+
+	wait 0.5
+
+	while ( Survival_IsGroundlistOpen() )
+	{
+		if ( Distance( player.GetOrigin(), deathBox.GetOrigin() ) > DEATH_BOX_MAX_DIST )
+			return
+
+		if ( file.currentGroundListData.behavior != eGroundListBehavior.NEARBY && file.filteredGroundItems.len() == 0 )
+			return
+
+
+
+
+
+
+		WaitFrame()
+	}
+}
+
+void function OpenSurvivalGroundList( entity player, entity deathBox = null, int groundListBehavior = eGroundListBehavior.CONTENTS, int groundListType = eGroundListType.DEATH_BOX )
+{
+	string funcName = "OpenSurvivalGroundListMenu"
+	SurvivalMenu_Internal( player, funcName, deathBox, groundListBehavior, groundListType )
+}
+
+void function UICallback_UpdateUpgradeButton( var button, int position )
+{
+	if( !LegendUpgrades_IsEnabled() )
+		return
+
+	entity player = GetLocalClientPlayer()
+
+	var rui = Hud_GetRui( button )
+
+	Hud_SetEnabled( button, true )
+	Hud_SetSelected( button, false )
+	RuiSetImage( rui, "iconImage", $"" )
+	RuiSetInt( rui, "lootTier", 0 )
+	RuiSetInt( rui, "count", 0 )
+	Hud_ClearToolTipData( button )
+	Hud_SetLocked( button, false )
+
+	if ( IsLobby() )
+		return
+
+	UpgradeChoice upgrade = UpgradeCore_GetUpgradeChoiceStructByIndex( player, position )
+
+	int tier = position / 2 + 1
+	string actionStr
+
+	bool isUpgradeSelectedOrSelectable = UpgradeCore_IsUpgradeSelected( player, position ) || UpgradeCore_IsUpgradeSelectable( player, position )
+
+
+	if ( LinearUpgradeCore_UseLegendUpgrades() )
+	{
+		isUpgradeSelectedOrSelectable = LinearUpgradeCore_IsUpgradeSelected( player, position ) || LinearUpgradeCore_IsUpgradeSelectable( player, position )
+	}
+
+	if( isUpgradeSelectedOrSelectable )
+	{
+		RuiSetInt( rui, "lootTier", tier + 1 )
+		RuiSetImage( rui, "iconImage", upgrade.icon )
+		RuiSetBool( rui, "isInactive", false )
+		actionStr = "HOLD %[A_BUTTON|MOUSE1]% SELECT UPGRADE"
+	}
+	else
+	{
+		RuiSetInt( rui, "lootTier", 0 )
+		RuiSetImage( rui, "iconImage", UPGRADE_CORE_ICON )
+		RuiSetBool( rui, "isInactive", true )
+		actionStr = "UPGRADE LOCKED"
+	}
+
+	RuiSetInt( rui, "count", 1 )
+	RuiSetInt( rui, "maxCount", 1 )
+
+	RuiSetBool( rui, "isInfinite", true )
+	RuiSetInt( rui, "numPerPip", 1 )
+
+	RunUIScript( "ClientToUI_Tooltip_MarkForClientUpdate", button, eTooltipStyle.DEFAULT )
+
+	ToolTipData dt
+	dt.tooltipStyle = eTooltipStyle.DEFAULT
+	dt.descText = upgrade.desc
+	dt.titleText = "`1" + upgrade.title
+	dt.actionHint1 = actionStr
+	dt.rarity = tier - 1
+	dt.image = upgrade.icon
+
+	dt.tooltipFlags = dt.tooltipFlags | eToolTipFlag.PING_DISSABLED
+
+	Hud_SetToolTipData( button, dt )
+}
+
+void function UICallback_UpdateUpgradeInfo()
+{
+	if( !LegendUpgrades_IsEnabled() )
+		return
+
+	if ( !IsLocalClientEHIValid() )
+		return
+
+	RunUIScript( "RTKLegendUpgradeTree_SetCharacterByGUID", LoadoutSlot_GetItemFlavor( LocalClientEHI(), Loadout_Character() ).guid, true )
+	RunUIScript( "RTKLegendUpgradeTree_IsInteractable", true )
+	RunUIScript( "RTKLegendUpgradeTree_SetTitleVisibility", false )
+	RunUIScript( "RTKLegendUpgradeTree_SetDescriptionVisibility", false )
+}
+
+void function UICallback_OnUpgradeButtonAction( var button, int position )
+{
+	entity player = GetLocalClientPlayer()
+
+	bool playSound = !UpgradeCore_IsUpgradeSelectable( player, position )
+
+
+	if ( LinearUpgradeCore_UseLegendUpgrades() )
+	{
+		playSound = !LinearUpgradeCore_IsUpgradeSelectable( player, position )
+	}
+
+
+	if( playSound )
+	{
+		EmitSoundOnEntity( player, "UI_Survival_LootPickupDeny" )
+		return
+	}
+
+
+	if ( LinearUpgradeCore_UseLegendUpgrades() )
+	{
+		LinearUpgradeCore_SelectOption( position )
+	}
+	else
+
+	UpgradeCore_SelectOption( position )
+}
+
+void function UICallback_PingUpgrade( var button )
+{
+	if ( IsLobby() )
+		return
+
+	entity player    = GetLocalClientPlayer()
+	int level = EvoLevels_GetPlayerLevel( player )
+	if( level >= 4 )
+		return
+
+	EmitSoundOnEntity( player, PING_SOUND_DEFAULT )
+	RunUIScript( "ClientToUI_SurvivalQuickInventory_MarkInventoryButtonPinged", button )
+	Remote_ServerCallFunction( "ClientCallback_QuickchatSubject_Player", eCommsAction.PING_XP_LEVEL_UP_ABILITY, eCommsFlags.NONE, player )
+}
+void function UIToClient_PingUpgrade( int upgradeIndex )
+{
+	entity player    = GetLocalClientPlayer()
+	bool isSelected = UpgradeCore_IsUpgradeSelected( player, upgradeIndex )
+
+
+	if ( LinearUpgradeCore_UseLegendUpgrades() )
+	{
+		isSelected = LinearUpgradeCore_IsUpgradeSelected( player, upgradeIndex )
+	}
+
+
+	if( isSelected )
+	{
+		Remote_ServerCallFunction( "ClientCallback_QuickchatSubject_Player", eCommsAction.PING_HAS_UPGRADE_0 + upgradeIndex, eCommsFlags.NONE, GetLocalClientPlayer() )
+	}
+	else if( UpgradeCore_IsUpgradeSelectable( player, upgradeIndex, false )
+
+		|| ( LinearUpgradeCore_IsUpgradeSelectable( player, upgradeIndex, false ) && LinearUpgradeCore_UseLegendUpgrades() )
+
+	 )
+	{
+		Remote_ServerCallFunction( "ClientCallback_QuickchatSubject_Player", eCommsAction.PING_XP_LEVEL_UP_ABILITY, eCommsFlags.NONE, GetLocalClientPlayer() )
+	}
+}
+
+
+void function UICallback_UpdateGrenadeInventoryButton( var button, int position )
+{
+	UICallback_UpdateInventoryButtonCommon( button, position, SURVIVAL_GetGrenadeInventory( GetLocalClientPlayer() ), true )
+}
+
+
+
+bool function HasAvailableGrenadeInventorySlot()
+{
+	entity player = GetLocalClientPlayer()
+
+	return SURVIVAL_GetGrenadeInventory( player ).len() < ExtraFirepower_GetMaxExtraSlotsForPlayer( player )
+}
+
+
+
+void function UICallback_UpdateInventoryButton( var button, int position )
+{
+
+	if ( ReservedInventory_IsEnabled() )
+	{
+		UICallback_UpdateInventoryButtonCommon( button, position, ReservedInventory_GetPlayerInventory( GetLocalClientPlayer() ) )
+	}
+	else
+
+	{
+		UICallback_UpdateInventoryButtonCommon( button, position, SURVIVAL_GetMainInventory( GetLocalClientPlayer() ) )
+	}
+}
+
+void function UICallback_UpdateInventoryButtonCommon( var button, int position, array<ConsumableInventoryItem> playerInventory, bool isPositionGrenadeInventory = false )
+{
+	entity player = GetLocalClientPlayer()
+
+	var rui = Hud_GetRui( button )
+
+	Hud_SetEnabled( button, true )
+	Hud_SetSelected( button, false )
+	RuiSetBool( rui, "isActiveLockedSlot", false )
+	RuiSetBool( rui, "showWhenEmpty", false )
+	RuiSetImage( rui, "iconImage", $"" )
+	RuiSetInt( rui, "lootTier", 0 )
+	RuiSetInt( rui, "count", 0 )
+	Hud_ClearToolTipData( button )
+	Hud_SetLocked( button, false )
+	RuiSetBool( rui, "forceFillBars", false )
+	RuiSetBool( rui, "isReusable", false )
+
+
+	RuiSetBool( rui, "isReservedSlot", false )
+	RuiSetBool( rui, "emptyReservedSlot", false )
+	RuiSetBool( rui, "isAutoLooting", false )
+
+
+
+	RuiSetBool( rui, "isItemLocked", false )
+	RuiSetBool( rui, "isDummy", false )
+
+
+	if ( IsLobby() )
+		return
+
+	if ( position >= SURVIVAL_GetInventoryLimit( player ) )
+	{
+		Hud_SetEnabled( button, false )
+		return
+	}
+
+	if ( playerInventory.len() <= position )
+	{
+		RunUIScript( "ClientToUI_Tooltip_Clear", button )
+		return
+	}
+
+	ConsumableInventoryItem item = playerInventory[ position ]
+
+
+	if ( ReservedInventory_IsEnabled() )
+	{
+		RuiSetBool( rui, "isReservedSlot", true )
+
+
+			
+			bool isAutoLootingSlot = false
+			int lootIndexForSlot = ReservedInventory_GetLootIndexForReservedSlot( position )
+
+			if ( lootIndexForSlot >= 0 && SURVIVAL_Loot_IsLootIndexValid( lootIndexForSlot ) )
+			{
+				LootData dataForSlot = SURVIVAL_Loot_GetLootDataByIndex( lootIndexForSlot )
+				if ( AutoLootHelper_IsEnabled() && AutoLootHelper_IsAutoLootEnabledForItem( dataForSlot ) )
+				{
+					isAutoLootingSlot = AutoLootHelper_CanPlayerAutoLootItem( player, dataForSlot )
+				}
+			}
+			RuiSetBool( rui, "isAutoLooting", isAutoLootingSlot )
+
+
+		
+		if ( ReservedInventory_IsInventorySlotDisabled( position ) )
+		{
+			Hud_SetVisible( button, false )
+			Hud_SetEnabled( button, false )
+			return
+		}
+		else if ( ReservedInventory_IsInventorySlotReserved( position ) )
+		{
+			bool isEmpty = item.count == 0
+			ReservedInventory_UpdateSlotTooltipData( button, position, isEmpty )
+			if ( isEmpty )
+			{
+				RuiSetImage( rui, "iconImage", ReservedInventory_GetEmptySlotIcon_BySlotIndex( position ) )
+				RuiSetBool( rui, "emptyReservedSlot", true )
+				return
+			}
+		}
+	}
+
+
+	if ( !SURVIVAL_Loot_IsLootIndexValid( item.type ) )
+	{
+		RunUIScript( "ClientToUI_Tooltip_Clear", button )
+		return
+	}
+
+	LootData lootData = SURVIVAL_Loot_GetLootDataByIndex( item.type )
+	RuiSetImage( rui, "iconImage", lootData.hudIcon )
+	RuiSetInt( rui, "lootTier", lootData.tier )
+	RuiSetInt( rui, "count", item.count )
+	int maxCount = SURVIVAL_GetInventorySlotCountForPlayer( player, lootData )
+	RuiSetInt( rui, "maxCount", maxCount )
+	int ordinaryMaxCount = maxCount
+	if ( lootData.lootType == eLootType.AMMO )
+	{
+
+		if ( ReservedInventory_IsEnabled() )
+		{
+			 ordinaryMaxCount = ReservedInventory_GetInventorySlotCountForLootItem( lootData, player )
+		}
+		else
+
+		{
+			ordinaryMaxCount = lootData.inventorySlotCount
+		}
+	}
+	RuiSetInt( rui, "ordinaryMaxCount", ordinaryMaxCount )
+
+	RuiSetBool( rui, "isInfinite", false )
+	if ( PlayerHasPassive( player, ePassives.PAS_INFINITE_HEAL ) && lootData.lootType == eLootType.HEALTH )
+	{
+		RuiSetBool( rui, "isInfinite", true )
+	}
+
+	if ( lootData.lootType == eLootType.AMMO )
+		RuiSetInt( rui, "numPerPip", lootData.countPerDrop )
+	else
+		RuiSetInt( rui, "numPerPip", 1 )
+
+	
+	
+	bool isInventoryPositionLocked = !isPositionGrenadeInventory && Survival_GetInventoryPositionLocked( player, position )
+
+	RuiSetBool( rui, "isActiveLockedSlot", isInventoryPositionLocked )
+
+	bool isItemLocked = false
+
+		isItemLocked = ConsumableItem_IsItemLocked( item )
+		RuiSetBool( rui, "isItemLocked", isItemLocked )
+
+#if DEV
+			if ( isItemLocked )
+			{
+				Assert( !isInventoryPositionLocked )
+			}
+
+			if ( !PlayerHasPassive( player, ePassives.PAS_AUGMENT_INFINITE_AMMO ) && isItemLocked && ConsumableItem_HasFlag( item, eConsumableItemFlag.DUMMY_AMMO ) )
+			{
+				RuiSetBool( rui, "isDummy", true )
+			}
+#endif
+
+
+	RuiSetBool( rui, "showWhenEmpty", isInventoryPositionLocked || isItemLocked )
+	Hud_SetEnabled( button, !isInventoryPositionLocked && !isItemLocked )
+
+
+		if ( PlayerHasPassive( player, ePassives.PAS_AUGMENT_INFINITE_AMMO ) && (isInventoryPositionLocked || isItemLocked) )
+		{
+			RuiSetBool( rui, "isInfinite", true )
+			RuiSetBool( rui, "forceFillBars", true )
+		}
+		else if ( PlayerHasPassive( player, ePassives.PAS_AUGMENT_BATTERY_PRINTER ) && lootData.ref == "health_pickup_combo_large" && ShieldBatteryAugmentActive( player ) )
+		{
+			RuiSetBool( rui, "isReusable", true )
+		}
+
+
+	UpdateLockStatusForBackpackItem( button, player, lootData )
+
+	Hud_SetSelected( button, IsOrdnanceEquipped( player, lootData.ref ) )
+
+	RunUIScript( "ClientToUI_Tooltip_MarkForClientUpdate", button, eTooltipStyle.LOOT_PROMPT )
+
+	ToolTipData dt
+	dt.tooltipStyle = eTooltipStyle.LOOT_PROMPT
+	dt.lootPromptData.count = item.count
+	dt.lootPromptData.index = item.type
+	dt.lootPromptData.lootContext = eLootContext.BACKPACK
+	dt.lootPromptData.lockedReason = isInventoryPositionLocked ? Survival_GetInventoryPositionLockedReason( player, position ) : eLockedInventoryReason.NOT_LOCKED
+
+		if ( isItemLocked )
+		{
+			Assert( !isInventoryPositionLocked )
+			dt.lootPromptData.lockedReason = ConsumableItem_GetLockedReason( item )
+		}
+
+	dt.rarity = lootData.tier - 1
+	dt.tooltipFlags = IsPingEnabledForPlayer( player ) ? dt.tooltipFlags : dt.tooltipFlags | eToolTipFlag.PING_DISSABLED
+
+	Hud_SetToolTipData( button, dt )
+}
+
+
+void function UICallback_PingInventoryItem( var button, int position )
+{
+	if ( IsLobby() )
+		return
+
+	entity player = GetLocalClientPlayer()
+
+	array<ConsumableInventoryItem> inventory
+	ConsumableInventoryItem item
+
+
+	if ( ReservedInventory_IsEnabled() )
+	{
+		inventory = ReservedInventory_GetPlayerInventory( player )
+	}
+	else
+
+	{
+		inventory = SURVIVAL_GetMainInventory( player, true )
+	}
+
+	if ( position >= inventory.len() )
+		return
+
+	item = inventory[position]
+	int adjustedInvPosition = item.slot
+
+	if ( adjustedInvPosition >= 0 )
+	{
+		
+		int commsAction = GetCommsActionForBackpackItem( button, adjustedInvPosition )
+
+		
+		if ( ReservedInventory_IsEnabled() )
+		{
+			int filledCommsAction = ReservedInventory_GetCommsActionForSlot( position, false )
+			if ( filledCommsAction != eCommsAction.BLANK )
+			{
+				commsAction = filledCommsAction
+			}
+		}
+
+
+		if ( commsAction != eCommsAction.BLANK )
+		{
+			EmitSoundOnEntity( player, PING_SOUND_DEFAULT )
+			RunUIScript( "ClientToUI_SurvivalQuickInventory_MarkInventoryButtonPinged", button )
+			Remote_ServerCallFunction( "ClientCallback_Quickchat", commsAction, eCommsFlags.NONE )
+		}
+	}
+
+	else if ( ReservedInventory_IsEnabled() )
+	{
+		
+		int commsAction = ReservedInventory_GetCommsActionForSlot( position, true )
+		if ( commsAction != eCommsAction.BLANK )
+		{
+			EmitSoundOnEntity( player, PING_SOUND_DEFAULT )
+			RunUIScript( "ClientToUI_SurvivalQuickInventory_MarkInventoryButtonPinged", button )
+			Remote_ServerCallFunction( "ClientCallback_Quickchat", commsAction, eCommsFlags.NONE )
+		}
+	}
+
+
+
+}
+
+
+void function UICallback_OnGrenadeInventoryButtonAction( var button, int position, int actionType, bool fromExtendedUse = false )
+{
+	entity player = GetLocalClientPlayer()
+	array<ConsumableInventoryItem> grenadeInventory = SURVIVAL_GetGrenadeInventory( player )
+
+	if ( position >= grenadeInventory.len() )
+		return
+
+	ConsumableInventoryItem item = grenadeInventory[position]
+
+	int adjustedInvPosition = item.slot
+
+	if ( adjustedInvPosition < 0 )
+		return
+
+	
+	UICallback_OnInventoryButtonActionCommon( button, adjustedInvPosition, actionType, fromExtendedUse )
+}
+
+
+void function UICallback_OnInventoryButtonAction( var button, int position, int actionType, bool fromExtendedUse = false )
+{
+	entity player = GetLocalClientPlayer()
+	array<ConsumableInventoryItem> inventory
+	ConsumableInventoryItem item
+
+
+	if ( ReservedInventory_IsEnabled() )
+	{
+		inventory = ReservedInventory_GetPlayerInventory( player )
+	}
+	else
+
+	{
+		inventory = SURVIVAL_GetMainInventory( GetLocalClientPlayer() )
+	}
+
+	if ( position >= inventory.len() )
+		return
+
+	item = inventory[position]
+	int adjustedInvPosition = item.slot
+
+	if ( adjustedInvPosition < 0 )
+		return
+
+	
+	UICallback_OnInventoryButtonActionCommon( button, adjustedInvPosition, actionType, fromExtendedUse )
+}
+
+
+void function UICallback_OnInventoryButtonActionCommon( var button, int position, int actionType, bool fromExtendedUse = false )
+{
+	if ( IsLobby() )
+		return
+
+	entity player = GetLocalClientPlayer()
+
+	array<ConsumableInventoryItem> playerInventory = SURVIVAL_GetPlayerInventory( player )
+	if ( playerInventory.len() <= position )
+		return
+
+	ConsumableInventoryItem item = playerInventory[ position ]
+
+	if ( !SURVIVAL_Loot_IsLootIndexValid( item.type ) )
+		return
+
+	LootData lootData = SURVIVAL_Loot_GetLootDataByIndex( item.type )
+	bool didSomething = DispatchLootAction( eLootContext.BACKPACK, SURVIVAL_GetActionForBackpackItem( player, lootData, actionType ).action, position )
+	if ( didSomething )
+		RunUIScript( "ClientToUI_SurvivalQuickInventory_MarkInventoryButtonUsed", button )
+}
+
+void function UpdateLockStatusForBackpackItem( var button, entity player, LootData lootData )
+{
+	if ( !SURVIVAL_Loot_IsRefValid( lootData.ref ) )
+		return
+
+	Hud_SetLocked( button, SURVIVAL_IsLootIrrelevant( player, null, lootData, eLootContext.BACKPACK ) )
+}
+
+bool function IsItemEquipped_Gadget( entity player, string ref )
+{
+	if ( !player.IsTitan() )
+	{
+		entity ordnance = player.GetNormalWeapon( WEAPON_INVENTORY_SLOT_ANTI_TITAN )
+		if( IsValid( ordnance ) && ordnance.GetWeaponClassName() == ref )
+			return true
+
+		entity gadget = player.GetNormalWeapon( WEAPON_INVENTORY_SLOT_GADGET )
+		if( IsValid( gadget ) && gadget.GetWeaponClassName() == ref )
+			return true
+	}
+
+	return false
+}
+
+int function GetItemEquipped_GadgetCount( entity player, string ref )
+{
+	if ( !player.IsTitan() )
+	{
+		entity ordnance = player.GetNormalWeapon( WEAPON_INVENTORY_SLOT_ANTI_TITAN )
+		if( IsValid( ordnance ) && ordnance.GetWeaponClassName() == ref )
+		{
+			return ordnance.GetWeaponPrimaryClipCount()
+		}
+
+		entity gadget = player.GetNormalWeapon( WEAPON_INVENTORY_SLOT_GADGET )
+		if( IsValid( gadget ) && gadget.GetWeaponClassName() == ref )
+		{
+			return gadget.GetWeaponPrimaryClipCount()
+		}
+	}
+
+	return 0
+}
+
+bool function IsOrdnanceEquipped( entity player, string ref )
+{
+	if ( !player.IsTitan() && IsValid( player.GetNormalWeapon( WEAPON_INVENTORY_SLOT_ANTI_TITAN ) ) )
+	{
+		return player.GetNormalWeapon( WEAPON_INVENTORY_SLOT_ANTI_TITAN ).GetWeaponClassName() == ref
+	}
+
+	return false
+}
+
+
+bool function DispatchLootAction( int lootContext, int lootAction, var param, bool isAltAction = false, bool actionFromMenu = true )
+{
+	if ( lootAction == eLootAction.NONE )
+		return false
+
+	switch ( lootContext )
+	{
+		case eLootContext.BACKPACK:
+			return BackpackAction( lootAction, string( param ) )
+
+		case eLootContext.EQUIPMENT:
+			return EquipmentAction( lootAction, string( param ) )
+	}
+
+	return false
+}
+
+
+int function GetCommsActionForBackpackItem( var button, int position )
+{
+	entity player = GetLocalClientPlayer()
+	array<ConsumableInventoryItem> playerInventory
+
+	if ( !Augments_GetInfAmmoAugReworkEnabled() )
+	{
+		playerInventory = SURVIVAL_GetPlayerInventory( player, true )
+	}
+	else
+	{
+		playerInventory = SURVIVAL_GetPlayerInventory( player )
+	}
+
+	if ( ( position < playerInventory.len() ) && ( position >= 0 ) )
+	{
+		ConsumableInventoryItem item = playerInventory[ position ]
+		LootData lootData = SURVIVAL_Loot_GetLootDataByIndex( item.type )
+
+		if ( lootData.requestCommsAction != eCommsAction.BLANK )
+		{
+			return lootData.requestCommsAction
+		}
+		else
+		{
+			if (lootData.lootType == eLootType.AMMO)
+			{
+				switch ( AmmoType_GetTypeFromRef( lootData.ref ) )
+				{
+					case eAmmoPoolType.bullet:
+						return eCommsAction.INVENTORY_NEED_AMMO_BULLET
+
+					case eAmmoPoolType.special:
+						return eCommsAction.INVENTORY_NEED_AMMO_SPECIAL
+
+					case eAmmoPoolType.highcal:
+						return eCommsAction.INVENTORY_NEED_AMMO_HIGHCAL
+
+					case eAmmoPoolType.shotgun:
+						return eCommsAction.INVENTORY_NEED_AMMO_SHOTGUN
+
+					case eAmmoPoolType.sniper:
+						return eCommsAction.INVENTORY_NEED_AMMO_SNIPER
+					case eAmmoPoolType.arrows:
+						return eCommsAction.INVENTORY_NEED_AMMO_ARROWS
+				}
+			}
+		}
+	}
+
+	return eCommsAction.BLANK
+}
+
+void function UICallback_Updarac = GetScreenScaleFrac()
+
+	if ( GetWeaponInfoFileKeyField_GlobalInt_WithDefault ( weaponName, "has_energized", 0 ) == 1 && GetWeaponInfoFileKeyField_GlobalString ( weaponName, "energized_consumable" ) != "" )
+	{
+
+
+
+
+
+
+
+		if ( GetWeaponInfoFileKeyField_GlobalInt_WithDefault ( weaponName, "start_energized", 0 ) == 1 )
+			return
+
+
+
+
+
+
+
+		EquipmentSlot e = Survival_GetEquipmentSlotDataByRef( requestButton )
+		if( e.weaponSlot >= 0 )
+		{
+			entityD
+		RunUIScript( "SurvivalQuickInventory_SetEmptyTooltipForSlot", button, Localize( "#TOOLTIP_EMPTY_PROMPT", Localize( es.title ) ), eCommsAction.BLANK, tooltipFlags )
+	}
+	else
+	{
+		EquipmentButtonInit( button, equipmentSlot, data, 0 )
+	}
+
+	LootData gadgetLootData = EquipmentSlot_GetEquippedLootDataForSlot( player, "gadgetslot" )
+	string equipRef         = EquipmentSlot_GetLootRefForSlot( player, "gadgetslot" )
+	if( equipment == equipRef )
+	{
+	ing( rui, "skinName", "" )
+		RuiSetInt( rui, "skinTier", 0 )
+		RuiSetInt( rui, "count", 0 )
+
+
+		RuiSetInt( rui, "expTotal", -1 )
+		RuiSetInt( rui, "expTierThreshold", -1 )
+		RuiSetBool( rui, "isPastMaxTier", false )
+		RuiSetBool( rui, "allMaxTier", false )
+		RuiSetBool( rui, "isMaxTier", false )
+		RuiSetBool( rui, "shouldDisplayExpUI", EvoWeapons_IsEnabled() )
+		RuiSetBool( rui, "shouldDisplayExpBlockedUI", false )
+
+
+
+			RuiSetBool( rui, "hasIntemFlavor_GetLongName( weaponCharmOrNull )
+					}
+				}
+			}
+
+			bool allowSkinSwap = data.cosmeticSkinOverride == $""
+
+			RunUIScript( "SurvivalQuickInventory_UpdateEquipmentForActiveWeapon", slot )
+			RunUIScript( "SurvivalQuickInventory_UpdateWeaponSlot", es.weaponSlot, skinTier, skinName, charmName, allowSkinSwap )
+		}
+	}
+
+	if ( equipmentSlot == "sling_weapon" )
+	{
+		file.slingButtonRui = rui
+		bool useGenericSlingStyle = false
+
+			useGenerULT_ACTIVE_NO_TRANSFER_FROM:
+				RuiSetString( file.slingButtonRui, "slingWarningMessage", Localize( "#REASON_NO_TRANSFER_FROM_SLING_ULT_SMALL" ) )
+				break
+
+			case eNoStartExtendedUseReason.BALLISTIC_ULT_ACTIVE_NO_TRANSFER_TO:
+				RuiSetString( file.slingButtonRui, "slingWarningMessage", Localize( "#REASON_NO_TRANSFER_TO_SLING_ULT_SMALL" ) )
+				break
+
+			case eNoStartExtendedUseReason.WEAPON_NOT_ALLOWED_IN_SLING:
+				RuiSetString( file.slinasCharacter2, lootRef )
+
+	dt.actionHint1 = Localize( asMain.displayString ).toupper()
+	dt.actionHint2 = Localize( asAlt.displayString ).toupper()
+	dt.actionHint3 = Localize( asCharacter1.displayString ).toupper()
+
+	if ( equipmentSlot == SLING_EQUIPMENT_SLOT_NAME )
+	{
+		dt.actionHint4 = Localize( asCharacter2.displayString ).toupper()
+	}
+	else
+	{
+		dt.actionHint4 = Localize( asPrimarySwap.displayString ).toupper()
+	}
+
+	dt.commsAction = GetCommsA	if ( lootData.ref == "augment_battery_printer" && !ShieldBatteryAugmentActive( localPlayer ) )
+			dt.descText = Localize( "#PAS_BATTERY_DESC_WITH_WARNING", dt.descText )
+	}
+
+}
+
+void function UICallback_OnEquipmentButtonAction( var button, int actionType, bool fromExtendedUse = false )
+{
+	if( IsLobby() )
+		return
+
+	entity player = GetLocalClientPlayer()
+
+	string equipmentType = Hud_GetScriptID( button )
+	LootData data        = EquipmentSlot_Getelse if( action == eLootAction.TRANSFER_SLING_MAIN )
+		{
+			if( !CanPlayerEquipWeaponRefToSling( player, equipmentRef, false ) )
+			{
+				return eNoStartExtendedUseReason.WEAPON_NOT_ALLOWED_IN_SLING
+			}
+
+			if ( IsBallisticUltActive( player ) && !IsPlayerWeaponSlingEmpty( player ) )
+			{
+				if ( equipmentType == SLING_EQUIPMENT_SLOT_NAME )
+					return eNoStartExtendedUseReason.BALLISTIC_ULT_ACTIVE_NO_TRANSFER_FROM
+
+				return eNoStartExtendedptID( button )
+
+	LootData loot = EquipmentSlot_GetEquippedLootDataForSlot ( player, requestButton )
+
+
+	if ( !SURVIVAL_Loot_IsRefValid( loot.ref ) )
+		return
+
+	string weaponName = loot.baseWeapon
+
+	if ( GetWeaponInfoFileKeyField_GlobalInt_WithDefault ( weaponName, "has_energized", 0 ) == 1 )
+	{
+		EmitSoundOnEntity( player, PING_SOUND_DEFAULT )
+		string commsData = GetWeaponInfoFileKeyField_GlobalString ( weaponName, "energized_comms" )
+
+		QuickcpmentPretendsToBeBlank( equipmentRef ) )
+
+	return Survival_GetCommsActionForEquipmentSlot( equipSlot, equipmentRef, isEmpty )
+}
+
+
+int function SortByAmmoThenTierThenPriority( GroundLootData a, GroundLootData b )
+{
+	if ( a.lootData.lootType == eLootType.AMMO && b.lootData.lootType != eLootType.AMMO )
+		return -1
+	else if ( a.lootData.lootType != eLootType.AMMO && b.lootData.lootType == eLootType.AMMO )
+		return 1
+
+	if ( a.lootData.lootType == eLlse )
+	RuiSetBool( rui, "isActiveLockedSlot", false )
+	RuiSetBool( rui, "showWhenEmpty", false )
+	RuiSetImage( rui, "iconImage", $"" )
+	RuiSetInt( rui, "lootTier", 0 )
+	RuiSetInt( rui, "count", 0 )
+	RuiSetBool( rui, "forceFillBars", false )
+	RuiSetBool( rui, "isReusable", false )
+
+
+		RuiSetBool( rui, "isItemLocked", false )
+
+
+	if ( IsLobby() )
+		return
+
+	if ( position >= SURVIVAL_GetInventoryLimit( player ) )
+	{
+		Hud_ClearToolTipData( button )otData.inventorySlotCount
+		}
+	}
+	RuiSetInt( rui, "ordinaryMaxCount", ordinaryMaxCount )
+
+	RuiSetBool( rui, "isInfinite", false )
+	if ( PlayerHasPassive( player, ePassives.PAS_INFINITE_HEAL ) && lootData.lootType == eLootType.HEALTH )
+	{
+		RuiSetBool( rui, "isInfinite", true )
+	}
+
+	if ( lootData.lootType == eLootType.AMMO )
+		RuiSetInt( rui, "numPerPip", lootData.countPerDrop )
+	else
+		RuiSetInt( rui, "numPerPip", 1 )
+
+	bool isInventoryPosition ( Survival_PlayerCanDrop( player ) && !isInventoryPositionLocked && !isItemLocked )
+	{
+		toolTipData.actionHint2 = Localize( "#LOOT_ALT_DROP" ).toupper()
+	}
+
+	Hud_SetToolTipData( button, toolTipData )
+	RunUIScript( "ClientToUI_Tooltip_MarkForClientUpdate", button, eTooltipStyle.DEFAULT )
+
+	Hud_SetSelected( button, IsOrdnanceEquipped( player, lootData.ref ) )
+	Hud_SetLocked( button, SURVIVAL_IsLootIrrelevant( player, null, lootData, eLootContexvPosition < 0 )
+		return
+
+	BackpackAction( eLootAction.DROP, string( adjustedInvPosition ) )
+}
+
+
+void function UICallback_UpdateQuickSwapItemButton( var button, int guid )
+{
+	if ( guid < 0 )
+		return
+
+	entity loot = GetEntityFromEncodedEHandle( guid )
+
+	if ( !IsValid( loot ) )
+		return
+
+	if ( loot.GetNetworkedClassName() != "prop_survival" )
+		return
+
+	int lootIdx = loot.GetSurvivalInt()
+
+	if ( !SURVIVAL_Loot_IsLootIndexValid( lootIdx ) )
+		ret)
+
+	entity player = GetLocalViewPlayer()
+
+	var rui = GetTooltipRui()
+	RuiSetBool( rui, "isInDeathBox", dt.lootPromptData.isInDeathBox )
+	RuiSetBool( rui, "isTooltip", true )
+	RuiSetBool( rui, "isPinged", dt.lootPromptData.isPinged )
+	RuiSetBool( rui, "isPingedByUs", dt.lootPromptData.isPingedByUs )
+
+	UpdateLootRuiWithData( player, rui, data, lootContext, lootRef, true, lockedReason )
+
+	RuiSetBool( rui, "canPing", ( lootContext == eLootContext.Gayer, eLootContext.BACKPACK, lootRef, eLootActionType.PRIMARY_ACTION, true )
+			asAlt = SURVIVAL_BuildStringForAction( player, eLootContext.BACKPACK, lootRef, eLootActionType.ALT_ACTION, true )
+			asPrimarySwap = SURVIVAL_BuildStringForAction( player, eLootContext.EQUIPMENT, lootRef, eLootActionType.PRIMARY_SWAP, true, equipmentSlot )
+			asCharacter1 = SURVIVAL_BuildStringForAction( player, eLootContext.BACKPACK, lootRef, eLootActionType.CHARACfile.shouldUpdateGroundItems = false
+}
+
+
+void function GroundItemsDiff( entity player, array<entity> loot )
+{
+	IntSet indicesInList
+
+	foreach ( index, gd in file.filteredGroundItems )
+	{
+		gd.guids.clear()
+
+		bool found       = false
+		int currentCount = 0
+		foreach ( item in loot )
+		{
+			if ( item.GetNetworkedClassName() != "prop_survival" )
+				continue
+
+			if ( gd.lootData.index == item.GetSurvivalInt() )
+			{
+				currentCount += item.GetCld in allItems )
+	{
+		entity ent = GetEntFromGroundLootData( gd )
+
+		if ( showUpgrades && SURVIVAL_IsLootAnUpgrade( player, ent, gd.lootData, eLootContext.GROUND ) )
+		{
+			gd.isRelevant = true
+			gd.isUpgrade = true
+			upgradeItems.append( gd )
+		}
+		else if ( SURVIVAL_IsLootIrrelevant( player, ent, gd.lootData, eLootContext.GROUND ) )
+		{
+			gd.isRelevant = false
+			gd.isUpgrade = false
+			if ( splitUnusable )
+				unusableItems.append( gd )
+		5.0
+	bool allowedToShowHint = ShouldShowAnyHint( player )
+
+	if ( allowedToShowHint && ShouldShowHealHint( player ) )
+	{
+		if ( Time() - file.lastHealHintDisplayTime < 10.0 )
+			return
+
+		if ( CanDeployHealDrone( player ) && player.GetHealth() < player.GetMaxHealth() && !StatusEffect_HasSeverity( player, eStatusEffect.silenced ) )
+		{
+			AddPlayerHint( HINT_DURATION, 0.25, $"", "#SURVIVAL_MEDIC_HEAL_HINT" )
+			file.lastHealHintDisplayTime = TimeayerSelectedConsumableType()
+	if ( kitType == -1 )
+		kitType = Consumable_GetBestConsumableTypeForPlayer( player, 0, 0 )
+
+	if ( !Consumable_CanUseConsumable( player, kitType, false ) && !CanDeployHealDrone( player ) )
+		return false
+
+	
+	
+
+
+
+
+
+
+	return false
+}
+
+bool function ShouldShowUltHint( entity player )
+{
+	int kitType = eHealthPickupType.ULTIMATE
+
+	if ( !Consumable_CanUseConsumable( player, kitType, false ) )
+		return false
+
+	if ( player.Guids[i] )
+	}
+	return ent
+}
+
+
+void function UICallback_GetLootDataFromButton( var button, int position, bool isOrdnanceSlots = false )
+{
+	RunUIScript( "ClientCallback_SetTempButtonRef", "" )
+
+	entity player = GetLocalClientPlayer()
+	string ref
+
+	if ( position > -1 )
+	{
+		if ( position >= SURVIVAL_GetInventoryLimit( player ) )
+			return
+
+		array<ConsumableInventoryItem> inventory
+
+		if ( ReservedInventory_IsEnabled() )
+		{
+			inventory = ReservedVAL_GetMainInventory( player )
+
+
+
+		}
+
+		if ( sourceIndex >= inventory.len() )
+			return
+
+		ConsumableInventoryItem item = inventory[sourceIndex]
+		adjustedInvPosition = item.slot
+
+		if ( adjustedInvPosition < 0 )
+			return
+
+		if ( !SURVIVAL_Loot_IsLootIndexValid( item.type ) )
+			return
+
+		data = SURVIVAL_Loot_GetLootDataByIndex( item.type )
+	}
+	else
+	{
+		string equipmentSlot = Hud_GetScriptID( sourceButton )
+
+		data = EquipmentSlot_GetEquippey )
+					Hud_SetLocked( dropButton, false )
+				else
+				{
+					
+				}
+			}
+			Hud_SetVisible( dropButton, true )
+		}
+		else
+		{
+			Hud_SetLocked( dropButton, true )
+			Hud_SetVisible( dropButton, false )
+		}
+	}
+
+	else if ( dropEquipmentSlot == "ground" )
+	{
+		if ( EquipmentSlot_IsValidEquipmentSlot( sourceEquipmentSlot ) )
+		{
+			if ( initOnly )
+				Hud_SetLocked( dropButton, false )
+			else if ( !EquipmentSlot_IsAttachmentSlot( sourceEquipmenon = upgrade.icon
+
+		if( teammate.HasPassive( ePassives.PAS_GOLD_ARMOR ) )
+			upgradeIcon =  GoldArmor_GetBoostKitIcon()
+
+		RuiSetImage( rui, "slotImage" + (upgradeIndex + 1), upgradeIcon )
+	}
+	else
+	{
+		RuiSetImage( rui, "slotImage" + (upgradeIndex + 1), $"" )
+	}
+}
+
+void function UICallback_UpdateUltimateInfo( var elem )
+{
+	file.ultimateHud = elem
+	var rui = Hud_GetRui( elem )
+
+	entity player = GetLocalClientPlayer()
+
+	UpdateInventoryUltimateP" )
+
+	player.EndSignal( "OnDestroy" )
+	clGlobal.levelEnt.EndSignal( "BackpackClosed" )
+
+	ItemFlavor character = LoadoutSlot_WaitForItemFlavor( ToEHI( player ), Loadout_Character() )
+	asset legendIcon      = CharacterClass_GetGalleryPortrait( character )
+	RuiSetImage( rui, "playerIcon", legendIcon )
+	RuiSetInt( rui, "micStatus", player.HasMic() ? 3 : -1 ) 
+
+	while ( true )
+	{
+		foreach ( equipSlot, es in EquipmentSlot_GetAllEquipmentSlots() )
+		ashState( player )
+		RuiSetBool( rui, "playerOvershieldCharging", arcFlashState == eArcFlashState.CHARGE )
+
+
+		RuiSetInt( rui, "micStatus", GetPlayerMicStatus( player ) )
+
+
+			if ( Perks_Enabled() )
+			{
+				asset classIcon = CharacterClass_GetCharacterRoleImage( character )
+				RuiSetAsset( rui, "customSmallIcon", classIcon )
+			}
+
+
+		if( UpgradeCore_IsEnabled() )
+		{
+			RuiSetBool( rui, "showProgressBar", true )
+			UpgradeCore_UpdateSelectedUice upgrade = selectedUpgrades[upgradeIndex]
+
+						if( ent.HasPassive( ePassives.PAS_GOLD_ARMOR ) )
+							RuiSetImage( rui, "slotImage" + ( upgradeIndex + 1 ), GoldArmor_GetBoostKitIcon() )
+						else
+
+						RuiSetImage( rui, "slotImage" + (upgradeIndex + 1), upgrade.icon )
+					}
+					else
+					{
+						RuiSetImage( rui, "slotImage" + (upgradeIndex + 1), $"" )
+					}
+				}
+			}
+
+			foreach ( equipSlot, es in EquipmentSlot_GetAllEquipmentSlotsng( ent ) )
+
+
+			SetUnitFrameConsumableData(rui, ent)
+
+			RuiSetFloat( rui, "reviveEndTime", ent.GetPlayerNetTime( "reviveEndTime" ) )
+			RuiSetInt( rui, "reviveType", ent.GetPlayerNetInt( "reviveType" ) )
+			RuiSetFloat( rui, "bleedoutEndTime", ent.GetPlayerNetTime( "bleedoutEndTime" ) )
+			RuiSetInt( rui, "respawnStatus", GetRespawnStatus( ent ) )
+			RuiSetFloat( rui, "respawnStatusEndTime", ent.GetPlayerNetTime( "respawnStatusEndTime" ) )
+
+
+( elem, Hud_GetCompactLayoutHeight( elem ) )
+				else
+#endif
+				Hud_SetHeight( elem, Hud_GetBaseHeight( elem ) )
+				Hud_Show( elem )
+
+				if ( IsValid( player ) )
+				{
+					vector playerColor = Teams_GetTeamColor( player.GetTeam() )
+
+					RuiSetBool( rui, "useCustomCharacterColor", true )
+					RuiSetColorAlpha( rui, "customCharacterColor", playerColor, 1.0 )
+				}
+
+				RuiSetBool( rui, "isJIP", true )
+				RuiSetString( rui, "name", Localize(		}
+			ttd.tooltipStyle = eTooltipStyle.DEFAULT
+			ttd.tooltipFlags = eToolTipFlag.CLIENT_UPDATE
+			Hud_SetToolTipData( elem, ttd )
+			RunUIScript( "ClientToUI_Tooltip_MarkForClientUpdate", elem, eTooltipStyle.DEFAULT )
+		}
+		else
+		{
+			ToolTipData ttd
+
+
+
+
+
+
+
+
+			{
+				ttd.titleText = "#ENDORSEMENT_INVENTORY_BUTTON_LOCKED"
+				ttd.descText = "#ENDORSEMENT_INVENTORY_BUTTON_LOCKED_DESC"
+			}
+			ttd.tooltipStyle = eTooltipStyle.DEFAULT
+			ttd.too = SURVIVAL_Loot_GetLootDataByIndex( weaponIndex )
+			string ammoType     = weaponData.ammoType
+			if ( GetWeaponInfoFileKeyField_GlobalBool( weaponData.baseWeapon, "uses_ammo_pool" ) && SURVIVAL_Loot_IsRefValid( ammoType ) )
+			{
+				LootData ammoData = SURVIVAL_Loot_GetLootDataByRef( ammoType )
+				hudIcon = ammoData.hudIcon
+			}
+			else
+				hudIcon = weaponData.fakeAmmoIcon
+
+			RuiSetImage( rui, ammoTypeIcon, hudIcon )
+			RuiSetBool( rui, amsible( button, isSlotVisible )
+}
+void function Survival_AddInventoryPreventGadgetSlotUnequipCallback( bool functionref(entity) callbackFunc )
+{
+	Assert( !file.Callbacks_ShouldPreventGadgetUnequip.contains( callbackFunc ), "Already added " + string( callbackFunc ) + " with Inventory_AddCallback_ShouldPreventGadgetUnequip" )
+	file.Callbacks_ShouldPreventGadgetUnequip.append( callbackFunc )
+}[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/pilot/cl_pilot_tracking_vision.gnut.client
+[dump] scripts/vscripts/pilot/cl_pilot_tracking_vision.gnut.client (84789 bytes)global function CLTrackingVision_Init
+global function TrackingVision_CreateSonarPulseArea
+global function GetBloodhoundPingCommsAction
+global function GetPingTypeFromPOIType
+
+global function ClientCodeCallback_OnPlayerPOIWaypointCreated
+global function ClientCodeCallback_WaypointPOIVisibilityChanged
+global function ClientCodeCallback_WaypointPOIGetTraceDistScale
+
+global function TrackingVisionUpdatePlayerConnected
+
+const TRACKING_VISION_FX = $"P_phase_shift_main"
+const TRACKING_VISION_LOOP_FX = $"P_hunt_trail_CP"
+
+global const int TRACKING_VISION_HUNT_MODE_DRAW_DIST_MULT = 2
+
+const float TRACKING_VISION_UPDATE_INTERVAL = 0.25
+
+const float TRACKING_VISION_DEFAULT_FOV = 70.0
+const float TRACKING_VISION_DISCOVERY_PING_DURATION = 3.0
+
+const float TRACKING_VISION_DRAW_DIST_SHORT 	= 512.0
+const float TRACKING_VISION_DRAW_DIST_MEDIUM 	= 1024.0
+const float TRACKING_VISION_DRAW_DIST_LONG		= 2048.0
+
+const float TRACKING_VISION_DRAW_DIST_FOOTPRINTS = 4096.0
+const float TRACKING_VISION_DRAW_DIST_FOOTPRINTS_SQR = TRACKING_VISION_DRAW_DIST_FOOTPRINTS * TRACKING_VISION_DRAW_DIST_FOOTPRINTS
+const float TRACKING_VISION_SNIPER_RANGE = 3000.0
+
+enum eTrackingPOIDrawSize
+{
+	NORMAL,
+	SMALL,
+}
+
+struct POISonarPulseData
+{
+	vector origin
+	float radius
+	vector dir
+	float fov
+}
+
+struct TrackingVisionDrawInfo
+{
+	int    drawSize = -1
+	asset  icon
+	string displayText
+}
+
+struct FootstepParticleData
+{
+#if DEV
+	entity  debugEntity
+#endif
+	int 	fxHandle = -1
+	bool 	active = false
+	bool 	update = false
+}
+
+struct
+{
+	int nextPOIID = 0
+	entity currentTracker = null
+	table < int, var > trackedPOIRui
+	array< POISonarPulseData > activeSonarPulseAreas
+	table< entity, FootstepParticleData > footstepParticles
+
+} file
+
+void function CLTrackingVision_Init()
+{
+	RegisterSignal( "TrackingVision_StopLoopFX" )
+	RegisterSignal( "TrackingVision_ForceStop" )
+
+	PrecacheParticleSystem( TRACKING_VISION_FX )
+	PrecacheParticleSystem( TRACKING_VISION_LOOP_FX )
+
+	AddCallback_PlayerClassChanged( TrackingVision_OnPlayerClassChanged )
+
+	StatusEffect_RegisterEnabledCallback( eStatusEffect.tracking_vision, TrackingVision_Start )
+	StatusEffect_RegisterDisabledCallback( eStatusEffect.tracking_vision, TrackingVision_Stop )
+
+	AddCallback_GameStateEnter( eGameState.Prematch, OnGameStatePrematch )
+
+	BirdClusterSharedInit()
+}
+
+void function TrackingVision_CreateSonarPulseArea( vector origin, float radius, vector dir, float fov )
+{
+	POISonarPulseData data
+	data.origin = origin
+	data.radius = radius
+	data.dir	= dir
+	data.fov	= fov
+	file.activeSonarPulseAreas.append( data )
+}
+
+void function TrackingVision_Start( entity ent, int statusEffect, bool actuallyChanged )
+{
+
+
+
+	if ( !actuallyChanged && GetLocalViewPlayer() == GetLocalClientPlayer() )
+		return
+
+
+
+
+
+
+	if ( ent != GetLocalViewPlayer() )
+		return
+
+
+	ResetWaypointVisibilities()
+	file.currentTracker = ent
+	TrackingVisionCleanupFootstepParticles()
+
+	ent.Signal( "TrackingVision_ForceStop" )
+	thread TrackingVisionUpdate( ent )
+	thread TrackingVision_UpdatePOI( ent )
+}
+
+void function TrackingVision_Stop( entity ent, int statusEffect, bool actuallyChanged )
+{
+
+
+
+	if ( !actuallyChanged && GetLocalViewPlayer() == GetLocalClientPlayer() )
+		return
+
+
+
+	if ( ent != GetLocalViewPlayer() )
+		return
+
+
+
+	
+	ResetWaypointVisibilities()
+	file.currentTracker = null
+	TrackingVisionCleanupFootstepParticles()
+
+	ent.Signal( "TrackingVision_ForceStop" )
+}
+
+void function TrackingVision_OnPlayerClassChanged( entity player )
+{
+
+
+
+	entity localViewPlayer = GetLocalViewPlayer()
+	entity localClientPlayer = GetLocalClientPlayer()
+
+	if ( player.IsTitan() )
+		return
+
+
+
+
+
+
+	bool playerIsLocalViewPlayer = (player == localViewPlayer)
+
+	if ( playerIsLocalViewPlayer )
+		ResetWaypointVisibilities()
+
+	if ( PlayerHasPassive( localViewPlayer, ePassives.PAS_TRACKING_VISION ) )
+	{
+		return
+	}
+
+
+
+	if ( playerIsLocalViewPlayer )
+	{
+		player.Signal( "TrackingVision_ForceStop" )
+		TrackingVisionCleanupFootstepParticles()
+	
+	}
+	else
+	{
+		player.Signal( "TrackingVision_StopLoopFX" )
+	
+	}
+}
+
+void function TrackingVisionUpdatePlayerConnected( entity player )
+{
+	entity localViewPlayer = GetLocalViewPlayer()
+
+
+	if ( !PlayerHasPassive( localViewPlayer, ePassives.PAS_TRACKING_VISION ) )
+	{
+		return
+	}
+
+	
+
+	if ( !(player in file.footstepParticles) )
+	{
+		FootstepParticleData particleData
+		particleData.active = false
+		particleData.update = false
+
+#if DEV
+		particleData.debugEntity = player
+#endif
+
+		file.footstepParticles[player] <- particleData
+	}
+}
+
+void function TrackingVisionCleanupFootstepParticles()
+{
+	foreach( entity enemy, FootstepParticleData footstepData in file.footstepParticles )
+	{
+		if ( footstepData.active || EffectDoesExist( footstepData.fxHandle ) )
+			EffectStop( footstepData.fxHandle, true, true )
+	}
+
+	file.footstepParticles.clear()
+}
+
+void function TrackingVisionUpdate( entity player )
+{
+	Assert( IsNewThread(), "Must be threaded off." )
+	{
+		int team = GetLocalViewPlayer().GetTeam()
+		array<entity> enemies = GetPlayerArrayOfEnemies( team )
+
+		foreach( entity enemy in enemies )
+		{
+			FootstepParticleData particleData
+			particleData.active = false
+			particleData.update = false
+
+#if DEV
+			particleData.debugEntity = enemy
+#endif
+
+			file.footstepParticles[enemy] <- particleData
+		}
+
+		thread TrackingVisionLoopFX_Update( player )
+	}
+}
+
+int function PlayTrackingVisionFX( entity ent, bool startActive, asset fxAsset = TRACKING_VISION_FX )
+{
+	if ( !IsHumanSized( ent ) )
+		fxAsset = TRACKING_VISION_LOOP_FX
+
+	int fxid = GetParticleSystemIndex( fxAsset )
+	int attachId = ent.LookupAttachment( "ORIGIN" )
+	Assert( attachId > 0, "Failed to find CHESTFOCUS attachment on" + ent + " with model " + ent.GetModelName() )
+
+	int fxHandle = StartParticleEffectOnEntity( ent, fxid, FX_PATTACH_POINT_FOLLOW, attachId )
+
+	if ( !startActive )
+	{
+		Effects_SetParticleFlag( fxHandle, PARTICLE_SCRIPT_FLAG_DISABLE_DRAW, true )
+		Effects_SetParticleFlag( fxHandle, PARTICLE_SCRIPT_FLAG_NO_DESATURATE, true )
+	}
+
+	vector controlPoint = <1.0, 0.0, 0.0>
+	EffectSetControlPointVector( fxHandle, 1, controlPoint )
+
+	return fxHandle
+}
+
+void function TrackingVisionLoopFX_Update( entity player )
+{
+	player.EndSignal( "TrackingVision_StopLoopFX" )
+
+	float prevStatusSeverity = -1.0
+	while ( true )
+	{
+		entity viewPlayer = GetLocalViewPlayer()
+		float statusSeverity
+		if ( PlayerHasPassive( player, ePassives.PAS_TRACKING_VISION ) )
+		{
+
+
+
+
+			statusSeverity = StatusEffect_GetSeverity( viewPlayer, eStatusEffect.hunt_mode_visuals )
+
+		}
+		array< entity > cleanUpData
+
+		foreach( entity enemy, FootstepParticleData footstepData in file.footstepParticles )
+		{
+			int handle = footstepData.fxHandle
+
+			bool shouldHaveEffect = IsAlive( enemy ) && !IsPlayerInPlane( enemy ) && !enemy.Player_IsSkydiving()
+			if ( PlayerHasPassive( player, ePassives.PAS_TRACKING_VISION ) )
+			{
+				shouldHaveEffect = IsAlive( enemy ) && !IsPlayerInPlane( enemy ) && !enemy.Player_IsSkydiving()
+			}
+
+			if ( footstepData.active )
+			{
+				if ( !shouldHaveEffect )
+				{
+					EffectStop( handle, true, false )
+					footstepData.active = false
+					footstepData.update = false
+				}
+			}
+			else
+			{
+				if ( shouldHaveEffect )
+				{
+					bool startActive = (statusSeverity != 0)
+					footstepData.fxHandle = PlayTrackingVisionFX( enemy, startActive, TRACKING_VISION_LOOP_FX )
+
+					EffectSetDontKillForReplay( footstepData.fxHandle )
+					footstepData.active = true
+					footstepData.update = true
+					continue
+				}
+				else
+				{
+					continue
+				}
+			}
+
+			if ( !EffectDoesExist( handle ) )
+			{
+				footstepData.active = false
+				footstepData.update = false
+				cleanUpData.append( enemy )
+				continue
+			}
+
+			bool validEnemy = true
+			if ( !IsValid( enemy ) )
+			{
+				validEnemy = false
+				cleanUpData.append( enemy )
+			}
+
+			if( validEnemy )
+			{
+				entity groundEntity = enemy.GetGroundEntity()
+				if( IsValid( groundEntity ) && groundEntity.GetVelocity() != <0,0,0> || enemy.IsPhaseShifted())
+				{
+					if( footstepData.update )
+					{
+						Effects_SetParticleFlag( handle, PARTICLE_SCRIPT_FLAG_DISABLE_UPDATE, true )
+						footstepData.update = false
+					}
+				}
+			}
+			else if ( !footstepData.update )
+			{
+				Effects_SetParticleFlag( handle, PARTICLE_SCRIPT_FLAG_DISABLE_UPDATE, false )
+				EffectRestart( handle, true, false)
+				footstepData.update = true
+			}
+
+			if ( prevStatusSeverity == statusSeverity )
+				continue
+
+			if ( statusSeverity == 0 )
+				Effects_SetParticleFlag( handle, PARTICLE_SCRIPT_FLAG_DISABLE_DRAW, true )
+			else
+				Effects_SetParticleFlag( handle, PARTICLE_SCRIPT_FLAG_DISABLE_DRAW, false )
+		}
+
+		foreach ( entity badEnt in cleanUpData )
+		{
+			if ( !(badEnt in file.footstepParticles) )
+				continue
+
+			FootstepParticleData footstepData = file.footstepParticles[badEnt]
+			if ( EffectDoesExist( footstepData.fxHandle ) )
+				EffectStop( footstepData.fxHandle, true, true )
+
+			delete file.footstepParticles[badEnt]
+		}
+
+		prevStatusSeverity = statusSeverity
+		WaitFrame()
+	}
+}
+
+void function TrackingVision_UpdatePOI( entity player )
+{
+	Assert( IsNewThread(), "Must be threaded off." )
+	player.EndSignal( "OnDeath" )
+	player.EndSignal( "OnDestroy" )
+	player.EndSignal( "TrackingVision_ForceStop" )
+
+	
+	OnThreadEnd(
+		function() : ()
+		{
+			TrackingVision_DestroyAllPOIRuis()
+			ResetWaypointVisibilities()
+		}
+	)
+
+	
+	
+	
+
+	if ( !PlayerHasPassive( player, ePassives.PAS_TRACKING_VISION ) )
+		return
+
+	float lastHuntModeStatusSeverity = StatusEffect_GetSeverity( player, eStatusEffect.hunt_mode )
+	while ( true )
+	{
+		array< entity > waypoints = GetNearbyPlayerWaypointPOIs()
+		foreach ( entity waypoint in waypoints )
+			TrackingVision_UpdateWaypointPOIDrawing( waypoint )
+
+		
+		file.activeSonarPulseAreas = []
+
+		wait TRACKING_VISION_UPDATE_INTERVAL
+	}
+}
+
+void function TrackingVision_UpdateWaypointPOIDrawing( entity waypoint )
+{
+	bool isVisible = waypoint.WaypointIsVisible()
+	int waypointID = waypoint.WaypointGetID()
+
+	if ( waypointID < 0 )
+		return 
+
+	entity localViewPlayer = GetLocalViewPlayer()
+	if ( !IsValid( localViewPlayer ) )
+		return
+
+#if DEV
+	if ( localViewPlayer != file.currentTracker )
+	{
+		ResetWaypointVisibilities()
+		file.currentTracker = localViewPlayer
+
+		printt( "WARNING: current tracker changed. Reset Waypoint Visibilities may not have been called" )
+		return
+	}
+#endif
+
+	bool waypointIsLocalTeam = localViewPlayer.GetTeam() == waypoint.GetTeam()
+	if ( waypointIsLocalTeam )
+	{
+			return
+	}
+
+	if ( waypoint.WaypointIsFlagSet( WPF_VISIBILITY_SONAR ) )
+	{
+		if ( waypoint.WaypointIsFlagSet( WPF_DEPLOYABLE ) )
+		{
+			entity attachedEnt = waypoint.WaypointGetAttachedPOIEnt()
+			if ( IsValid( attachedEnt ) )
+			{
+				if ( StatusEffect_HasSeverity( attachedEnt, eStatusEffect.sonar_detected ) )
+					waypoint.WaypointSetAlwaysVisibleEndTime( Time() + TRACKING_VISION_DISCOVERY_PING_DURATION )
+			}
+		}
+		else
+		{
+			vector waypointPos = waypoint.GetOrigin()
+			bool addWaypointFlag = false
+			foreach ( POISonarPulseData sonarData in file.activeSonarPulseAreas )
+			{
+
+				
+				float detectWeight      = StatusEffect_GetSeverity( localViewPlayer, eStatusEffect.device_detected )
+				float deviceDetectCount = RoundToNearestInt( ((detectWeight) * 100) - 2 )
+				if ( deviceDetectCount >= 1 )
+				{
+					printt( "Hello, I have skipped because reasons" )
+					return
+				}
+
+
+				float sonarDistSqr = DistanceSqr( sonarData.origin, waypointPos )
+				if ( sonarDistSqr <= ( sonarData.radius * sonarData.radius ) )
+				{
+					
+					vector posToTarget = Normalize( waypointPos - sonarData.origin )
+					float dot = DotProduct( posToTarget, sonarData.dir )
+					float angle = DotToAngle( dot )
+
+					if ( angle > ( sonarData.fov / 2 ) )
+						continue
+
+					addWaypointFlag = true
+					break
+				}
+			}
+
+			if ( addWaypointFlag )
+				waypoint.WaypointSetAlwaysVisibleEndTime( Time() + TRACKING_VISION_DISCOVERY_PING_DURATION )
+		}
+	}
+
+	if ( isVisible && waypointID in file.trackedPOIRui )
+	{
+
+			if( Control_IsLocalClientInMapCameraView() )
+			{
+				RuiSetVisible ( file.trackedPOIRui[ waypointID ] , false )
+				return
+			}
+
+		bool waypointInFocus = waypoint.WaypointIsInFocus()
+		RuiSetBool( file.trackedPOIRui[ waypointID ], "inViewFocus", waypointInFocus )
+
+		if ( waypointInFocus && !waypoint.WaypointInFocusPrevFrame() )
+			RuiSetGameTime( file.trackedPOIRui[ waypointID ], "iconCreationTime", Time() )
+	}
+}
+
+void function TrackingVision_DestroyAllPOIRuis()
+{
+	table < int, var > trackedPOIRuiClone = clone file.trackedPOIRui
+	foreach ( int id, var rui in trackedPOIRuiClone )
+	{
+		RuiDestroyIfAlive( rui )
+		delete file.trackedPOIRui[ id ]
+	}
+}
+
+void function ClientCodeCallback_OnPlayerPOIWaypointCreated( entity waypoint, int poiType, vector pos, entity ent, int teamNum )
+{
+	TrackingVisionCreatePOIBlueprint( waypoint, poiType, pos, ent, teamNum )
+}
+
+void function ClientCodeCallback_WaypointPOIVisibilityChanged( entity waypoint, bool isVisible )
+{
+	WaypointPOIVisibilityChanged_Internal( waypoint, isVisible )
+}
+
+float function ClientCodeCallback_WaypointPOIGetTraceDistScale()
+{
+	if ( !ShouldShowTrackingVisionIcons() )
+		return 0.0
+
+	entity localViewPlayer = GetLocalViewPlayer()
+	if ( StatusEffect_HasSeverity( localViewPlayer, eStatusEffect.hunt_mode ) )
+		return TRACKING_VISION_HUNT_MODE_DRAW_DIST_MULT
+
+	return 1.0
+}
+
+void function WaypointPOIVisibilityChanged_Internal( entity waypoint, bool isVisible )
+{
+	entity localViewPlayer = GetLocalViewPlayer()
+	if ( !IsValid( localViewPlayer ) )
+		return
+
+	if ( !IsValid( waypoint ) ) 
+		return
+
+	bool waypointIsLocalTeam = localViewPlayer.GetTeam() == waypoint.GetTeam()
+	if ( waypointIsLocalTeam )
+	{
+		return
+	}
+
+	int waypointID = waypoint.WaypointGetID()
+	Assert( waypointID >= 0, "Never created a rui for waypoint" )
+
+	if ( isVisible )
+	{
+		TrackingVision_CreateGenericTrackerMarker( waypoint )
+	}
+	else
+	{
+		if ( waypointID in file.trackedPOIRui )
+		{
+			RuiDestroyIfAlive( file.trackedPOIRui[ waypointID ] )
+			delete file.trackedPOIRui[ waypointID ]
+		}
+	}
+}
+
+
+void function TrackingVisionCreatePOIBlueprint( entity waypoint, int poiEventID, vector pos, entity ent, int team )
+{
+	waypoint.WaypointSetID( file.nextPOIID )
+	file.nextPOIID++
+
+	switch ( poiEventID )
+	{
+
+		
+
+		case eTrackingVisionNetworkedPOITypes.DROPPOD:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MAX )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.TITANFALL:
+			break
+
+		case eTrackingVisionNetworkedPOITypes.TITAN_EMBARK:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MEDIUM )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.TITAN_DISEMBARK:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MEDIUM )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.DOOR_USE:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MEDIUM )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.DOOR_DESTROYED:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MEDIUM )
+			break
+
+
+		case eTrackingVisionNetworkedPOITypes.BREACH_GLASS_BROKEN:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MEDIUM )
+			break
+		case eTrackingVisionNetworkedPOITypes.BREACH_GLASS_REINFORCED:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MEDIUM )
+			break
+
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_HEAL:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MEDIUM )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_RELOAD:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MEDIUM )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_STARTBLEEDOUT:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MEDIUM )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_TOOK_DAMAGE:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_FIRE_WEAPON_BULLET:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_FIRE_WEAPON_GRENADE:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_OPENDROPPOD:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MEDIUM )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOTBIN_USED:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MEDIUM )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_DEATH:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_LONG )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_KILLER:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_LONG )
+			break
+
+		
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_TRAVERSAL_ZIPLINE_START:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_LONG )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_TRAVERSAL_ZIPLINE_STOP:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_LONG )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_TRAVERSAL_FOOTPRINT:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MEDIUM )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_TRAVERSAL_SLIDE:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MEDIUM )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_TRAVERSAL_MANTLE:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MEDIUM )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_TRAVERSAL_JUMP_DOWN_START:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MEDIUM )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_TRAVERSAL_JUMP_DOWN_STOP:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MEDIUM )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_TRAVERSAL_LAUNCH_PAD:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MEDIUM )
+			break
+
+		
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITIES_PHASE_DASH_START:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITIES_PHASE_DASH_STOP:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITIES_SMOKE:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITIES_GAS:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+		
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP_AMMO:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP_ARMOR:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP_ATTACHMENT:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP_WEAPON:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP_GRENADE:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP_JUMPKIT:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP_HEALTH:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP_HELMET:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP_BACKPACK:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+
+
+
+
+
+
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP_GADGET:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP_INCAPSHIELD:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP_DATAKNIFE:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+
+		
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_EXCHANGE_ARMOR:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_EXCHANGE_WEAPON:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_EXCHANGE_JUMPKIT:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_EXCHANGE_HELMET:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_EXCHANGE_BACKPACK:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+
+
+
+
+
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_EXCHANGE_GADGET:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_EXCHANGE_INCAPSHIELD:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+		
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR | WPF_DYNAMIC_UPDATE )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP_AMMO:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR | WPF_DYNAMIC_UPDATE )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP_ARMOR:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR | WPF_DYNAMIC_UPDATE )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP_ATTACHMENT:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR | WPF_DYNAMIC_UPDATE )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP_WEAPON:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR | WPF_DYNAMIC_UPDATE )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP_GRENADE:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR | WPF_DYNAMIC_UPDATE )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP_JUMPKIT:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR | WPF_DYNAMIC_UPDATE )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP_HEALTH:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR | WPF_DYNAMIC_UPDATE )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP_HELMET:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR | WPF_DYNAMIC_UPDATE )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP_BACKPACK:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR | WPF_DYNAMIC_UPDATE )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+
+
+
+
+
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP_GADGET:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP_INCAPSHIELD:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR | WPF_DYNAMIC_UPDATE )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP_DATAKNIFE:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR | WPF_DYNAMIC_UPDATE )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_DIRTY_BOMB:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_ASH_ENEMY_TETHERED:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR | WPF_DEPLOYABLE )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MEDIUM )
+			break
+
+
+
+
+
+
+
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_DEPLOYABLE_MEDIC:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR | WPF_DEPLOYABLE )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MEDIUM )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_JUMP_PAD:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR | WPF_DEPLOYABLE )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MEDIUM )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_BUBBLE_BUNKER:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR | WPF_DEPLOYABLE )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MAX )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_TESLA_TRAP:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MEDIUM )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_TROPHY_SYSTEM:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MAX )
+			break
+
+
+
+
+
+
+
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_BLACK_HOLE:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR | WPF_DEPLOYABLE )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MAX )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_SPACE_ELEVATOR:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR | WPF_DEPLOYABLE )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MAX )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_TRAVERSAL_ELEVATOR_ENTER:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR | WPF_DEPLOYABLE )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MAX )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_TRAVERSAL_ELEVATOR_EXIT:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR | WPF_DEPLOYABLE )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MAX )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_PHASE_GATE:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_ASH_PORTAL_ENTER:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_ASH_PORTAL_EXIT:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR | WPF_DEPLOYABLE )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MAX )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_BLACK_MARKET:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR | WPF_DEPLOYABLE )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MAX )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_TRANSLOCATION_TOSS:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_TRANSLOCATION_TELEPORT:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_ASH_DATAKNIFE_USED:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_SHORT )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_COVER_WALL:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_TURRET:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR | WPF_DEPLOYABLE )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MAX )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_ABILITY_VOID_RING:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR | WPF_DEPLOYABLE )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MAX )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_MORTAR_RING_START:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR | WPF_DEPLOYABLE )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MAX )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_MORTAR_RING_END:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR | WPF_DEPLOYABLE )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MAX )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_KNUCKLE_CLUSTER:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR | WPF_DEPLOYABLE )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MAX )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_VALK_PASSIVE_START:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR | WPF_DEPLOYABLE )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MAX )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_VALK_PASSIVE_END:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR | WPF_DEPLOYABLE )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MAX )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_VALK_TACTICAL:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR | WPF_DEPLOYABLE )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MAX )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_VALK_ULTIMATE_START:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_VALK_ULTIMATE_END:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR | WPF_DEPLOYABLE )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MAX )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_FOCUS_OF_ATTENTION:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR | WPF_DEPLOYABLE )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MAX )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_ECHO_LOCATOR:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR | WPF_DEPLOYABLE )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MAX )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_MAGGIE_RIOT_DRILL_START:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_MAGGIE_RIOT_DRILL_END:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_MAGGIE_WRECKING_BALL_START:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_MAGGIE_WRECKING_BALL_END:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MAX )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_MAGGIE_WRECKING_BALL_PATH:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MAX )
+			break
+
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_NEWCASTLE_ARMORED_LEAP_START:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_NEWCASTLE_ARMORED_LEAP_END:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_NEWCASTLE_MOBILE_SHIELD_START:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_NEWCASTLE_MOBILE_SHIELD_END:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MAX )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_VANTAGE_JETDRIVE_START:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_VANTAGE_JETDRIVE_END:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_VANTAGE_ULTIMATE_FIRED:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MAX )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_CATALYST_BARRICADE:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_CATALYST_SPIKES:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_CATALYST_DARK_VEIL_START:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_CATALYST_DARK_VEIL_END:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MAX )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_BALLISTIC_DEBUFF_ZONE:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_BALLISTIC_PORTABLE_AUTO_LOADER:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MAX )
+			break
+
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_SPRROW_DOUBLE_JUMP:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_SPRROW_TRACKER_DART:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_SPRROW_STINGER_BOLT:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MAX )
+			break
+
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_REVENANT_POUNCE_START:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_REVENANT_POUNCE_LAND:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_REVENANT_FORGED_SHADOWS:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MAX )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_CONDUIT_TACTICAL:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_CONDUIT_ULTIMATE_DAMAGE:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MAX )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_ALTER_ULTIMATE_PLACED:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_ALTER_ULTIMATE_USED:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_ALTER_TACTICAL_USED:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_ALTER_PASSIVE_USED:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR )
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MAX )
+			break
+
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_REDEPLOY_BALLOON:
+			waypoint.WaypointAddFlag( WPF_VISBILITY_LOS | WPF_VISIBILITY_SONAR | WPF_DEPLOYABLE)
+			waypoint.WaypointSetCheckDist( TRACKING_VISION_DRAW_DIST_MAX )
+			break
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+		default:
+			Assert( false, "Point of intrest event ID is not registered in eTrackingVisionNetworkedPOITypes" )
+			break
+	}
+}
+
+void function TrackingVision_GetDrawInfo( entity waypoint, TrackingVisionDrawInfo drawInfo )
+{
+	int poiEventID = waypoint.WaypointGetPOIType()
+
+	switch ( poiEventID )
+	{
+		case eTrackingVisionNetworkedPOITypes.DROPPOD:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_droppod_land_zone"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_DROPPOD"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.TITANFALL:
+			break
+
+		case eTrackingVisionNetworkedPOITypes.TITAN_EMBARK:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/menu/boosts/boost_icon_map_hack"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_TITAN_EMBARK"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.TITAN_DISEMBARK:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/menu/boosts/boost_icon_map_hack"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_TITAN_DISEMBARK"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.DOOR_USE:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_door_used"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_DOOR"
+			break
+
+
+		case eTrackingVisionNetworkedPOITypes.BREACH_GLASS_BROKEN:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_door_destroyed"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_BREACH_GLASS_DESTROYED"
+			break
+		case eTrackingVisionNetworkedPOITypes.BREACH_GLASS_REINFORCED:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/gametype_icons/survival/classes_perks/perk_controller_reinforce" 
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_BREACH_GLASS"
+			break
+
+
+		case eTrackingVisionNetworkedPOITypes.DOOR_DESTROYED:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_door_destroyed"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_DOOR_DESTROYED"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_HEAL:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_health_used"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_HEAL"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_RELOAD:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_reloaded"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_RELOAD"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_STARTBLEEDOUT:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_bleed_out"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_START_BLEEDOUT"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_TOOK_DAMAGE:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_took_damage"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_START_TOOK_DAMAGE"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_FIRE_WEAPON_BULLET:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_dealt_damage"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_FIRE_WEAPON_BULLET"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_FIRE_WEAPON_GRENADE:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_grenade_pin"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_FIRE_WEAPON_GRENADE"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_OPENDROPPOD:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_supply_pod_opened"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_START_DROPPOD_OPEN"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOTBIN_USED:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_loot_opened"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_LOOT_BIN_USED"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_DEATH:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_died"
+			int damageSourceID = waypoint.GetWaypointInt( TRACKING_DAMAGE_SOURCE_INDEX )
+			int dist = waypoint.GetWaypointInt( TRACKING_DIST_INDEX )
+			drawInfo.displayText = GetKillVictimDisplayText( damageSourceID, dist )
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_KILLER:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_killed_other"
+			int damageSourceID = waypoint.GetWaypointInt( TRACKING_DAMAGE_SOURCE_INDEX )
+			int dist = waypoint.GetWaypointInt( TRACKING_DIST_INDEX )
+			drawInfo.displayText = GetKillAttackerDisplayText( damageSourceID, dist )
+			break
+
+		
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_TRAVERSAL_ZIPLINE_START:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_zipline_attach"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_TRAVERSAL_START_ZIPLINE"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_TRAVERSAL_ZIPLINE_STOP:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_zipline_detach"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_TRAVERSAL_STOP_ZIPLINE"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_TRAVERSAL_FOOTPRINT:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_footprint"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_TRAVERSAL_FOOTPRINT"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_TRAVERSAL_SLIDE:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_slide_start"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_TRAVERSAL_SLIDE"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_TRAVERSAL_MANTLE:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_mantled"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_TRAVERSAL_MANTLED"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_TRAVERSAL_JUMP_DOWN_START:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_jumped_down"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_TRAVERSAL_JUMP_DOWN_START"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_TRAVERSAL_JUMP_DOWN_STOP:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_jumped_down"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_TRAVERSAL_JUMP_DOWN_STOP"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_TRAVERSAL_LAUNCH_PAD:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_jumped_down" 
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_TRAVERSAL_LAUNCH_PAD"
+			break
+
+		
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITIES_PHASE_DASH_START:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_blink_start"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_ABILITIES_PHASE_DASH_START"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITIES_PHASE_DASH_STOP:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_blink_end"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_ABILITIES_PHASE_DASH_STOP"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITIES_SMOKE:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_smoke_residue"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_ABILITIES_SMOKE"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITIES_GAS:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_gas_residue"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_ABILITIES_GAS"
+			break
+
+		
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_loot_pickup"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_LOOT_PICKUP"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP_AMMO:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_loot_pickup"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_LOOT_PICKUP_AMMO"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP_ARMOR:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_loot_pickup"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_LOOT_PICKUP_ARMOR"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP_ATTACHMENT:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_loot_pickup"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_LOOT_PICKUP_ATTACHMENT"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP_WEAPON:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_loot_pickup"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_LOOT_PICKUP_WEAPON"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP_GRENADE:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_loot_pickup"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_LOOT_PICKUP_GRENADE"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP_JUMPKIT:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_loot_pickup"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_LOOT_PICKUP_JUMPKIT"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP_HEALTH:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_loot_pickup"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_LOOT_PICKUP_HEALTH"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP_HELMET:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_loot_pickup"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_LOOT_PICKUP_HELMET"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP_BACKPACK:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_loot_pickup"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_LOOT_PICKUP_BACKPACK"
+			break
+
+
+
+
+
+
+
+
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP_GADGET:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_loot_pickup"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_LOOT_PICKUP_GADGET"
+			break
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP_INCAPSHIELD:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_loot_pickup"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_LOOT_PICKUP_INCAPSHIELD"
+			break
+
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP_DATAKNIFE:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_loot_pickup"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_LOOT_PICKUP_DATAKNIFE"
+			break
+
+
+		
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_EXCHANGE_ARMOR:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_loot_exchange"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_LOOT_EXCHANGE_ARMOR"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_EXCHANGE_WEAPON:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_loot_exchange"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_LOOT_EXCHANGE_WEAPON"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_EXCHANGE_JUMPKIT:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_loot_exchange"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_LOOT_EXCHANGE_JUMPKIT"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_EXCHANGE_HELMET:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_loot_exchange"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_LOOT_EXCHANGE_HELMET"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_EXCHANGE_BACKPACK:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_loot_exchange"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_LOOT_EXCHANGE_BACKPACK"
+			break
+
+
+
+
+
+
+
+
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_EXCHANGE_GADGET:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_loot_exchange"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_LOOT_EXCHANGE_GADGET"
+			break
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_EXCHANGE_INCAPSHIELD:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_loot_exchange"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_LOOT_EXCHANGE_INCAPSHIELD"
+			break
+
+		
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_loot_drop"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_LOOT_DROP"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP_AMMO:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_loot_drop"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_LOOT_DROP_AMMO"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP_ARMOR:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_loot_drop"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_LOOT_DROP_ARMOR"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP_ATTACHMENT:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_loot_drop"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_LOOT_DROP_ATTACHMENT"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP_WEAPON:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_loot_drop"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_LOOT_DROP_WEAPON"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP_GRENADE:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_loot_drop"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_LOOT_DROP_GRENADE"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP_JUMPKIT:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_loot_drop"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_LOOT_DROP_JUMPKIT"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP_HEALTH:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_loot_drop"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_LOOT_DROP_HEALTH"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP_HELMET:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_loot_drop"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_LOOT_DROP_HELMET"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP_BACKPACK:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_loot_drop"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_LOOT_DROP_BACKPACK"
+			break
+
+
+
+
+
+
+
+
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP_GADGET:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_loot_drop"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_LOOT_DROP_GADGET"
+			break
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP_INCAPSHIELD:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_loot_drop"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_LOOT_DROP_INCAPSHIELD"
+			break
+
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP_DATAKNIFE:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_loot_drop"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_LOOT_DROP_DATAKNIFE"
+			break
+
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_DIRTY_BOMB:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_trap"
+			drawInfo.displayText = "#WPN_DIRTY_BOMB"
+			break
+
+
+
+
+
+
+
+
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_DEPLOYABLE_MEDIC:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_deployable"
+			drawInfo.displayText = "#WPN_DEPLOYABLE_MEDIC"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_JUMP_PAD:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_deployable"
+			drawInfo.displayText = "#WPN_JUMP_PAD"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_BUBBLE_BUNKER:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_deployable"
+			drawInfo.displayText = "#WPN_BUBBLE_BUNKER"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_TESLA_TRAP:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_wattson_pylon"
+			drawInfo.displayText = "#PILOT_PASSIVE_TRACKING_TESLA_TRAP"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_TROPHY_SYSTEM:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_wattson_ult"
+			drawInfo.displayText = "#PILOT_PASSIVE_TRACKING_TROPHY"
+			break
+
+
+
+
+
+
+
+
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_BLACK_HOLE:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_horizon_ult"
+			drawInfo.displayText = "#WPN_BLACK_HOLE"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_SPACE_ELEVATOR:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_deployable"
+			drawInfo.displayText = "#WPN_SPACE_ELEVATOR"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_TRAVERSAL_ELEVATOR_ENTER:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_horizon_enter"
+			drawInfo.displayText = "#WPN_SPACE_ELEVATOR_ENTER"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_TRAVERSAL_ELEVATOR_EXIT:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_horizon_exit"
+			drawInfo.displayText = "#WPN_SPACE_ELEVATOR_EXIT"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_PHASE_GATE:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_deployable"
+			drawInfo.displayText = "#WPN_PHASE_GATE"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_TRANSLOCATION_TOSS:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_translocation_toss"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_ABILITY_TRANSLOCATION_TOSS"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_TRANSLOCATION_TELEPORT:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_translocation_teleport"
+			drawInfo.displayText = "#GEAR_TRACKING_VISION_OBJECT_ABILITY_TRANSLOCATION_TELEPORT"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_BLACK_MARKET:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_deployable"
+			drawInfo.displayText = "#PROMPT_PING_BLACK_MARKET"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_COVER_WALL:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_rampart_wall"
+			drawInfo.displayText = "#PROMPT_PING_RAMPART_WALL"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_TURRET:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_rampart_turret"
+			drawInfo.displayText = "#PROMPT_PING_RAMPART_TURRET"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_ABILITY_VOID_RING:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_deployable"
+			drawInfo.displayText = "#SURVIVAL_PICKUP_VOID_RING"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_MORTAR_RING_START:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_fuse_ult_start"
+			drawInfo.displayText = "#WPN_MORTAR_RING_START"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_MORTAR_RING_END:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_fuse_ult_end"
+			drawInfo.displayText = "#WPN_MORTAR_RING_END"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_KNUCKLE_CLUSTER:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_fuse_tac"
+			drawInfo.displayText = "#WPN_CLUSTER_BOMB"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_VALK_PASSIVE_START:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_valk_pas"
+			drawInfo.displayText = "#ABL_JETS_START"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_VALK_PASSIVE_END:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_valk_pas"
+			drawInfo.displayText = "#ABL_JETS_END"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_VALK_TACTICAL:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_valk_tac"
+			drawInfo.displayText = "#WPN_CLUSTER_MISSILE"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_VALK_ULTIMATE_START:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_valk_ult"
+			drawInfo.displayText = "#ABL_SKYWARD_START"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_VALK_ULTIMATE_END:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_valk_ult"
+			drawInfo.displayText = "#ABL_SKYWARD_END"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_FOCUS_OF_ATTENTION:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_pariah_tac"
+			drawInfo.displayText = "#WPN_SONIC_BLAST"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_ECHO_LOCATOR:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_pariah_ult"
+			drawInfo.displayText = "#WPN_ECHO_LOCATOR"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_MAGGIE_RIOT_DRILL_START:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_madmaggie_tactical"
+			drawInfo.displayText = "#WPN_RIOT_DRILL_ENTER"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_MAGGIE_RIOT_DRILL_END:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_madmaggie_tactical"
+			drawInfo.displayText = "#WPN_RIOT_DRILL_EXIT"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_MAGGIE_WRECKING_BALL_START:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_madmaggie_ult_deploy"
+			drawInfo.displayText = "#WPN_WRECKING_BALL_DEPLOY"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_MAGGIE_WRECKING_BALL_END:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_madmaggie_ult_explode"
+			drawInfo.displayText = "#WPN_WRECKING_BALL_EXPLOSION"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_MAGGIE_WRECKING_BALL_PATH:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_white_raven"
+			drawInfo.displayText = "#WPN_WRECKING_BALL_PATH"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_NEWCASTLE_ARMORED_LEAP_START:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_newcastle_ult_launch"
+			drawInfo.displayText = "#WPN_ARMORED_LEAP_START"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_NEWCASTLE_ARMORED_LEAP_END:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_newcastle_ult_deploy"
+			drawInfo.displayText = "#WPN_ARMORED_LEAP_END"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_NEWCASTLE_MOBILE_SHIELD_START:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_newcastle_tactical_start"
+			drawInfo.displayText = "#WPN_SHIELD_THROW_START"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_NEWCASTLE_MOBILE_SHIELD_END:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_newcastle_tactical_end"
+			drawInfo.displayText = "#WPN_SHIELD_THROW_END"
+			break
+
+	case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_VANTAGE_JETDRIVE_START:
+		drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+		drawInfo.icon = $"rui/hud/poi_icons/poi_vantage_tac_start"
+		drawInfo.displayText = "#WPN_VANTAGE_TAC_START"
+		break
+
+	case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_VANTAGE_JETDRIVE_END:
+		drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+		drawInfo.icon = $"rui/hud/poi_icons/poi_vantage_tac_end"
+		drawInfo.displayText = "#WPN_VANTAGE_TAC_END"
+		break
+
+	case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_VANTAGE_ULTIMATE_FIRED:
+		drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+		drawInfo.icon = $"rui/hud/poi_icons/poi_vantage_ult_fired"
+		drawInfo.displayText = "#WPN_VANTAGE_ULT_FIRED"
+		break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_CATALYST_BARRICADE:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_catalyst_passive_closed"
+			drawInfo.displayText = "#ABL_REINFORCE"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_CATALYST_SPIKES:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_catalyst_tactical"
+			drawInfo.displayText = "#WPN_SPIKES"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_CATALYST_DARK_VEIL_START:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_catalyst_ult_start"
+			drawInfo.displayText = "#WPN_FERRO_WALL"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_CATALYST_DARK_VEIL_END:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_catalyst_ult_end"
+			drawInfo.displayText = "#WPN_FERRO_WALL"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_BALLISTIC_DEBUFF_ZONE:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_ballistic_tactical"
+			drawInfo.displayText = "#WPN_DEBUFF_ZONE"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_BALLISTIC_PORTABLE_AUTO_LOADER:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_ballistic_ultimate"
+			drawInfo.displayText = "#WPN_AUTO_LOADER"
+			break
+
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_SPRROW_DOUBLE_JUMP:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_sparrow_passive"
+			drawInfo.displayText = "#WPN_ARTEMIS_PASSIVE"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_SPRROW_TRACKER_DART:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_sparrow_tactical"
+			drawInfo.displayText = "#WPN_ARTEMIS_TACTICAL"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_SPRROW_STINGER_BOLT:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_sparrow_ultimate"
+			drawInfo.displayText = "#WPN_ARTEMIS_ULTIMATE"
+			break
+
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_REVENANT_POUNCE_START:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/tactical_icons/tactical_revenant_rework"
+			drawInfo.displayText = "#SHADOW_POUNCE_JUMP"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_REVENANT_POUNCE_LAND:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/tactical_icons/tactical_revenant_rework"
+			drawInfo.displayText = "#SHADOW_POUNCE_LAND"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_REVENANT_FORGED_SHADOWS:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/ultimate_icons/ultimate_revenant_rework"
+			drawInfo.displayText = "#FORGED_SHADOWS_ACTIVATION"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_CONDUIT_TACTICAL:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_conduit_tactical"
+			drawInfo.displayText = "#TRACKING_CONDUIT_TACTICAL"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_CONDUIT_ULTIMATE_DAMAGE:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon =$"rui/hud/poi_icons/poi_conduit_ultimate"
+			drawInfo.displayText = "#TRACKING_CONDUIT_ULTIMATE"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_ALTER_ULTIMATE_PLACED:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_alter_ultimate"
+			drawInfo.displayText = "#TRACKING_ALTER_ULTIMATE_PLACED"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_ALTER_ULTIMATE_USED:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_alter_ultimate"
+			drawInfo.displayText = "#TRACKING_ALTER_ULTIMATE_USED"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_ALTER_TACTICAL_USED:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_alter_tactical"
+			drawInfo.displayText = "#TRACKING_ALTER_TACTICAL"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_ALTER_PASSIVE_USED:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_alter_passive"
+			drawInfo.displayText = "#TRACKING_ALTER_PASSIVE"
+			break
+
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_REDEPLOY_BALLOON:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_deployable"
+			drawInfo.displayText = "#SURVIVAL_PICKUP_REDEPLOY_BALLOON"
+			break
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_ASH_DATAKNIFE_USED:
+			drawInfo.drawSize = eTrackingPOIDrawSize.SMALL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_ash_vision"
+			drawInfo.displayText = "#PAS_ASH_POI_TRACKING"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_ASH_ENEMY_TETHERED:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_ash_tether"
+			drawInfo.displayText = "#WPN_ARC_BOLT"
+			break
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_ASH_PORTAL_ENTER:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_ASH_PORTAL_EXIT:
+			drawInfo.drawSize = eTrackingPOIDrawSize.NORMAL
+			drawInfo.icon = $"rui/hud/poi_icons/poi_deployable"
+			drawInfo.displayText = "#WPN_PHASE_BREACH"
+			break
+
+		default:
+			Assert( false, "Point of intrest event ID is not registered in eTrackingVisionNetworkedPOITypes" )
+			break
+	}
+}
+
+int function GetPingTypeFromPOIType( entity waypoint )
+{
+	int poiType = waypoint.WaypointGetPOIType()
+	float age = Time() - waypoint.WaypointGetCreationTime()
+
+	switch( poiType )
+	{
+		
+		case eTrackingVisionNetworkedPOITypes.PLAYER_TRAVERSAL_ZIPLINE_START:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_TRAVERSAL_ZIPLINE_STOP:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_TRAVERSAL_FOOTPRINT:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_TRAVERSAL_SLIDE:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_TRAVERSAL_MANTLE:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_TRAVERSAL_JUMP_DOWN_START:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_TRAVERSAL_JUMP_DOWN_STOP:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_TRAVERSAL_LAUNCH_PAD:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITIES_PHASE_DASH_START:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITIES_PHASE_DASH_STOP:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_PHASE_GATE:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_JUMP_PAD:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_OPENDROPPOD:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_CLASS_DEPLOYABLE:
+		case eTrackingVisionNetworkedPOITypes.DROPPOD:
+		case eTrackingVisionNetworkedPOITypes.TITANFALL:
+		case eTrackingVisionNetworkedPOITypes.TITAN_EMBARK:
+		case eTrackingVisionNetworkedPOITypes.TITAN_DISEMBARK:
+		case eTrackingVisionNetworkedPOITypes.DOOR_USE:
+		case eTrackingVisionNetworkedPOITypes.DOOR_DESTROYED:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_RELOAD:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_TRANSLOCATION_TOSS:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_TRANSLOCATION_TELEPORT:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_SPACE_ELEVATOR:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_TRAVERSAL_ELEVATOR_ENTER:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_TRAVERSAL_ELEVATOR_EXIT:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_VALK_PASSIVE_START:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_VALK_PASSIVE_END:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_MAGGIE_WRECKING_BALL_PATH:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_ASH_PORTAL_ENTER:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_ASH_PORTAL_EXIT:
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_REDEPLOY_BALLOON:
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_REVENANT_POUNCE_START:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_REVENANT_POUNCE_LAND:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_REVENANT_FORGED_SHADOWS:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_ALTER_ULTIMATE_PLACED:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_ALTER_ULTIMATE_USED:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_ALTER_TACTICAL_USED:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_ALTER_PASSIVE_USED:
+			return (age > 30) ? ePingType.BLOODHOUND_POI_TRAVELER : ePingType.BLOODHOUND_POI_TRAVELER_RECENT
+
+
+
+
+
+
+
+
+
+
+		
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITIES_SMOKE:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITIES_GAS:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_DIRTY_BOMB:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_DEPLOYABLE_MEDIC:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_BUBBLE_BUNKER:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_DEATH:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_STARTBLEEDOUT:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_KILLER:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_FIRE_WEAPON_BULLET:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_FIRE_WEAPON_GRENADE:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_TESLA_TRAP:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_TROPHY_SYSTEM:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_TURRET:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_COVER_WALL:
+
+
+
+
+
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_ABILITY_VOID_RING:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_BLACK_HOLE:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_MORTAR_RING_START:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_MORTAR_RING_END:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_KNUCKLE_CLUSTER:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_VALK_TACTICAL:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_VALK_ULTIMATE_START:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_VALK_ULTIMATE_END:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_FOCUS_OF_ATTENTION:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_ECHO_LOCATOR:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_MAGGIE_RIOT_DRILL_START:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_MAGGIE_RIOT_DRILL_END:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_MAGGIE_WRECKING_BALL_START:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_MAGGIE_WRECKING_BALL_END:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_NEWCASTLE_ARMORED_LEAP_START:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_NEWCASTLE_ARMORED_LEAP_END:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_NEWCASTLE_MOBILE_SHIELD_START:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_NEWCASTLE_MOBILE_SHIELD_END:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_VANTAGE_JETDRIVE_START:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_VANTAGE_JETDRIVE_END:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_VANTAGE_ULTIMATE_FIRED:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_CATALYST_BARRICADE:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_CATALYST_SPIKES:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_CATALYST_DARK_VEIL_START:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_CATALYST_DARK_VEIL_END:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_BALLISTIC_DEBUFF_ZONE:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_BALLISTIC_PORTABLE_AUTO_LOADER:
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_SPRROW_DOUBLE_JUMP:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_SPRROW_TRACKER_DART:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_SPRROW_STINGER_BOLT:
+
+
+		case eTrackingVisionNetworkedPOITypes.BREACH_GLASS_BROKEN:
+		case eTrackingVisionNetworkedPOITypes.BREACH_GLASS_REINFORCED:
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_CONDUIT_TACTICAL:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_CONDUIT_ULTIMATE_DAMAGE:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_ASH_ENEMY_TETHERED:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_ASH_DATAKNIFE_USED:
+			return (age > 30) ? ePingType.BLOODHOUND_POI_BATTLE : ePingType.BLOODHOUND_POI_BATTLE_RECENT
+
+		
+		case eTrackingVisionNetworkedPOITypes.PLAYER_HEAL:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_TOOK_DAMAGE:
+			return (age > 30) ? ePingType.BLOODHOUND_POI_WOUNDED : ePingType.BLOODHOUND_POI_WOUNDED_RECENT
+
+		
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP_AMMO:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP_ARMOR:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP_ATTACHMENT:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP_WEAPON:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP_GRENADE:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP_JUMPKIT:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP_HEALTH:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP_HELMET:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP_BACKPACK:
+
+
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP_INCAPSHIELD:
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP_DATAKNIFE:
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_EXCHANGE_ARMOR:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_EXCHANGE_WEAPON:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_EXCHANGE_JUMPKIT:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_EXCHANGE_HELMET:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_EXCHANGE_BACKPACK:
+
+
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_EXCHANGE_INCAPSHIELD:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP_AMMO:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP_ARMOR:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP_ATTACHMENT:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP_WEAPON:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP_GRENADE:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP_JUMPKIT:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP_HEALTH:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP_HELMET:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP_BACKPACK:
+
+
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP_INCAPSHIELD:
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP_DATAKNIFE:
+
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_PICKUP_GADGET:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_EXCHANGE_GADGET:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOT_DROP_GADGET:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_ABILITY_BLACK_MARKET:
+		case eTrackingVisionNetworkedPOITypes.PLAYER_LOOTBIN_USED:
+			return (age > 30) ? ePingType.BLOODHOUND_POI_LOOTING : ePingType.BLOODHOUND_POI_LOOTING_RECENT
+
+		default:
+			Assert( false, "Point of intrest event ID is not registered in eTrackingVisionNetworkedPOITypes" )
+			return ePingType.BLOODHOUND_POI_TRAVELER
+	}
+
+	unreachable
+}
+
+string function GetKillVictimDisplayText( int damageSourceID, int dist )
+{
+	switch( damageSourceID )
+	{
+		case eDamageSourceId.stuck:
+		case eDamageSourceId.droppod_impact:
+		case eDamageSourceId.damagedef_crush:
+		case eDamageSourceId.outOfBounds:
+		case eDamageSourceId.deathField:
+		case eDamageSourceId.bleedout:
+
+
+
+
+			return Localize( "#GEAR_TRACKING_VISION_KILLED_SOURCE_ONLY", Localize( GetObitFromDamageSourceID( damageSourceID ) ) )
+	}
+
+	if ( dist > TRACKING_VISION_SNIPER_RANGE )
+		return Localize( "#GEAR_TRACKING_VISION_SNIPED_BY", Localize( GetObitFromDamageSourceID( damageSourceID ) ) )
+
+	return Localize( "#GEAR_TRACKING_VISION_KILLED_BY", Localize( GetObitFromDamageSourceID( damageSourceID ) ) )
+}
+
+string function GetKillAttackerDisplayText( int damageSourceID, int dist )
+{
+	if ( dist > TRACKING_VISION_SNIPER_RANGE )
+		return Localize( "#GEAR_TRACKING_VISION_SNIPER", Localize( GetObitFromDamageSourceID( damageSourceID ) ) )
+
+	return Localize( "#GEAR_TRACKING_VISION_KILLER", Localize( GetObitFromDamageSourceID( damageSourceID ) ) )
+}
+
+int function GetBloodhoundPingCommsAction( entity pingingPlayer, int pingType, entity pingedEnt )
+{
+	switch( pingType )
+	{
+		case ePingType.BLOODHOUND_POI_TRAVELER:
+			return eCommsAction.BLOOHOUND_WARN_TRAVELER
+
+		case ePingType.BLOODHOUND_POI_BATTLE:
+			return eCommsAction.BLOOHO

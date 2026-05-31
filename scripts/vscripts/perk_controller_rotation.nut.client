@@ -1,0 +1,205 @@
+global function Perk_ControllerRotation_Init
+global function Perk_ControllerRotation_IsEnabled
+
+
+
+
+
+global function Perk_ControllerRotation_ReplicatorItemAvailable
+global function Perk_ControllerRotation_CanBeaconSpawnEvac
+
+
+
+global function Perk_ControllerRotation_ServerToClient_SyncData
+
+
+global const string RING_CONSOLE_BLOCKED_TARGET_NAME = "blocked"
+global const string RING_CONSOLE_CLEAR_TARGET_NAME = "clear"
+
+
+struct ZoneBeaconUsage
+{
+	entity beacon
+	int uses
+}
+
+struct
+{
+	bool isEnabled
+	bool isReplicatorItemEnabled
+
+
+	table< int, array< ZoneBeaconUsage > > evacBeacons
+
+} file
+
+#if INTELLIJ_OUTLINE_SECTION_MARKER
+void function _____________INITS___________________________(){}
+#endif
+void function Perk_ControllerRotation_Init()
+{
+	PerkInfo controllerRotation
+
+	controllerRotation.activateCallback = Perk_ControllerRotation_OnActivate
+	controllerRotation.deactivateCallback = Perk_ControllerRotation_OnDeactivate
+	AddCallback_OnSurvivalDeathFieldStageChanged( Perk_ControllerRotation_OnZoneChange )
+
+
+
+	controllerRotation.perkId = ePerkIndex.CONTROLLER_ROTATION
+	Perks_RegisterClassPerk( controllerRotation )
+
+	file.isEnabled = GetCurrentPlaylistVarBool( "perk_controller_rotation_is_enabled", true )
+	if( !Perk_ControllerRotation_IsEnabled() )
+		return
+
+	file.isReplicatorItemEnabled = GetCurrentPlaylistVarBool( "perk_controller_rotation_replicator_item", false )
+
+
+
+
+
+	Remote_RegisterClientFunction( "Perk_ControllerRotation_ServerToClient_SyncData", "entity" )
+
+}
+
+
+void function Perk_ControllerRotation_OnZoneChange( int stage, float nextCircleStartTime )
+{
+	file.evacBeacons.clear()
+}
+
+
+bool function Perk_ControllerRotation_IsEnabled()
+{
+	return file.isEnabled
+}
+
+#if INTELLIJ_OUTLINE_SECTION_MARKER
+void function _____________CALLBACKS___________________________(){}
+#endif
+
+
+
+
+
+
+
+
+
+
+
+void function Perk_ControllerRotation_OnConsoleScanned( entity player, entity beacon )
+{
+	if( !Perk_ControllerRotation_IsEnabled() )
+		return
+
+	if( !IsValid( player ) )
+		return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+}
+
+
+
+void function Perk_ControllerRotation_OnActivate( entity player, string characterName )
+{
+}
+
+void function Perk_ControllerRotation_OnDeactivate( entity player )
+{
+}
+
+
+#if INTELLIJ_OUTLINE_SECTION_MARKER
+void function _____________FUNCTIONS___________________________(){}
+#endif
+
+
+ZoneBeaconUsage function Perk_ControllerRotation_GetBeaconUsage( entity player, entity beacon )
+{
+	int team = player.GetTeam()
+	if( !( team in file.evacBeacons ) )
+		file.evacBeacons[ team ] <- []
+
+	for( int i = 0; i < file.evacBeacons[ team ].len(); i++ )
+	{
+		if( file.evacBeacons[ team ][ i ].beacon == beacon )
+		{
+			return file.evacBeacons[ team ][ i ]
+		}
+	}
+
+	ZoneBeaconUsage newBeacon
+	newBeacon.beacon = beacon
+	newBeacon.uses = 0
+	int index = file.evacBeacons[ team ].len()
+	file.evacBeacons[ team ].append( newBeacon )
+
+	return file.evacBeacons[ team ][ index ]
+}
+
+
+bool function Perk_ControllerRotation_CanBeaconSpawnEvac( entity player, entity beacon )
+{
+	if( !Perk_ControllerRotation_IsEnabled() )
+		return false
+
+	if ( !Perks_DoesPlayerHavePerk( player, ePerkIndex.CONTROLLER_ROTATION ) )
+		return false
+
+	if( !IsValid( player ) || !IsValid( beacon ) )
+		return false
+
+	int team = player.GetTeam()
+	if( !( team in file.evacBeacons ) )
+		return false
+
+	if( beacon.GetTargetName() != RING_CONSOLE_CLEAR_TARGET_NAME )
+		return false
+
+	return Perk_ControllerRotation_GetBeaconUsage( player, beacon ).uses == 1
+}
+
+bool function Perk_ControllerRotation_ReplicatorItemAvailable( entity player )
+{
+	if ( !Perks_DoesPlayerHavePerk( player, ePerkIndex.CONTROLLER_ROTATION ) )
+		return false
+
+	return file.isReplicatorItemEnabled
+}
+
+
+
+void function Perk_ControllerRotation_ServerToClient_SyncData( entity beacon )
+{
+	if( !IsValid( beacon ) )
+		return
+
+	entity player = GetLocalClientPlayer()
+	int team = player.GetTeam()
+	if( !( team in file.evacBeacons ) )
+		file.evacBeacons[ team ] <- []
+
+	ZoneBeaconUsage usage =	Perk_ControllerRotation_GetBeaconUsage( player, beacon )
+	usage.uses += 1
+}
+

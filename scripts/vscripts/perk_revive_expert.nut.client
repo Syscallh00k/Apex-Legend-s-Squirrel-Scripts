@@ -1,0 +1,158 @@
+global function Perk_ReviveExpert_Init
+global function Perk_ReviveExpert_GetExtraReviveHealth
+global function Perk_ReviveExpert_GetExtraReviveShield
+
+
+
+
+
+global function Perk_ReviveExpert_PlayerHasBetterRevives
+
+
+struct
+{
+	int extraReviveHealth = 80
+	int extraReviveShield = 0
+	float reviveHealTime = 14.0
+	float ringRegenCooldown = 120.0
+}tunings
+
+
+
+
+
+
+
+
+void function Perk_ReviveExpert_Init()
+{
+	PerkInfo reviveExpert
+	reviveExpert.perkId          = ePerkIndex.REVIVE_EXPERT
+	Perks_RegisterClassPerk( reviveExpert )
+
+
+		AddCallback_OnPassiveChanged( ePassives.PAS_UPGRADE_SUPPORT_PERKS, OnPassiveChanged_SupportPerks )
+
+
+
+
+
+
+
+
+
+
+	if( !Perk_ReviveExpert_IsEnabled() )
+		return
+
+	tunings.extraReviveHealth = GetCurrentPlaylistVarInt( "perk_revive_expert_extra_health", tunings.extraReviveHealth )
+	tunings.extraReviveShield = GetCurrentPlaylistVarInt( "perk_revive_expert_extra_shield", tunings.extraReviveShield )
+	tunings.reviveHealTime = GetCurrentPlaylistVarFloat( "perk_revive_expert_heal_time", tunings.reviveHealTime )
+	tunings.ringRegenCooldown = GetCurrentPlaylistVarFloat( "perk_revive_expert_ring_regen_cooldown", tunings.ringRegenCooldown )
+}
+
+
+void function OnPassiveChanged_SupportPerks( entity player, int passive, bool didHave, bool nowHas )
+{
+	if( nowHas )
+	{
+		Perks_AddPerk( player, ePerkIndex.REVIVE_EXPERT )
+	}
+	if( didHave )
+	{
+		if( Perks_DoesPlayerHavePerk( player, ePerkIndex.REVIVE_EXPERT ) )
+		{
+			Perks_RemovePerk( player, ePerkIndex.REVIVE_EXPERT )
+		}
+	}
+}
+
+bool function Perk_ReviveExpert_PlayerHasBetterRevives( entity player )
+{
+	if( !Perk_ReviveExpert_IsEnabled() )
+		return false
+
+	if( !IsValid( player ) )
+		return false
+
+	return Perks_DoesPlayerHavePerk( player, ePerkIndex.REVIVE_EXPERT )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+bool function Perk_ReviveExpert_IsEnabled()
+{
+	return Perks_S23UpdateEnabled() && GetCurrentPlaylistVarBool( "perk_revive_expert_is_enabled", true )
+}
+
+int function Perk_ReviveExpert_GetExtraReviveHealth()
+{
+	if( !Perk_ReviveExpert_IsEnabled() )
+		return 0
+
+	return tunings.extraReviveHealth
+}
+
+int function Perk_ReviveExpert_GetExtraReviveShield()
+{
+	if( !Perk_ReviveExpert_IsEnabled() )
+		return 0
+
+	return tunings.extraReviveShield
+}

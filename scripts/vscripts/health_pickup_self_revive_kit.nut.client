@@ -1,0 +1,180 @@
+
+global function Pickup_SelfRevive_Kit_Init
+global function SelfRevive_Kit_PlayerHasSelfReviveInInventory
+global function SelfRevive_Kit_PlayerHasAnySelfReviveAvailable
+global function SelfRevive_Kit_GetSelfResTime
+global function SelfRevive_Kit_HasAutoPickup
+global function SelfRevive_Kit_EnabledForMode
+
+
+
+
+global function SelfRevive_OnPassiveChanged
+
+
+global const string SELFREVIVE_KIT_REF = "health_pickup_self_revive_kit"
+const float SELF_REVIVE_TIME = 3.0
+const string SIGNAL_SELF_REVIVE_REMINDER = "SIGNAL_SELF_REVIVE_REMINDER"
+const float SELF_REVIVE_REMINDER_TIME = 5.0
+
+
+void function Pickup_SelfRevive_Kit_Init()
+{
+	RegisterNetworkedVariable( "hasSelfReviveKit", SNDC_PLAYER_GLOBAL, SNVT_BOOL, SelfRevive_Kit_EnabledForMode() )
+
+	if ( !SelfRevive_Kit_EnabledForMode() )
+		return
+
+	RegisterCustomItemPickupAction( SELFREVIVE_KIT_REF, SelfRevive_Kit_ItemPickup )
+
+
+
+
+
+
+
+
+}
+bool function SelfRevive_Kit_ItemPickup( entity pickup, entity player, int pickupFlags, entity deathBox, int ornull desiredCount, LootData data )
+{
+
+
+
+
+
+	return PickupBackpackItem( pickup, player, pickupFlags, deathBox, desiredCount )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+bool function SelfRevive_Kit_PlayerHasSelfReviveInInventory( entity player )
+{
+	if ( !SelfRevive_Kit_EnabledForMode() )
+		return false
+
+	if ( !IsValidPlayer( player ) )
+		return false
+
+	if ( !SURVIVAL_Loot_IsRefValid( SELFREVIVE_KIT_REF ) )
+		return false
+
+	return SURVIVAL_CountItemsInInventory( player, SELFREVIVE_KIT_REF ) > 0
+}
+
+bool function SelfRevive_Kit_PlayerHasAnySelfReviveAvailable( entity player )
+{
+	if ( !IsValidPlayer( player ) )
+		return false
+
+	return SelfRevive_Kit_PlayerHasSelfReviveInInventory( player ) || player.GetPlayerNetBool( "hasSelfReviveKit" ) || PlayerHasPassive( player, ePassives.PAS_SELF_REVIVE )
+}
+
+
+void function SelfRevive_OnPassiveChanged( entity player, int passive, bool didHave, bool nowHas )
+{
+	if ( passive != ePassives.PAS_SELF_REVIVE )
+		return
+
+	entity localViewPlayer = GetLocalViewPlayer()
+	if ( localViewPlayer.GetTeam() == player.GetTeam() )
+	{
+		RefreshUnitframesForPlayer( localViewPlayer )
+	}
+}
+
+
+float function SelfRevive_Kit_GetSelfResTime()
+{
+	return GetCurrentPlaylistVarFloat( "self_revive_kit_revive_time", SELF_REVIVE_TIME )
+}
+
+bool function SelfRevive_Kit_HasAutoPickup()
+{
+	return GetCurrentPlaylistVarBool( "self_revive_kit_has_auto_pickup", false )
+}
+
+bool function SelfRevive_Kit_EnabledForMode()
+{
+	return GetCurrentPlaylistVarBool( "self_revive_kit_enabled", false )
+}
+
+

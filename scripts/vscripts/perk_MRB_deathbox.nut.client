@@ -1,0 +1,415 @@
+global function Perk_MRBDeathbox_Init
+
+global const string PICKING_UP_MRB_DEATHBOX_ANIM 	= "ptpov_burn_card_and_respawn_activate_seq_gladcard"
+const string MAX_USES_ENABLED_PLAYLIST_VAR		 	= "mrb_deathbox_max_uses_enabled"
+const string MAX_USES_AMOUNT_PLAYLIST_VAR			= "mrb_deathbox_max_uses_amount"
+
+const bool MAX_USES_EANBLED_DEFAULT					= false
+const int MAX_USES_AMOUNT_DEFAULT					= 1
+
+
+
+
+
+
+global function Perk_MRBDeathbox_IsEnabled
+global function Perk_MRBDeathbox_AutoPickup_IsEnabled
+global function Perk_MRBDeathbox_DoesDeathboxHaveMRB
+
+
+global function ServerToClient_SyncUsedMRBDeathbox
+
+
+struct MRBDeathboxUse
+{
+	entity support,
+	int useCount
+}
+
+struct
+{
+	table< entity, array<entity> > 			playerToDeathbox 	
+	table< entity, entity > 				playerToMRB 		
+	table< entity, array<MRBDeathboxUse > >	allyToSupport		
+	array< int >							validTeamsAtStart
+}file
+
+struct
+{
+	bool maxUsesEnabled
+	int maxUsesAmount
+}tuning
+
+void function Perk_MRBDeathbox_Init()
+{
+	PerkInfo MRBPerk
+	MRBPerk.perkId          = ePerkIndex.MRB_DEATHBOX
+
+	if( Perk_MRBDeathbox_IsEnabled() )
+	{
+		MRBPerk.activateCallback = Perk_MRBDeathbox_OnActivate
+		MRBPerk.deactivateCallback = Perk_MRBDeathbox_OnDeactivate
+	}
+
+	Perks_RegisterClassPerk( MRBPerk )
+
+	if( !Perk_MRBDeathbox_IsEnabled() )
+		return
+
+
+
+
+
+
+
+
+
+	AddCallback_OnPassiveChanged( ePassives.PAS_UPGRADE_SUPPORT_PERKS_PLUS, Perk_MRBDeathbox_OnPassiveChanged )
+	AddCallback_GameStateEnter( eGameState.Playing, Perk_MRBDeathbox_OnGameStart )
+
+	tuning.maxUsesEnabled = GetCurrentPlaylistVarBool( MAX_USES_ENABLED_PLAYLIST_VAR, MAX_USES_EANBLED_DEFAULT )
+	tuning.maxUsesAmount = GetCurrentPlaylistVarInt( MAX_USES_AMOUNT_PLAYLIST_VAR, MAX_USES_AMOUNT_DEFAULT )
+	Remote_RegisterClientFunction( "ServerToClient_SyncUsedMRBDeathbox", "int", 0, INT_MAX )
+}
+
+
+bool function Perk_MRBDeathbox_IsEnabled()
+{
+	return GetCurrentPlaylistVarBool( "perk_mrb_deathbox_is_enabled", true )
+}
+
+bool function Perk_MRBDeathbox_AutoPickup_IsEnabled()
+{
+	return GetCurrentPlaylistVarBool( "perk_mrb_deathbox_autopickup_is_enabled", true ) && Perk_MRBDeathbox_IsEnabled()
+}
+
+
+void function Perk_MRBDeathbox_OnActivate( entity player, string characterName )
+{
+
+
+
+
+
+	if( ! ( player in file.playerToDeathbox ) )
+		file.playerToDeathbox[ player ] <- []
+
+}
+
+void function Perk_MRBDeathbox_OnDeactivate( entity player )
+{
+
+
+
+
+
+	if( player in file.playerToDeathbox )
+		delete file.playerToDeathbox[ player ]
+
+}
+
+
+
+void function Perk_MRBDeathbox_OnPassiveChanged( entity player, int passive, bool didHave, bool nowHas )
+{
+	if( nowHas )
+	{
+		int team = player.GetTeam()
+		if( file.validTeamsAtStart.contains( team ) )
+			return
+
+		file.validTeamsAtStart.append( team )
+	}
+}
+
+
+
+void function Perk_MRBDeathbox_OnGameStart()
+{
+	array< entity > allPlayers = GetPlayerArray_Alive()
+	foreach( player in allPlayers )
+	{
+		int team = player.GetTeam()
+		if( file.validTeamsAtStart.contains( team ) )
+			continue
+
+		if( !Perks_DoesPlayerHavePerk( player, ePerkIndex.MRB_DEATHBOX ) )
+			continue
+
+		file.validTeamsAtStart.append( team )
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+bool function Perk_MRBDeathbox_DoesTeamHavePerk( entity player )
+{
+	int team = player.GetTeam()
+	foreach ( ally in GetPlayerArrayOfTeam( team ) )
+	{
+		if ( Perks_DoesPlayerHavePerk( ally, ePerkIndex.MRB_DEATHBOX ) )
+			return true
+	}
+
+	if( file.validTeamsAtStart.contains( team ) )
+		return true
+
+	return false
+}
+
+bool function Perk_MRBDeathbox_DoesDeathboxHaveMRB( entity deathboxEnt, entity player )
+{
+	if( SURVIVAL_Loot_IsRefDisabled( MRB_WEAPON_REF_NAME ) )
+		return false
+
+	entity owner = deathboxEnt.GetOwner()
+	if( !IsValid( owner ) )
+		return false
+
+	if( owner == player )
+		return false
+
+	if( owner.GetTeam() != player.GetTeam() )
+		return false
+
+	if( !Perks_DoesPlayerHavePerk( player, ePerkIndex.MRB_DEATHBOX ) )
+		return false
+
+	if( RingLethality_Is_Player_InRingOutWarning( player ) )
+		return false
+
+	if( deathboxEnt.GetNetworkedClassName() == "prop_death_box" )
+	{
+		if( player in file.playerToDeathbox && file.playerToDeathbox[player].contains( deathboxEnt ) )
+			return false
+
+		if( tuning.maxUsesEnabled && ( owner in file.allyToSupport ) )
+		{
+			foreach( event in file.allyToSupport[ owner ] )
+			{
+				if( !IsValid( event.support ) )
+					continue
+
+				if( event.support != player )
+					continue
+
+				if( event.useCount >= tuning.maxUsesAmount )
+					return false
+				else
+					break
+			}
+		}
+
+		return true
+	}
+
+	return false
+}
+
+void function Perk_MRBDeathbox_PickupMRB( entity support, entity deathBox  )
+{
+	if( !IsValid( deathBox ) )
+		return
+
+	file.playerToDeathbox[ support ].append( deathBox )
+
+	if( !tuning.maxUsesEnabled )
+		return
+
+	entity owner = deathBox.GetOwner()
+	if( !IsValid( owner ) )
+		return
+
+	if( !(owner in file.allyToSupport ) )
+		file.allyToSupport[ owner ] <- []
+
+	foreach( event in file.allyToSupport[ owner ] )
+	{
+		if( !IsValid( event.support ) )
+			continue
+
+		if( event.support == support )
+		{
+			event.useCount += 1
+			return
+		}
+	}
+
+	MRBDeathboxUse use
+	use.support = support
+	use.useCount = 1
+	file.allyToSupport[ owner ].append( use )
+}
+
+
+
+
+void function ServerToClient_SyncUsedMRBDeathbox( EncodedEHandle deathBoxEEH )
+{
+	entity localPlayer = GetLocalViewPlayer()
+	if( !IsValid( localPlayer ) )
+		return
+
+	entity deathBox = FromEHI( deathBoxEEH )
+
+	if( !IsValid( deathBox ) )
+		return
+
+	if( ! (localPlayer in file.playerToDeathbox ) )
+		file.playerToDeathbox[ localPlayer ] <- []
+
+	Perk_MRBDeathbox_PickupMRB( localPlayer, deathBox )
+}
+

@@ -1,0 +1,553 @@
+global function Perk_ShieldBreaker_Init
+
+
+global function ServerToClient_ShowVictimHealthBar
+global function ServerToClient_RetriggerFX
+global function Perk_ShieldBreaker_ShouldShowTarget
+
+
+
+
+
+
+
+
+
+
+
+
+
+const string PERK_IS_ENABLED					= "perk_shield_breaker_is_enabled"
+const string SHIELD_CRACK_IS_ENABLED			= "perk_shield_breaker_crack_enabled"
+const string SHIELD_CRACK_MOVESPEED_ENABLED		= "perk_shield_breaker_move_speed_enabled"
+const string SHIELD_CRACK_RELOADSPEED_ENABLED	= "perk_shield_breaker_reload_speed_enabled"
+const string SHIELD_CRACK_HIGHLIGHT_ENABLED		= "perk_shield_breaker_highlight_enabled"
+const string SHIELD_CRACK_HEALTHBAR_ENABLED		= "perk_shield_breaker_healthbar_enabled"
+const string SPEED_BOOST_AMOUNT_VAR				= "perk_shield_breaker_move_speed_amount"
+const string SPEED_BOOST_DURATION_VAR			= "perk_shield_breaker_move_speed_duration"
+const string HIGHLIGHT_DURATION_VAR				= "perk_shield_breaker_highlight_duration"
+const string HEALTHBAR_DURATION_VAR				= "perk_shield_breaker_healthbar_duration"
+const string ASSIST_DURATION_VAR				= "perk_shield_breaker_reset_duration"
+const string SPEED_BOOST_FX_DEBOUNCE_VAR		= "perk_shield_breaker_fx_debounce"
+
+
+const string SHIELD_BREAKER_ACTIVE_MOD			= "auto_loader"
+const float SPEED_BOOST_AMOUNT_VALUE			= 0.2 
+const float SPEED_BOOST_DURATION_VALUE			= 4.0
+const float HIGHLIGHT_DURATION_VALUE			= 2.0
+const float HEALTHBAR_DURATION_VALUE			= 3.0
+const float ASSIST_DURATION_VALUE				= 3.0
+const float SPEED_BOOST_FX_DEBOUNCE_VALUE		= 1.0
+
+
+const asset FX_SPEED_BOOST_HUD					= $"P_cPerks_assault_bSurge"
+global const string SOUND_SPEED_BOOST_START		= "Assault_Perk_ArmedAndDangerous_LP_1P"
+
+
+const string STOP_HEALTH_BAR_SIGNAL				= "explosive_expert_stop_health_bar"
+const string SHIELD_BREAKER_TIMEOUT_SIGNAL		= "shield_breaker_timeout_signal"
+const string SHIELD_BREAKER_REMOVE_MOD_SIGNAL	= "shield_breaker_remove_mod_signal"
+
+struct
+{
+
+
+
+
+		float fxDebounce = 0.0
+		int fxHandleSpeedBoost
+		var shieldBreakerRui
+
+}file
+
+struct
+{
+	float speedBoostAmount		= SPEED_BOOST_AMOUNT_VALUE
+	float speedBoostDuration	= SPEED_BOOST_DURATION_VALUE
+	float highlightDuration		= HIGHLIGHT_DURATION_VALUE
+	float healthbarDuration		= HEALTHBAR_DURATION_VALUE
+	float assistDuration		= ASSIST_DURATION_VALUE
+	float fxDebounce			= SPEED_BOOST_FX_DEBOUNCE_VALUE
+}tuning
+
+void function Perk_ShieldBreaker_Init()
+{
+	PerkInfo ShieldBreakerPerk
+	ShieldBreakerPerk.perkId = ePerkIndex.SHIELD_BREAKER
+	Perks_RegisterClassPerk( ShieldBreakerPerk )
+
+	if( !Perk_ShieldBreaker_IsEnabled() )
+		return
+
+	if( Perk_ShieldBreaker_OnCrack_IsEnabled() )
+	{
+
+
+
+
+			StatusEffect_RegisterEnabledCallback( eStatusEffect.perk_shield_breaker_assault, Perk_ShieldBreaker_OnStatusEnabled_Assault )
+			StatusEffect_RegisterEnabledCallback( eStatusEffect.perk_shield_breaker_victim, Perk_ShieldBreaker_OnStatusEnabled_Victim )
+			StatusEffect_RegisterDisabledCallback( eStatusEffect.perk_shield_breaker_assault, Perk_ShieldBreaker_OnStatusDisabled_Assault )
+			StatusEffect_RegisterDisabledCallback( eStatusEffect.perk_shield_breaker_victim, Perk_ShieldBreaker_OnStatusDisabled_Victim )
+
+
+		Remote_RegisterClientFunction( "ServerToClient_ShowVictimHealthBar", "entity" )
+		Remote_RegisterClientFunction( "ServerToClient_RetriggerFX" )
+
+
+			PrecacheParticleSystem( FX_SPEED_BOOST_HUD )
+
+
+		RegisterSignal( SHIELD_BREAKER_TIMEOUT_SIGNAL )
+		RegisterSignal( SHIELD_BREAKER_REMOVE_MOD_SIGNAL )
+		RegisterSignal( STOP_HEALTH_BAR_SIGNAL )
+
+		tuning.speedBoostAmount 	= GetCurrentPlaylistVarFloat( SPEED_BOOST_AMOUNT_VAR, SPEED_BOOST_AMOUNT_VALUE ) * 0.5 
+		tuning.speedBoostDuration	= GetCurrentPlaylistVarFloat( SPEED_BOOST_DURATION_VAR, SPEED_BOOST_DURATION_VALUE )
+		tuning.highlightDuration	= GetCurrentPlaylistVarFloat( HIGHLIGHT_DURATION_VAR, HIGHLIGHT_DURATION_VALUE )
+		tuning.healthbarDuration	= GetCurrentPlaylistVarFloat( HEALTHBAR_DURATION_VAR, HEALTHBAR_DURATION_VALUE )
+		tuning.assistDuration		= GetCurrentPlaylistVarFloat( ASSIST_DURATION_VAR, ASSIST_DURATION_VALUE )
+		tuning.fxDebounce			= GetCurrentPlaylistVarFloat( SPEED_BOOST_FX_DEBOUNCE_VAR, SPEED_BOOST_FX_DEBOUNCE_VALUE )
+	}
+}
+
+bool function Perk_ShieldBreaker_IsEnabled()
+{
+	return Perks_AssaultClassUpdateEnabled() && GetCurrentPlaylistVarBool( PERK_IS_ENABLED, true )
+}
+bool function Perk_ShieldBreaker_OnCrack_IsEnabled()
+{
+	return Perk_ShieldBreaker_IsEnabled() && GetCurrentPlaylistVarBool( SHIELD_CRACK_IS_ENABLED, true )
+}
+bool function Perk_ShieldBreaker_MoveSpeed_IsEnabled()
+{
+	return Perk_ShieldBreaker_OnCrack_IsEnabled() && GetCurrentPlaylistVarBool( SHIELD_CRACK_MOVESPEED_ENABLED, true )
+}
+bool function Perk_ShieldBreaker_ReloadSpeed_IsEnabled()
+{
+	return Perk_ShieldBreaker_OnCrack_IsEnabled() && GetCurrentPlaylistVarBool( SHIELD_CRACK_RELOADSPEED_ENABLED, true )
+}
+bool function Perk_ShieldBreaker_Highlight_IsEnabled()
+{
+	return Perk_ShieldBreaker_OnCrack_IsEnabled() && GetCurrentPlaylistVarBool( SHIELD_CRACK_HIGHLIGHT_ENABLED, false )
+}
+bool function Perk_ShieldBreaker_Healthbar_IsEnabled()
+{
+	return Perk_ShieldBreaker_OnCrack_IsEnabled() && GetCurrentPlaylistVarBool( SHIELD_CRACK_HEALTHBAR_ENABLED, true )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function Perk_ShieldBreaker_OnStatusEnabled_Assault( entity player, int statusEffect, bool actuallyChanged )
+{
+	if( !Perk_ShieldBreaker_OnCrack_IsEnabled() )
+		return
+
+	if( !IsValid( player ) || !player.IsPlayer() )
+		return
+
+	if ( !IsValid( player.GetCockpit() ) )
+		return
+
+	if ( player != GetLocalViewPlayer() )
+		return
+
+	if ( Perk_ShieldBreaker_ReloadSpeed_IsEnabled() )
+	{
+		thread Perk_ShieldBreaker_DisplayHintRUI( player )
+	}
+
+	if ( Perk_ShieldBreaker_MoveSpeed_IsEnabled() )
+	{
+		file.fxDebounce = Time() + tuning.fxDebounce
+
+		if ( EffectDoesExist( file.fxHandleSpeedBoost ) )
+			EffectStop( file.fxHandleSpeedBoost, false, true )
+
+		int fxHandle = StartParticleEffectOnEntity( player.GetCockpit(), GetParticleSystemIndex( FX_SPEED_BOOST_HUD ), FX_PATTACH_ABSORIGIN_FOLLOW, ATTACHMENTID_INVALID )
+		EffectSetIsWithCockpit( fxHandle, true )
+		file.fxHandleSpeedBoost = fxHandle
+		Perk_ShieldBreaker_CreateRui( player )
+	}
+	EmitSoundOnEntity( player, SOUND_SPEED_BOOST_START )
+}
+
+void function Perk_ShieldBreaker_OnStatusDisabled_Assault( entity player, int statusEffect, bool actuallyChanged )
+{
+	if( !Perk_ShieldBreaker_OnCrack_IsEnabled() )
+		return
+
+	if( !IsValid( player ) || !player.IsPlayer() )
+		return
+
+	if ( player != GetLocalViewPlayer() )
+		return
+
+	Perk_ShieldBreaker_DisableEffects( player )
+}
+
+void function Perk_ShieldBreaker_DisableEffects( entity player )
+{
+	file.fxDebounce = 0.0
+
+	if ( EffectDoesExist( file.fxHandleSpeedBoost ) )
+		EffectStop( file.fxHandleSpeedBoost, false, true )
+
+	StopSoundOnEntity( player, SOUND_SPEED_BOOST_START )
+	Perk_ShieldBreaker_DestroyRui( player )
+
+	Signal( player, SHIELD_BREAKER_TIMEOUT_SIGNAL )
+	Signal( player, SHIELD_BREAKER_REMOVE_MOD_SIGNAL )
+}
+
+void function Perk_ShieldBreaker_CreateRui( entity player )
+{
+	if ( file.shieldBreakerRui != null )
+		return
+
+	file.shieldBreakerRui = CreateCockpitRui( $"ui/buffs_hud.rpak" )
+	RuiSetFloat( file.shieldBreakerRui, "buff0StartTime", Time() )
+	RuiSetFloat( file.shieldBreakerRui, "buff0EffectDuration", SPEED_BOOST_DURATION_VALUE )
+	RuiSetAsset( file.shieldBreakerRui, "buff0Icon", $"rui/hud/gametype_icons/survival/perk_assault_battle_surge" )
+	RuiSetFloat2( file.shieldBreakerRui, "buff0IconScale", < 0.5, 0.5, 1.0 > )
+}
+
+void function Perk_ShieldBreaker_DestroyRui( entity player )
+{
+	if ( file.shieldBreakerRui != null )
+	{
+		RuiDestroyIfAlive( file.shieldBreakerRui )
+		file.shieldBreakerRui = null
+	}
+}
+
+void function Perk_ShieldBreaker_OnStatusEnabled_Victim( entity victim, int statusEffect, bool actuallyChanged )
+{
+	ManageHighlightEntity( victim )
+}
+
+void function Perk_ShieldBreaker_OnStatusDisabled_Victim( entity victim, int statusEffect, bool actuallyChanged )
+{
+	ManageHighlightEntity( victim )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+bool function Perk_ShieldBreaker_IsActive( entity player )
+{
+	if( !IsValid( player ) )
+		return false
+
+	entity weapon = player.GetActiveWeapon( eActiveInventorySlot.mainHand )
+	if( !IsValid( weapon ) )
+		return false
+
+	bool isActive = Perk_ShieldBreaker_IsEnabled() && weapon.HasMod( SHIELD_BREAKER_ACTIVE_MOD ) && Perks_DoesPlayerHavePerk( player, ePerkIndex.SHIELD_BREAKER )
+	return isActive
+}
+
+
+
+void function Perk_ShieldBreaker_DisplayHintRUI( entity player )
+{
+	EndSignal( player, SHIELD_BREAKER_REMOVE_MOD_SIGNAL )
+	EndSignal( player, "OnDestroy" )
+	EndSignal( player, "OnDeath" )
+
+	var crosshairRui = CreateCockpitPostFXRui( $"ui/ammo_status_hint.rpak", HUD_Z_BASE )
+	var reloadRui = CreateCockpitPostFXRui( $"ui/ammo_status_hint.rpak", HUD_Z_BASE )
+	RuiSetBool( reloadRui, "isVisible", false )
+	RuiSetBool( reloadRui, "canShowReloadHint", true )
+	RuiSetFloat( reloadRui, "lowAmmoFrac", 1.0 )
+	RuiSetFloat( reloadRui, "maxClipAmmo", 30.0 )
+	RuiSetFloat( reloadRui, "remainingAmmoFrac", 30.0 )
+	RuiSetFloat( reloadRui, "minAmmoToFireFrac", 0.0 )
+	RuiSetBool( reloadRui, "showHopupReloadIcon", true )
+
+	const float RELOAD_HINT_DELAY = 2.0
+	float hintDelayStartTime = Time()
+
+	OnThreadEnd(
+		function() : ( crosshairRui, reloadRui )
+		{
+			if ( crosshairRui )
+				RuiDestroyIfAlive( crosshairRui )
+			if ( reloadRui )
+				RuiDestroyIfAlive( reloadRui )
+
+			var ammoStatus = GetAmmoStatusHintRui()
+			RuiSetBool( ammoStatus, "isVisible", true )
+		}
+	)
+
+	while( IsValid( player ) )
+	{
+		var ammoStatus = GetAmmoStatusHintRui()
+		entity weapon = player.GetActiveWeapon( eActiveInventorySlot.mainHand )
+		bool isReloading = false
+		bool isReloadable = false
+		if( IsValid( weapon ) )
+		{
+			isReloading = weapon.IsReloading()
+			isReloadable = weapon.UsesClipsForAmmo() && !IsMeleeWeapon( weapon ) && weapon.GetWeaponBaseClassName() != "mp_weapon_throwingknife" && weapon.GetWeaponPrimaryClipCount() < weapon.GetWeaponPrimaryClipCountMax()
+		}
+
+		if( isReloading )
+		{
+			RuiSetBool( crosshairRui, "showFastReloadText", true )
+			RuiSetBool( crosshairRui, "showHopupReloadBG", true )
+			RuiSetBool( reloadRui, "isVisible", false )
+			RuiSetBool( ammoStatus, "isVisible", false )
+			RuiSetBool( reloadRui, "canShowReloadHint", false )
+		}
+		else if( !isReloading && isReloadable && Time() >= hintDelayStartTime + RELOAD_HINT_DELAY )
+		{
+			RuiSetBool( crosshairRui, "showFastReloadText", false )
+			RuiSetBool( crosshairRui, "showHopupReloadBG", false )
+			RuiSetBool( reloadRui, "isVisible", true )
+			RuiSetBool( ammoStatus, "isVisible", false )
+		}
+		else if( Time() < hintDelayStartTime + RELOAD_HINT_DELAY )
+		{
+			RuiSetBool( crosshairRui, "showFastReloadText", false )
+			RuiSetBool( crosshairRui, "showHopupReloadBG", false )
+			RuiSetBool( reloadRui, "isVisible", false )
+			RuiSetBool( ammoStatus, "isVisible", true )
+		}
+
+		WaitFrame()
+	}
+}
+
+bool function Perk_ShieldBreaker_ShouldShowTarget( entity victim )
+{
+	if ( !StatusEffect_HasSeverity( victim, eStatusEffect.perk_shield_breaker_victim ) )
+		return false
+
+	return true
+}
+
+
+void function Perk_ShieldBreaker_HealthBarThink( entity attacker, entity victim )
+{
+	if( !IsValid( victim ) || !victim.IsPlayer() )
+		return
+
+	EndSignal( victim, "OnDeath" )
+	EndSignal( victim, "OnDestroy" )
+	Signal( victim, STOP_HEALTH_BAR_SIGNAL )
+	EndSignal( victim, STOP_HEALTH_BAR_SIGNAL )
+
+	if ( !DisplayEnemyHealthBar() )
+		return
+
+	
+	if ( GetCurrentPlaylistVarBool( "smoke_blocks_shield_breaker_health_bar", true ) )
+	{
+		vector pos = victim.EyePosition()
+		vector playerEyePos = attacker.EyePosition()
+		TraceResults tr = TraceLine( playerEyePos, pos, [attacker, victim], TRACE_MASK_BLOCKLOS, TRACE_COLLISION_GROUP_NONE )
+
+		if ( (tr.startSolid || tr.fraction < 1.0) && IsValid( tr.hitEnt ) && tr.hitEnt.GetScriptName() == BANGALORE_SMOKESCREEN_SCRIPTNAME )
+			return
+	}
+
+
+	OnThreadEnd(
+		function() : ( attacker, victim )
+		{
+			ReconScan_RemoveHudForTarget( attacker, victim, eShowHealthbarMode.ALWAYS )
+		}
+	)
+
+	var rui = ReconScan_ShowHudForTarget( attacker, victim, eShowHealthbarMode.ALWAYS, false, $"ui/recon_scan_target.rpak", null )
+
+	float endTime = Time() + tuning.healthbarDuration
+	while ( Time() < endTime )
+	{
+		if ( IsValid( victim ) )
+		{
+			if( ShouldHideHealthForPlayer( victim ) )
+			{
+				RuiSetBool( rui, "isVisible", false )
+				endTime = Time()
+			}
+		}
+		WaitFrame()
+	}
+}
+
+void function ServerToClient_ShowVictimHealthBar( entity victim )
+{
+	entity attacker = GetLocalViewPlayer()
+	thread Perk_ShieldBreaker_HealthBarThink( attacker, victim )
+}
+
+void function ServerToClient_RetriggerFX()
+{
+	entity attacker = GetLocalViewPlayer()
+
+	if( Time() > file.fxDebounce )
+		Perk_ShieldBreaker_OnStatusEnabled_Assault( attacker, 0, false )
+
+	if ( file.shieldBreakerRui != null )
+		RuiSetFloat( file.shieldBreakerRui, "buff0StartTime", Time() )
+}
+

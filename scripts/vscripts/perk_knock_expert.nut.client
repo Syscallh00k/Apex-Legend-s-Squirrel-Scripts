@@ -1,0 +1,390 @@
+global function Perk_KnockExpert_Init
+
+
+
+
+
+const bool ADRENALINE_HAS_FAST_RELOAD 				= false
+const float ADRENALINE_BOOST_DURATION 				= 5.0
+
+const float KNOCK_EXPERT_EXTRA_TAC_DURATION 		= 30.0
+const float KNOCK_EXPERT_EXTRA_TAC_ASSIST_WINDOW 	= 2.5
+
+const float KNOCK_EXPERT_HP_REGEN_RATE_PER_SEC 		= 10.0
+const float KNOCK_EXPERT_SHIELD_REGEN_RATE_PER_SEC 	= 8.33
+const int KNOCK_EXPERT_HP_REGEN_MAX 				= 50
+const float KNOCK_EXPERT_HP_REGEN_DURATION 			= 30.0
+
+const string PERK_KNOCK_EXPERT_EXTRA_CHARGE_MOD 	= "perk_knock_expert_extra_charge"
+const string PERK_KNOCK_EXPERT_EXTRA_CHARGE_MOD_2 	= "perk_knock_expert_extra_charge_2"
+
+const string SIGNAL_ULT_FLASH 						= "Signal_UltimateAccelerator_UltFlash"
+const string SIGNAL_TAC_FLASH 						= "Signal_UltimateAccelerator_TacFlash"
+
+
+
+
+
+
+
+
+
+
+
+
+global function ServerToClient_KnockExpert_UpdateRui
+
+
+struct
+{
+
+
+
+
+
+
+
+
+	var knockExpertRui
+
+} file
+
+
+
+struct{
+		bool knockSpeedHasFastReload	= ADRENALINE_HAS_FAST_RELOAD
+		float knockSpeedBoostDuration	= ADRENALINE_BOOST_DURATION
+		float extraTacDuration 			= KNOCK_EXPERT_EXTRA_TAC_DURATION
+		float extraTacAssistWindow		= KNOCK_EXPERT_EXTRA_TAC_ASSIST_WINDOW
+
+		float maxAssistTimeGap			= MAX_ASSIST_TIME_GAP
+
+		bool cancelOnDamage				= true
+		bool allowShieldRegen			= true
+		bool hasRegenMax				= true
+
+		float healRateShieldPerSecond 	[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/perk_death_box_insight.nut.client
+[dump] scripts/vscripts/perk_death_box_insight.nut.client (16160 bytes)
+global function Perk_DeathBoxInsight_Init
+
+
+
+global function Perk_DeathBoxInsight_IsDeathBoxInsightEnabled
+global function DeathBoxInsight_UpdateLookatPing
+global function DeathBoxInsight_GetCurrentPingInfo
+
+global struct DeathBoxPingInfo
+{
+	entity deathbox
+	entity loot
+}
+
+struct
+{
+	table<int, bool functionref( entity, entity, LootData )> passiveToShouldSeeFunction
+	var deathboxRui
+	entity currentLookat
+	float lookatAlpha
+	int currentLookatIndex
+	int currentLookatLootIndex
+	int numSlotsInCurrentLookat
+	bool isActive
+}file
+
+const float MAX_VISIBLE_DISTANCE = 25 * METERS_TO_INCHES
+const float MAX_PING_DISTANCE = 14 * METERS_TO_INCHES
+const float ICON_UP_OFFSET = 40.0
+const float ALPHA_LERP_MULTIPLIER = 5.0
+const float PING_DEGREES = 3
+const float LOOKAT_DEGREES = 30
+const int MAX_DEATHBOX_ICONS = 3
+
+
+void function Perk_DeathBoxInsight_Init()
+{
+
+		if ( !Perk_DeathBoxInsight_IsDeathBoxInsightEnabled() )
+			return
+
+		RegisterSignal( "DeathBoxInsightPassiveChanged" )
+
+		AddShouldSeeEntityCallbackForPassive( ePassives.PAS_AMMUVISION, Ammuvision_ShouldSeeLoot )
+		AddShouldSeeEntityCallbackForPassive( ePassives.PAS_HEALING_ITEM_VISION, HealingItemVision_ShouldSeeLoot )
+		AddShouldSeeEntityCallbackForPassive( ePassives.PAS_ORDNANCE_HIGHLIGHT, OrdnanceHighlight_ShouldSeeLoot )
+		AddShouldSeeEntityCallbackForPassive( ePassives.PAS_ULTACCEL_HIGHLIGHT, UltAccelHighlight_ShouldSeeLoot )
+		AddShouldSeeEntityCallbackForPassive( ePassives.PAS_MRB_VISION, MobileRespawnBeaconVision_ShouldSeeLoot )
+
+
+
+
+
+		AddCallback_OnPassiveChanged( ePassives.PAS_AMMUVISION, OnPassiveChanged )
+		AddCallback_OnPassiveChanged( ePassives.PAS_HEALING_ITEM_VISION, OnPassiveChanged )
+		AddCallback_OnPassiveChanged( ePassives.PAS_ORDNANCE_HIGHLIGHT, OnPassiveChanged )
+		AddCallback_OnPassiveChanged( ePassives.PAS_DEATHBOX_BATTERY_COUNT, OnPassiveChanged )
+		AddCallback_OnPassiveChanged( ePassives.PAS_ULTACCEL_HIGHLIGHT, OnPassiveChanged )
+		AddCallback_OnPassiveChanged( ePassives.PAS_MRB_VISION, OnPassiveChanged )
+
+
+
+
+
+
+
+	PerkInfo ammuvision
+	ammuvision.perkId = ePerkIndex.AMMUVISION
+
+	if ( Ammuvision_ClassPerk_Enabled() )
+	{
+		ammuvision.activateCallback = OnActivate_Ammuvision
+		ammuvision.deactivateCallback = OnDeactivate_Ammuvision
+	}
+
+	Perks_RegisterClassPerk( ammuvision )
+
+}
+
+
+void function OnActivate_Ammuvision( entity player, string characterName )
+{
+
+
+
+
+
+
+}
+
+void function OnDeactivate_Ammuvision( entity player )
+{
+
+
+
+
+
+
+}
+
+bool function Ammuvision_ClassPerk_Enabled()
+{
+	return Perks_S22UpdateEnabled() && GetCurrentPlaylistVarBool( "perks_ammuvision_enabled", true )
+}
+
+
+
+void function OnPassiveChanged( entity player, int passive, bool didHave, bool nowHas )
+{
+	if ( player != GetLocalViewPlayer() )
+		return
+
+	if ( !didHave && nowHas )
+	{
+		DeathBoxInsight_CreateInWorldMarker()
+		thread ListenForPlayerDeath( player )
+		file.isActive = true
+	}
+	else if ( didHave && !nowHas )
+	{
+		player.Signal( "DeathBoxInsightPassiveChanged" )
+
+		if( file.deathboxRui != null )
+		{
+			RuiDestroy( file.deathboxRui )
+			file.deathboxRui = null
+		}
+
+		file.isActive = false
+	}
+}
+
+void function ListenForPlayerDeath( entity player )
+{
+	player.EndSignal( "DeathBoxInsightPassiveChanged" )
+	player.WaitSignal( "OnDeath" )
+	if( file.deathboxRui != null )
+	{
+		RuiSetFloat( file.deathboxRui, "alphaTweak", 0 )
+	}
+}
+
+bool function Perk_DeathBoxInsight_IsDeathBoxInsightEnabled()
+{
+	return !( GetCurrentPlaylistVarBool( "disable_death_box_insight", false ) )
+}
+
+void function AddShouldSeeEntityCallbackForPassive( int classId, bool functionref( entity, entity, LootData ) callback )
+{
+	file.passiveToShouldSeeFunction[classId] <- callback
+}
+
+bool function OrdnanceHighlight_ShouldSeeLoot( entity loot, entity player, LootData lootData )
+{
+	Assert( player.HasPassive( ePassives.PAS_ORDNANCE_HIGHLIGHT ), "Player has the wrong passive for this!" )
+
+	switch( lootData.ref )
+	{
+		case GRENADE_EMP_WEAPON_NAME:
+		case "mp_weapon_thermite_grenade":
+		case "mp_weapon_frag_grenade":
+
+
+
+			return true
+	}
+	return false
+}
+
+bool function UltAccelHighlight_ShouldSeeLoot( entity loot, entity player, LootData lootData )
+{
+	return lootData.ref == "health_pickup_ultimate"
+}
+
+bool function Ammuvision_ShouldSeeLoot( entity loot, entity player, LootData lootData )
+{
+	Assert( player.HasPassive( ePassives.PAS_AMMUVISION ), "Player has the wrong passive for this!" )
+
+	for( int i=0; i <= WEAPON_INVENTORY_SLOT_PRIMARY_1; i++ )
+	{
+		entity weaponAtSlot = player.GetNormalWeapon( i )
+		if( !weaponAtSlot )
+			continue
+
+
+		
+		if( !weaponAtSlot.GetWeaponSettingBool( eWeaponVar.uses_ammo_pool ) )
+		{
+			continue
+		}
+		else if( weaponAtSlot.GetWeaponBaseClassName() == "mp_weapon_car" )
+		{
+			if( lootData.ref == AmmoType_GetRefFromIndex( eAmmoPoolType.bullet )|| lootData.ref == AmmoType_GetRefFromIndex( eAmmoPoolType.highcal ) )
+				return true
+		}
+		else
+		{
+			int ammoType = weaponAtSlot.GetWeaponAmmoPoolType()
+			string ammoTypeRef = AmmoType_GetRefFromIndex( ammoType )
+			if( lootData.ref == ammoTypeRef )
+				return true
+		}
+
+	}
+
+	return false
+}
+
+bool function HealingItemVision_ShouldSeeLoot( entity loot, entity player, LootData lootData )
+{
+	Assert( player.HasPassive( ePassives.PAS_HEALING_ITEM_VISION ), "Player has the wrong passive for this!" )
+
+	switch( lootData.ref )
+	{
+		case "health_pickup_health_large":
+		case "health_pickup_combo_large":
+		case "health_pickup_combo_full":
+			[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/sh_mastery.gnut.client
+[dump] scripts/vscripts/sh_mastery.gnut.client (53420 bytes)global function Sh_Mastery_Init
+global function Mastery_GetVersion
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global function ServerToClient_MasteryInitLocalPlayerInfo
+
+
+
+
+
+
+#if DEV
+global function DEV_RefreshMasteryDevMenuInternal
+global function DEV_ToggleWeaponMasteryDebugWindow
+global function DEV_SetWeaponDebugWindowStyle
+#endif
+
+#if DEV
+global function DEV_MasteryUIInterfaceTest
+global function DEV_TestGetSpecialInfo
+#endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global function Mastery_GetWeaponBaseData
+global function Mastery_GetWeaponTrialList
+global function Mastery_GetWeaponTrialListClonedTrialData
+global function Mastery_GetWeaponFinalTrialData
+global function Mastery_GetWeaponFinalReward
+global function Mastery_GetAllWeaponReward
+global function Mastery_GetPreviousMatchXPUpdates
+global function Mastery_GetPreviousMatchTrialUpdates
+global function Mastery_GetWeaponXP
+global function Mastery_GetWeaponLevel
+global function Mastery_GetTotalXPToCompleteWeaponLevel
+global function Mastery_CalculateLevelFromXP
+global function Mastery_SortTrialQueryResult
+global function Mastery_IsLocalPlayerInfoReady
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global function Mastery_GetStatValue
+global function Mastery_IsValidStatRef
+global function Mastery_DoesStatSatisfyValue
+global function Mastery_IsEnabled
+
+
+global const bool MASTERY_DEBUG = false 
+
+const bool MASTERY_OPEN_GRX = true
+
+const int TRIAL_COUNT = 5
+const int XP_MODIFIER_COUNT = 13
+const int LEVELS_UNLOCK_EACH_TRIAL = 20
+
+const string MASTERY_VERSION_PDEF_KEY = "weaponMasteryVersion"
+
+const string PERSISTENCE_XP_SUFFIX = "xp"
+const string PERSISTENCE_SOPM_XP_SUFFIX = "sopm_xp"
+const string PERSISTENCE_LEVEL_SUFFIX = "level"
+const string PERSISTENCE_STAT_SUFFIX = "stat"
+const string PERSISTENCE_SOPM_STAT_SUFFIX = "sopm_stat"
+const string PERSISTENCE_REWARDSEQ_SUFFIX = "rewardseq"
+const string PERSISTENCE_XP_MODIFIER_LIST = "xp_modifier_list"
+const string PERSISTENCE_TRIAL_LIST = "trial_list"
+const string PERSISTENCE_TRIAL_L

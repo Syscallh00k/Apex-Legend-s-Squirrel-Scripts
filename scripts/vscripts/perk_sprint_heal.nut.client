@@ -1,0 +1,73 @@
+global function Perk_SprintHeal_Init
+global function Perk_SprintHeal_GetExtraSmallMedsHealAmount
+global function Perk_SprintHeal_BonusSmallHealEnabled
+
+global function Perk_CanPlayerSprintHeal
+
+
+float function Perk_SprintHeal_GetExtraSmallMedsHealAmount()
+{
+	return GetCurrentPlaylistVarFloat( "perks_sprint_heal_bonus_small_heal_amount", 25.0 )
+}
+
+bool function Perk_SprintHeal_BonusSmallHealEnabled()
+{
+	return Perk_SprintHeal_Enabled() && GetCurrentPlaylistVarBool( "perks_sprint_heal_bonus_small_heal_enabled", true )
+}
+
+bool function Perk_SprintHeal_Enabled()
+{
+	return Perks_S23UpdateEnabled() && GetCurrentPlaylistVarBool( "perks_sprint_heal_enabled", true )
+}
+
+
+bool function Perk_CanPlayerSprintHeal( entity player )
+{
+	if( !Perk_SprintHeal_Enabled() )
+		return false
+
+	return Perks_DoesPlayerHavePerk( player, ePerkIndex.SPRINT_HEAL )
+}
+
+
+void function Perk_SprintHeal_Init()
+{
+	PerkInfo sprintHeal
+	sprintHeal.perkId = ePerkIndex.SPRINT_HEAL
+
+		if( Perk_SprintHeal_BonusSmallHealEnabled() )
+		{
+			sprintHeal.activateCallback = OnActivate_SprintHeal
+			sprintHeal.deactivateCallback = OnDeactivate_SprintHeal
+		}
+
+
+	Perks_RegisterClassPerk( sprintHeal )
+
+	if ( !Perk_SprintHeal_Enabled() )
+		return
+}
+
+void function OnActivate_SprintHeal( entity player, string characterName )
+{
+
+
+
+
+
+
+
+
+}
+
+void function OnDeactivate_SprintHeal( entity player )
+{
+
+
+
+
+
+
+
+
+}

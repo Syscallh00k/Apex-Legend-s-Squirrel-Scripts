@@ -1,0 +1,586 @@
+global function SV_CL_Shared_Init
+
+void function SV_CL_Shared_Init()
+{
+
+	if ( !IsLobby() )
+		ClMinimap_Pre_Init()
+
+
+#if DEV
+		PrintDebugTimeDetails()
+#endif
+
+
+
+
+
+	GameModes_Init()
+	Settings_Init()
+
+
+
+
+
+	if ( IsLobby() )
+	{
+		Shared_Lobby_Init()
+		PlayerWaypoints_Init()
+		return
+	}
+
+	SV_CL_Init()
+
+
+		Crafting_Init()
+
+
+
+
+
+
+
+		Client_Init()
+
+
+
+
+
+} 
+
+
+void function SV_CL_Init()
+{
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	ShItems_LevelInit_Begin()
+	ShEHI_LevelInit_Begin()
+
+
+
+	Utility_Shared_Init()
+	CodeCallbacksShared_Init()
+	Flags_Init()
+	RemoteFunctions_Init_Begin()
+	LiveAPI_Init()
+	ShGamepad_LevelInit()
+	Sh_Spectator_Init()
+	Thirdperson_Init()
+	DeathHints_Init()
+	DamageTypes_Init()
+	WeaponUtility_Init()
+	StickyEnts_Init()
+	AmmoScriptPose_Init()
+	Utility_Weapon_Mods_Init()
+	PassivesShared_Init()
+	ShUtilityAll_Init()
+	Anim_Aliases_Init()
+	ShAnimWindows_LevelInit()
+	AnimEvents_Init()
+	MinimapShared_Init()
+	PlayerLeechingShared_Init()
+	TriggerFunctions_Init()
+	InitWeaponScripts()
+	Death_Package_Init()
+	FlightpathUtil_Init()
+	Highlight_Init()
+	FlightpathShared_Init()
+	StimShared_Init()
+	SonarShared_Init()
+	PlayerMatchState_Init()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	Decoy_Init()
+	ShEHI_LevelInit_End()
+	PropOverride_Init()
+
+	ExtendedUse_Init()
+
+
+
+
+	GrappleWeaponInit()
+#if DEV
+		ShDevUtility_Init()
+		test_init()
+#endif
+
+
+
+
+
+
+
+
+
+
+
+		ForcedSpawn_Init()
+
+
+	ShPassiveUpgrade[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/sh_sp_dialogue.gnut.client
+[dump] scripts/vscripts/sh_sp_dialogue.gnut.client (48509 bytes)
+
+global table<string, bool> FORBIDDEN_DIALOGUE_EVENT_NAMES = {
+	
+	
+}
+
+
+#if DEV
+global function Dialogue_IsDebugActive
+#endif
+
+
+
+
+
+
+
+
+
+
+
+global function RegisterCSVDialogue
+global function SPDialogueInit
+global function GetValidVoices
+
+global function GetBattleChatterAlias1P3P
+global function GetBattleChatterAlias1P3PWithTempVoice
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global function ClientCodeCallback_PlayDialogueOnEntity
+
+global function SCB_PlayDialogueOnEntity
+global function SCB_PlayDialogueAtPosition
+global function SCB_PlayDialogueOnEnvironmentSpeakers
+global function SCB_PlayDialogueOnEnvironmentSpeakersNoResponse
+global function SCB_AbortCurrentDialogue
+global function SCB_AbortAllMainQueuedAndCurrentDialogue
+
+global function PlayDialogueOnCustomSpeakers
+global function SCB_PlayDialogueOnCustomSpeakers
+global function SCB_AbortAllCustomSpeakersQueuedAndCurrentDialogue
+
+global function SetUseDialogueVDU
+global function PlayAnyClientSelfDialogueByName
+global function GetAnyDialogueAliasFromName
+global function GetAnyAliasIdForName
+global function PlayClientDialogueOnEntity
+global function PrintDummieTeamChat
+global function GetSoundDurationForName
+
+
+global function ResumeMainDialogueQueue
+global function PauseMainDialogueQueue
+global function RemovePlayerDialogueEventsFromMainDialogueQueue
+
+
+global function RegisterEnvironmentSpeaker
+global function DeregisterEnvironmentSpeaker
+
+global function RegisterCustomDialogueQueueSpeakerEntities
+
+global function AddCallback_OnAbortDialogue
+global function AddCallback_OnDialoguePopupCreated
+global function AddCallback_OnDialoguePopupDestroyed
+
+global function DevDialogueWithoutSoundAlias
+
+
+
+const string FUNCNAME_PlayDialogueOnEntity = "SCB_PlayDialogueOnEntity"
+const string FUNCNAME_PlayDialogueAtPosition = "SCB_PlayDialogueAtPosition"
+const string FUNCNAME_PlayDialogueOnEnvironmentSpeakers = "SCB_PlayDialogueOnEnvironmentSpeakers"
+const string FUNCNAME_PlayDialogueOnEnvironmentSpeakersNoResponse = "SCB_PlayDialogueOnEnvironmentSpeakersNoResponse"
+const string FUNCNAME_AbortCurrentDialogue = "SCB_AbortCurrentDialogue"
+const string FUNCNAME_AbortAllMainQueuedAndCurrentDialogue = "SCB_AbortAllMainQueuedAndCurrentDialogue"
+
+const string FUNCNAME_AbortAllCustomSpeakersQueuedAndCurrentDialogue = "SCB_AbortAllCustomSpeakersQueuedAndCurrentDialogue"
+const string FUNCNAME_PlayDialogueOnCustomSpeakers = "SCB_PlayDialogueOnCustomSpeakers"
+
+struct DialogueEntryGroup
+{
+	string     groupName
+	array<int> aliasIds
+	asset      sourceDataTable
+
+
+
+
+}
+
+
+struct DialogueData
+{
+	string name
+	string alias
+	int    priority
+	string perspective
+	bool   canPlayIfSolo
+	float  playChance
+	string radioDisplayName
+	string voice
+	bool   radioIntercept
+	string dialogueText
+	float  dialogueTextDuration
+	asset  vduVideo
+
+#if DEV
+	bool	warnIfSoundMissing
+#endif
+
+	DialogueEntryGroup& group
+	int                 indexInGroup
+}
+
+
+global struct QueueItem
+{
+	int    priority
+	int    entHandle = -1
+	float  timeAdded = -1
+	bool   active = false
+	string milesAlias = ""
+	bool   success = true
+	int    serialNum = -1
+	bool   shouldBlockLowerPriorityItems = false
+	int	   groupID = -1 
+}
+
+struct QueueData
+{
+	array<QueueItem> queue
+
+		string flagPauseQueue
+		int    dialoguePauseStackCount = 0
+		table  signalDummy
+
+}
+
+const int QUEUE_MAIN = 0
+
+const int NUM_CUSTOM_QUEUES = 6
+global const int NUM_TOTAL_DIALOGUE_QUEUES = NUM_CUSTOM_QUEUES + 1
+
+global struct EnvironmentSpeaker
+{
+	vector origin
+	string crowdQuietAlias = ""
+	string crowdActiveAlias = ""
+	string crowdCheerAlias = ""
+	string crowdRoarAlias = ""
+	string crowdOvationAlias = ""
+	string crowdChantAlias = ""
+	string crowdEndMatchChantAlias = ""
+	string activeVOLine = ""
+	float  quietLoopSecondsToTimeout = 0
+	float  activeLoopSecondsToTimeout = 0
+	float  cheerLoopSecondsToTimeout = 0
+	float  oneShotDelayBetweenReuse = 0
+	float  ovationLoopSecondsToTimeout = 0
+	entity speakerEnt
+	float  distanceSqr
+}
+
+
+global enum eDialogueFlags
+{
+	SHORT_DELAY_AFTER_PLAYING = (1 << 0),
+	SURVIVAL_HOST_ALL_SPEAKERS = (1 << 1),
+	NO_ON_FINISHED_NOTIFY = (1 << 2),
+	MUTE_PLAYER_PING_DIALOGUE_FOR_DURATION = (1 << 3),
+	MUTE_PLAYER_PING_CHIMES_FOR_DURATION = (1 << 4),
+	BLOCK_LOWER_PRIORITY_QUEUE_ITEMS = (1 << 5),
+	STOMP_CON_ALT = (1 << 6),
+	AMBIENT_DIALOGUE = (1 << 7),
+	USE_CUSTOM_QUEUE = (1 << 8 ),
+	USE_CUSTOM_SPEAKERS = ( 1 << 9 ),
+	BLOCK_ANNOUNCER = ( 1 << 10 ),
+	EMIT_FROM_FIXED_POSITION = ( 1 << 11 ),
+
+	
+	ALL = (( 1 << 16 ) - 1)
+}
+
+
+
+struct CachedCharacterData
+{
+	string longName
+	asset  portraitImage
+}
+
+
+
+struct
+{
+	array<DialogueData>               registeredDialog
+	table<string, DialogueEntryGroup> nameToGroupMap
+
+	string lastCountedLine
+	float lastCountedTime
+	table<string, int> playCounts
+
+	bool                  dialoguePlaying = false
+
+	QueueData[ NUM_TOTAL_DIALOGUE_QUEUES ] allQueues
+
+	table<string, asset>  callerIDs
+	table<int, bool>      waitingOnDialogue
+	bool                  useVDU = false
+	int                  )
+	for ( int i = 0; i < queueOrder.len(); ++i )
+		queueOrder[i] = i
+
+	queueOrder.sort(
+		int function( int idxA, int idxB ) : (items)
+		{
+			QueueItem a = items[idxA]
+			QueueItem b = items[idxB]
+
+			if ( a.active != b.active )
+				return a.active ? 1 : -1
+
+			if ( a.priority != b.priority )
+				return (a.priority > b.priority) ? 1 : -1
+
+			if ( a.timeAdded != b.timeAdded )
+				return b.timeAdded > a.timeAdded ? 1 : -1
+
+			if ( a.serialNum != b}
+
+
+DialogueData function GetDataForAliasId( int index )
+{
+	return file.registeredDialog[index]
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+int function GetAnyAliasIdForName( string dialogueName )
+{
+	if ( !(dialogueName in file.nameToGroupMap) )
+		return -1
+	DialogueEntryGroup group = file.nameToGroupMap[dialogueName]
+	return group.aliasIds.getrandom()
+}
+
+void function SetupManualCharacterDatas()
+{
+	
+	{
+		CachedCharacterData ccd
+		ccd.longName = "#CHARACTER_CCD_NAM         = GetDataTableColumnByName( dataTable, "priority" )
+	int columnRadioDisplayName    = GetDataTableColumnByName( dataTable, "radioDisplayName" )
+	int columnVoice               = GetDataTableColumnByName( dataTable, "voice" )
+	int columnRadioIntercept      = GetDataTableColumnByName( dataTable, "radioIntercept" )
+	int columnVDUVideo            = GetDataTableColumnByName( dataTable, "vduVideo" )
+	int columnDevDialogueText     = GetDataTablue)
+		string radioDisplayName  = ((columnRadioDisplayName > -1) ? GetDataTableString( dataTable, rowIdx, columnRadioDisplayName ) : "")
+		string voice             = ((columnVoice > -1) ? GetDataTableString( dataTable, rowIdx, columnVoice ).tolower() : "")
+		bool radioIntercept      = ((columnRadioIntercept > -1) ? GetDataTableBool( dataTable, rowIdx, columnRadioIntercept ) : false)
+		asset vduVideo           = ((columnVDUVideo > -1) ? GetDataTa[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/sh_character_loadouts.nut.client
+[dump] scripts/vscripts/sh_character_loadouts.nut.client (23588 bytes)global function CharacterLoadouts_Init
+
+global function CharacterLoadouts_GetDefaultWeaponLoadoutArray
+global function CharacterLoadouts_GetDefaultConsumableLoadoutArray
+global function CharacterLoadouts_GetDefaultEquipmentLoadoutArray
+
+global function CharacterLoadouts_GetWeaponLoadoutArray
+global function CharacterLoadouts_GetConsumableLoadoutArray
+global function CharacterLoadouts_GetEquipmentLoadoutArray
+global function CharacterLoadouts_SetIdenticalLoadoutIndex
+
+global function ParseWeaponLoadoutText
+global function ParseEquipmentLoadoutText
+global function ParseConsumableLoadoutText
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global struct WeaponLoadout {
+	array< string > weaponRefs
+	table< string, array< string > > weaponAttachmentsByWeapon
+}
+
+struct {
+	table< string, WeaponLoadout >				   characterFlavorToWeaponLoadout
+	table< string, array<string> >                 characterFlavorToConsumableLoadout
+	table< string, array<string> >                 characterFlavorToEquipmentLoadout
+
+	array<string>								   	weaponLoadoutDefault
+	array<string>								  	consumableLoadoutDefault
+	array<string>							   		equipmentLoadoutDefault
+	array<string>								   	loadoutDisplayIgnoreItemsDefault
+
+	table< string, array<string> >				   characterFlavorToDisplayedWeaponLoadout
+	table< string, array<string> >                 characterFlavorToDisplayedConsumableLoadout
+	table< string, array<string> >                 characterFlavorToDisplayedEquipmentLoadout
+
+	int identicalLoadoutIndex = -1
+
+
+
+
+
+
+
+		var           loadoutInfoRui = null
+		array<var>    loadoutRuiElements
+		table<int,string> characterClassToLoadoutNameTable
+
+		bool		  isDetailsPanelShowing = false
+		bool          is16x10 = false
+
+} file
+
+void function CharacterLoadouts_Init()
+{
+	if ( !IsCharacterLoadoutsEnabled() )
+		return
+
+	ifClassBasedLoadout )
+		{
+			weaponLoadoutsPlaylist    = GetCurrentPlaylistVarString( "character_loadout_weapons_" + characterLoadoutRef, "" )
+			consumableLoadoutPlaylist = GetCurrentPlaylistVarString( "character_loadout_consumables_" + characterLoadoutRef, "" )
+			equipmentLoadoutPlaylist  = GetCurrentPlaylistVarString ( "character_loadout_equipment_" + characterLoadoutRef, "" )
+		}
+		else 
+		{
+			int role = CharacterClass_GetRole( character )
+
+			Assert( role in characterClassToWeaponLoadoutTable, "Attempting to populate WeaponLoadoutsPlaylist using a Character Class that is not in characterClassToWeaponLoadoutTable" )
+			Assert( role in characterClassToConsumableLoadoutTable, "Attempting to populate consumableLoadoutPlaylist using a Character Class that is not in characterClassToConsumableLoadoutTable" )
+			Assert( role in characterClassToEquipmentLoadoutTable, "Attempting to populate equipmentLoadoutPlaylist using a Character Class that is not in characterClassToEquipmentLoadoutTable" )
+			weaponLoadoutsPlaylist    = characterClassToWeaponLoadoutTable[ role ]
+			consumableLoadoutPlaylist = characterClassToConsumableLoadoutTable[ role ]
+			equipmentLoadoutPlaylist  = characterClassToEquipmentLoadoutTable[ role ]
+		}
+
+		bool useDefaultLoadout = GetCurrentPlaylistVarBool( "character_loadout_use_default", true )
+
+		string displayIgnoreItemsRaw = GetCurrentPlaylistVarString ( "character_loadout_display_ignore_items", "" )
+		array<string> displayIgnoredItems
+		if ( displayIgnoreItemsRaw != "" )
+			displayIgnoredItems = GetTrimmedSplitString( displayIgnoreItemsRaw, " " )
+		else if ( !GetCurrentPlaylistVarBool( "character_loadout_ignore_default", false ) )
+			displayIgnoredItems = file.loadoutDisplayIgnoreItemsDefault
+
+		
+		file.characterFlavorToEquipmentLoadout[characterRef] <- ParseEquipmentLoadoutText( equipmentLoadoutPlaylist, useDefaultLoadout, displayIgnoredItems )
+		array<string> equipmentToDisplay = []
+		foreach ( string equipment in file.characterFlavorToEquipmentLoadout[characterRef] )
+		{
+			if ( !displayIgnoredItems.contains( equipment ) )
+				equipmentToDisplay.append( equipment )
+		}
+		file.characterFlavorToDisplayedEquipmentLoadout[characterRef] <- equipmentToDisplay
+
+		
+		file.characterFlavorToWeaponLoadout[characterRef] <- ParseWeaponLoadoutText( weaponLoadoutsPlaylist, useDefaultLoadout )
+		array<string> weaponsToDisplay
+		foreach( string weaponRef in file.characterFlavorToWeaponLoadout[characterRef].weaponRefs )
+		{
+			if ( !displayIgnoredItems.contains( weaponRef ) )
+				weaponsToDisplay.append( weaponRef )
+		}
+		file.characterFlavorToDisplayedWeaponLoadout[characterRef] <- weaponsToDisplay
+
+
+		
+		file.characterFlavorToConsumableLoadout[characterRef] <- Pars

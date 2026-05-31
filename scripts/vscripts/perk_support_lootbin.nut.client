@@ -1,0 +1,611 @@
+global function Perk_SupportLootbin_Init
+global function SupportBin_ShouldProvideSurvivalAssitance
+global function SupportBin_UseBasicLootConfiguration
+global function SupportBin_ShouldShowMapIcons
+
+
+global function SupportBin_ShouldUseDiscreteSupportBins
+global function SupportBin_ShouldEveryoneAccessSupportBins
+global function SupportBin_ShouldEveryoneAccessSupportBins_Secret
+global function SupportBin_CanUseSupportBin
+global function SupportBin_ShouldSpawnSupportBins
+global function SupportBin_EntityIsSupportBin
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global function Perk_SupportBin_SupportBinHasHudMarker
+global function Perk_SupportBin_ServerToClient_DisplayOpenedSupportBoxPrompt
+
+
+
+
+
+global const string LOOT_BIN_SUPPORT_SKIN = "SecretLoot"
+global const string LOOT_BIN_DEFAULT_SKIN = "(default)"
+
+global const float SURVIVAL_ASSISTANCE_COOLDOWN_DURATION = 10.0
+global const int SURVIVAL_ASSISTANCE_MAX_COUNT = 3
+
+
+const string LOOT_ITEM_MEDKIT_NAME = "health_pickup_health_large"
+const string LOOT_ITEM_BATTERY_NAME = "health_pickup_combo_large"
+const string LOOT_ITEM_PHEONIX_NAME = "health_pickup_combo_full"
+const string LOOT_ITEM_CELL_NAME = "health_pickup_combo_small"
+const string LOOT_ITEM_SYRINGE_NAME = "health_pickup_health_small"
+
+const string SUPPORT_BIN_INGAME_LOCKED_HINT = "Support Bins can be used by Support Legends"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+enum SurvivalNeedType
+{
+	SURIVIAL_LOOT_NEED_MRB,
+	SURIVIAL_LOOT_NEED_HS,
+	SURIVIAL_LOOT_NEED_ANY,
+	SURIVIAL_LOOT_NEED_NONE
+}
+
+enum SurvivalStatusType
+{
+	SURIVIAL_LOOT_HAS_MRB,
+	SURIVIAL_LOOT_HAS_HS,
+	SURIVIAL_LOOT_HAS_EVAC,
+	SURIVIAL_LOOT_HAS_NONE
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+struct
+{
+
+
+
+
+
+
+
+	bool everyoneCanAccessSecretCompartment = false
+	bool showBinMinimapIcon = true
+} tuning
+
+void function Perk_SupportLootbin_Init()
+{
+	if ( !SupportBin_ShouldUseDiscreteSupportBins() )
+		return
+
+
+		if ( !SupportBin_ShouldSpawnSupportBins() )
+			return
+
+
+	SetupTuning()
+
+	PerkInfo extraBinLoot
+	extraBinLoot.perkId          = ePerkIndex.EXTRA_BIN_LOOT
+
+		extraBinLoot.activateCallback = null
+		extraBinLoot.deactivateCallback = null
+		extraBinLoot.minimapStateIndex = eMinimapObject_prop_script.SUPPORT_BIN
+		extraBinLoot.minimapPingType = ePingType.SUPPORT_BOX
+		extraBinLoot.mapFeatureTitle = "#PERK_FEATURE_SUPPORT_LOOTBIN"
+		extraBinLoot.mapFeatureDescription = "#PERK_FEATURE_SUPPORT_LOOTBIN_DESC"
+		extraBinLoot.trackEntityPosition = true
+
+
+		extraBinLoot.worldspaceIconUpOffset = 20
+		extraBinLoot.ruiThinkThread = Perk_SupportBin_RuiThinkThread
+		extraBinLoot.staticPingDistance = 1500
+
+
+	Perks_RegisterClassPerk( extraBinLoot )
+
+
+
+
+
+
+
+
+
+		AddCreateCallback( "prop_dynamic", SupportBin_OnPropScriptCreated )
+		AddCreateCallback( "prop_script", SupportBin_OnPropScriptCreated )
+
+
+
+		PrecacheModel( LOOT_BIN_MODEL )
+		PrecacheParticleSystem( LOOT_BIN_OPEN_REGULAR_FX )
+		PrecacheParticleSystem( LOOT_BIN_OPEN_SECRET_FX )
+
+		Remote_RegisterClientFunction( "Perk_SupportBin_ServerToClient_DisplayOpenedSupportBoxPrompt" )
+		Remote_RegisterServerFunction( "SupportBin_ClientToServer_MarkSupportBoxLoot" )
+
+
+
+
+
+
+
+
+
+
+}
+
+void function SetupTuning()
+{
+
+
+
+
+
+
+
+	tuning.everyoneCanAccessSecretCompartment = GetCurrentPlaylistVarBool("support_bin_inclusive_class_access_secret", tuning.everyoneCanAccessSecretCompartment )
+	tuning.showBinMinimapIcon = GetCurrentPlaylistVarBool("support_bin_show_minimap_icon", tuning.showBinMinimapIcon )
+}
+
+
+bool function SupportBin_ShouldSpawnSupportBins()
+{
+	if( GetCurrentPlaylistVarBool("survival_block_lootbin_creation", false ) )
+		return false
+
+	if ( !LootBin_ArePerkBinsEnabled() )
+		return false
+
+
+	if( GameModeVariant_IsActive( eGameModeVariants.SURVIVAL_WINTEREXPRESS ) )
+		return false
+
+
+
+	if( GameModeVariant_IsActive( eGameModeVariants.FREEDM_GUNGAME ) )
+		return false
+
+
+
+		if( GameMode_IsActive( eGameModes.CONTROL ) )
+			return false
+
+
+
+		if(GameMode_IsActive( eGameModes.ARENAS ))
+			return false
+
+
+
+
+
+
+
+	return true
+}
+
+
+bool function SupportBin_ShouldUseDiscreteSupportBins()
+{
+
+	if( GetMapName().find( "mp_rr_box" ) >= 0 )
+	{
+		return true
+	}
+
+
+	return ( GetCurrentPlaylistVarBool("use_discrete_support_bins", true ) )
+}
+
+bool function Perk_SupportBin_SupportBinHasHudMarker()
+{
+	return ( GetCurrentPlaylistVarBool("supportbin_enable_hud_marker", true ) )
+}
+
+bool function Perk_SupportBin_ShouldShowEveryoneSupportBins()
+{
+	return ( GetCurrentPlaylistVarBool("supportbin_show_everyone", false ) )
+}
+
+bool function SupportBin_ShouldLimitAllSurvivalItems()
+{
+	return ( GetCurrentPlaylistVarBool("supportbin_enable_survival_rate_limiting", false ) )
+}
+
+bool function SupportBin_HardLimitSurvivalAssistanceCount()
+{
+	return ( GetCurrentPlaylistVarBool("supportbin_enable_hard_survival_count_limiting", false ) )
+}
+
+bool function SupportBin_ShouldProvideSurvivalAssitance()
+{
+	return ( GetCurrentPlaylistVarBool("supportbin_enable_survival_assistance", true ) )
+}
+
+int function SupportBin_Get_RandomizeExclusionDistance()
+{
+	return ( GetCurrentPlaylistVarInt("supportbin_exclusion_radius", 13000*13000 ) )
+}
+
+int function SupportBin_Get_MaxBigHealInSecretLoot()
+{
+	return ( GetCurrentPlaylistVarInt("supportbin_max_bigheal_count", 2 ) )
+}
+
+bool function SupportBin_ShouldEveryoneAccessSupportBins()
+{
+	return ( GetCurrentPlaylistVarBool("supportbin_inclusive_class_access", true ) )
+}
+
+bool function SupportBin_ShouldEveryoneAccessSupportBins_Secret()
+{
+	return tuning.everyoneCa[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/sh_evo_levels.nut.client
+[dump] scripts/vscripts/sh_evo_levels.nut.client (10262 bytes)global function EvoLevels_Init
+global function EvoLevels_InitTuningValues
+
+global function EvoLevels_IsEnabled
+global function EvoLevels_RegisterEvoLevelSystem
+global function EvoLevels_GetSystemType
+
+global function EvoLevels_GetPlayerLevel
+global function EvoLevels_IsLevelMaxLevel
+global function EvoLevels_IsPlayerAtMaxLevel
+global function EvoLevels_GetLevelFromXp
+global function EvoLevels_GetMaxUpgradeLevels
+
+
+global function EvoLevels_GetUnspentUpgradePoints
+global function EvoLevels_GetXpRequiredForNextLevel
+global function EvoLevels_AddCallback_OnPlayerLevelUp
+global function EvoLevels_AddCallback_OnPlayerLevelDown
+global function EvoLevels_GetNumUpgradePoints
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global function ServerToClient_NotifyLeveledUp
+
+global function EvoLevels_UpgradeReminderThread
+global function EvoLevels_IsDisplayingLevelUpMessage
+
+
+const string EVO_LEVELUP_LVL1_SFX_1P = "LevelUp_LegendsUpgrade_lvl1_1P"
+const string EVO_LEVELUP_LVL1_SFX_3P = "LevelUp_LegendsUpgrade_lvl1_3P"
+
+global enum eEvoLevelSystemType
+{
+	NONE,
+	UPGRADE_CORE,
+
+
+
+
+	LINEAR_UPGRADE_CORE,
+
+
+
+
+	COUNT
+}
+
+global struct EvoLevelSystem
+{
+	int systemType = eEvoLevelSystemType.NONE
+
+	array<int> functionref() GetLevelXpThresholdsCallback
+
+
+	int functionref( entity ) GetSpentLevelsForPlayerCallback
+
+
+
+
+
+
+}
+
+struct
+{
+
+	array<void functionref( entity, int )> playerLeveledUpCallbacks
+	array<void functionref( entity, int )> playerLeveledDownCallbacks
+
+
+
+
+
+
+	array<int> xpLevelThresholds
+
+	EvoLevelSystem& sys
+
+
+
+
+
+
+
+
+	bool displayingLevelUpMessage
+
+} file
+
+struct Tuning
+{
+	bool isEnabled = true
+
+	int modesInitialLevel = 0
+
+	bool awardXpBeyondMaxLevel = false
+
+}
+Tuning tunings
+
+
+const string FUNCNAME_ServerToClient_NotifyLeveledUp = "ServerToClient_NotifyLeveledUp"
+
+
+
+
+const float UPGRADE_CORE_LEVEL_UP_NOTI_DURATION = 4.0
+
+void function EvoLevels_Init()
+{
+	EvoLevels_InitTuningValues()
+
+	if( !EvoLevels_IsEnabled() || !EvoXp_IsEnabled() )
+		return
+
+
+		Remote_RegisterClientFunction( FUNCNAME_ServerToClient_NotifyLeveledUp, "entity" )
+
+
+}
+
+void function EvoLevels_InitTuningValues()
+{
+
+		RunUIScript( "EvoLevels_InitTuningValues" )
+
+
+	
+	Tuning defaultTunings
+
+	tunings.isEnabled = EvoXp_IsEnabled() && GetCurrentPlaylistVarBool( "evo_levels_enabled", true )
+
+	tunings.modesInitialLevel = GetCurrentPlaylistVarInt( "passive_upgrade_core_modes_initial_level", defaultTunings.modesInitialLevel )
+	tunings.awardXpBeyondMaxLevel = GetCurrentPlaylistVarBool( "passive_upgrade_core_allow_xp_beyond_max", defaultTunings.awardXpBeyondMaxLevel )
+}
+
+bool function EvoLevels_IsEnabled()
+{
+	return LegendUpgrades_IsEnabled()
+}
+
+#if INTELLIJ_OUTLINE_SECTION_MARKER
+void function _____________EvoLevels_API___________________________(){}
+#endif
+
+void function EvoLevels_RegisterEvoLevelSystem( EvoLevelSystem system )
+{
+	if ( !EvoLevels_IsEnabled() )
+	{
+		Warning( "Registering Evo Level System, but the Evo Level System is disabled!" )
+	}
+
+
+	
+	Assert( file.sys.systemType == eEvoLevelSystemType.NONE, ("" + file.sys.systemType + " has already been registered as the Evo Level system!" ) )
+
+
+	Assert( system.systemType != eEvoLevelSystemType.NONE, "Trying to register a blank Evo Level system!" )
+
+	Assert( system.GetLevelXpThresholdsCallback != null, "Evo Level system is missing GetLevelXpThresholdsCallback !" )
+
+	Assert( system.GetSpentLevelsForPlayerCallback != null, "Evo Level system is missing GetSpentLevelsForPlayerCallback!" )
+
+
+
+
+
+	file.sys = system
+
+	file.xpLevelThresholds = GetLevelXpThresholds()
+
+
+
+
+
+
+	XpSystem xp
+	xp.systemType = eXpSystemType.LEVEL_BASED
+
+
+
+
+
+
+	xp.IsPlayerAtMaxXpCallback = EvoLevels_IsPlayerAtMaxLevel
+
+	EvoXP_RegisterXpSystem( xp )
+
+}
+
+
+void function EvoLevels_AddCallback_OnPlayerLevelUp( void functionref( entity player, int newLevel ) callbackFunc )
+{
+	Assert( !file.playerLeveledUpCallbacks.contains( callbackFunc ), "Already added " + string( callbackFunc ) + " with EvoLevels_AddCallback_OnPlayerLevelUp" )
+	file.playerLeveledUpCallbacks.append( callbackFunc )
+}
+
+void function EvoLevels_AddCallback_OnPlayerLevelDown( void functionref( entity player, int newLevel ) callbackFunc )
+{
+	Assert( !file.playerLeveledDownCallbacks.contains( callbackFunc ), "Already added " + string( callbackFunc ) + " with EvoLevels_AddCallback_OnPlayerLevelDown" )
+	file.playerLeveledDownCallbacks.append( callbackFunc )
+}
+
+
+
+
+
+
+
+
+
+
+int function EvoLevels_GetSystemType()
+{
+	return file.sys.systemType
+}
+
+int function EvoLevels_GetMaxUpgradeLevels()
+{
+	if ( !EvoLevels_IsEnabled() )
+		return 0
+
+	if ( file.xpLevelThresholds.len() == 0 )
+		return GetLevelXpThresholds().len()
+
+	return file.xpLevelThresholds.len()
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+int function EvoLevels_GetPlayerLevel( entity player )
+{
+	if( !IsValid( player ) || !EvoLevels_IsEnabled() )
+	{
+		return 0
+	}
+
+	return EvoLevels_GetLevelFromXp( EvoXp_GetXP( player ) )
+}
+
+int function EvoLevels_GetLevelFromXp( int xpValue )
+{
+	if( !EvoLevels_IsEnabled() )
+		return 0
+
+	int currentLevel = 0
+
+	array<int> levelThresholds = file.xpLevelThresholds
+	for( int i=0; i < levelThresholds.len(); i++ )
+	{
+		if( xpValue < levelThresholds[i] )
+			break
+		currentLevel = i + 1
+	}
+	currentLevel = minint( EvoLevels_GetMaxUpgradeLevels(), currentLevel )
+
+	return currentLevel
+}
+
+bool function EvoLevels_IsLevelMaxLevel( int curLevel )
+{
+	if ( !EvoLevels_IsEnabled() )
+		return true
+
+	return curLevel == EvoLevels_GetMaxUpgradeLevels()
+}
+
+bool function EvoLevels_IsPlayerAtMaxLevel( entity pla

@@ -1,0 +1,484 @@
+global function Ultimates_RegisterNetworking
+
+
+
+
+
+
+
+
+
+global function SCB_OnUltimateReady
+global function SCB_OnUltimateReadyAfterManualCharge
+global function ServerToClient_UltimateRuiFlash
+global function ServerToClient_DoUltimateScreenFx
+
+
+
+global function GetCommsActionForUltReady
+
+const asset VFX_ACCEL_POP = $"P_ult_acc_low_screenSpace"
+const string SIGNAL_ULT_FLASH 	= "Signal_UltimateAccelerator_UltFlash"
+const string SIGNAL_ULT_FX		= "Signal_UltimateAccelerator_UltFx"
+
+const string FUNCNAME_OnUltimateReady = "SCB_OnUltimateReady"
+const string FUNCNAME_OnUltimateReadyAfterManualCharge = "SCB_OnUltimateReadyAfterManualCharge"
+global const string FUNCNAME_UltimateRuiFlash = "ServerToClient_UltimateRuiFlash"
+global const string FUNCNAME_DoUltimateScreenFx = "ServerToClient_DoUltimateScreenFx"
+
+const string PVAR_CHARGE_ULTIMATE_FROM_EVO_BY_PERCENTAGE = "ultimates_chargefromevo_percentage"
+
+struct EvoToUltData
+{
+	int minXp = 10
+	int maxXp = 500
+	float minPerc = 0.02
+	float maxPerc = 0.2
+}
+
+struct {
+
+
+
+
+
+		int  accelScreenFxHandle
+		bool fxDebounceActive
+
+} file
+
+
+void function Ultimates_RegisterNetworking()
+{
+	Remote_RegisterClientFunction( FUNCNAME_OnUltimateReady )
+	Remote_RegisterClientFunction( FUNCNAME_OnUltimateReadyAfterManualCharge )
+	Remote_RegisterClientFunction( FUNCNAME_UltimateRuiFlash )
+	Remote_RegisterClientFunction( FUNCNAME_DoUltimateScreenFx )
+
+	PrecacheParticleSystem( VFX_ACCEL_POP )
+
+		RegisterSignal( SIGNAL_ULT_FLASH )
+		RegisterSignal( SIGNAL_ULT_FX )
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+int function GetCommsActionForUltReady( entity player )
+{
+	if ( !IsValid( player ) )
+		return eCommsAction.BLANK
+
+	entity ultWeapon = player.GetOffhandWeapon( eOffhandInv.ULTIMATE )
+	if ( !IsValid( ultWeapon ) )
+		return eCommsAction.BLANK
+
+	int ammo = ultWeapon.GetWeaponPrimaryClipCount()
+	int maxAmmo =ultWeapon.GetWeaponPrimaryClipCountMax()
+	float frac = clamp( (float( ammo ) / float( maxAmmo )), 0.0, 1.0 )
+	int burstCount = maxint( ultWeapon.GetWeaponSettingInt( eWeaponVar.burst_fire_count ), 1 )
+	int minReq = ultWeapon.GetWeaponSettingInt( eWeaponVar.ammo_min_to_fire ) * burstCount
+	if ( minReq < maxAmmo )
+		frac = clamp( (float( ammo ) / float( minReq )), 0.0, 1.0 )
+
+	if ( frac >= 0.99 )
+		return eCommsAction.QUICKCHAT_ULTIMATE_READY_FULL
+	if ( frac >= 0.85 )
+		return eCommsAction.QUICKCHAT_ULTIMATE_READY_ALMOST
+	return eCommsAction.QUICKCHAT_ULTIMATE_READY_NOT
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function SCB_OnUltimateReady()
+{
+	entity player = GetLocalViewPlayer()
+	if ( !IsAlive( player ) )
+		return
+
+	if ( IsEventFinale() )
+		return
+
+
+
+
+
+
+
+
+	{
+
+			AddOnscreenPromptFunction( "quickchat", CreateQuickchatFunction( eCommsAction.QUICKCHAT_ULTIMATE_READY_FULL, player.GetOffhandWeapon( eOffhandInv.ULTIMATE ) ), 6.0, Localize( "#PING_SAY_ULTIMATE_READY_FULL" ) )
+
+	}
+}
+
+void function SCB_OnUltimateReadyAfterManualCharge()
+{
+	entity player = GetLocalViewPlayer()
+	if ( !IsAlive( player ) )
+		return
+
+	entity ultimateAbility = player.GetOffhandWeapon( eOffhandInv.ULTIMATE )
+	if ( !IsValid( ultimateAbility ) )
+		return
+
+	string readySound = ultimateAbility.GetWeaponSettingString( eWeaponVar.sound_weapon_ready )
+	if ( readySound == "" )
+		readySound = "survival_ui_ultimate_ready"
+	asset icon = ultimateAbility.GetWeaponSettingAsset( eWeaponVar.hud_icon )
+	string details = IsControllerModeActive() ? "Press %offhand1% + %ping%" : "Press %offhand4%"
+	AnnouncementMessageSweep( player, "Ultimate is Ready", details, <255,135,10>, icon, readySound, 3.0 )
+
+
+
+
+
+
+
+}
+
+void function ServerToClient_UltimateRuiFlash()
+{
+	thread UltimateRuiFlash_Thread()
+}
+
+void function UltimateRuiFlash_Thread()
+{
+	entity localPlayer = GetLocalClientPlayer()
+	if ( !IsValid( localPlayer ) )
+		return
+
+	Signal( localPlayer, SIGNAL_ULT_FLASH )
+	EndSignal( localPlayer, SIGNAL_ULT_FLASH )
+
+	var rui = PlayerHasPassive( localPlayer, ePassives.PAS_CRYPTO ) ? CryptoDrone_GetUltimateRui() : GetUltimateRui()
+	RuiSetBool( rui, "ultIsFlashing", true )
+	const float FLASH_DURATION = 1.25
+
+	OnThreadEnd(
+		function() : ( rui )
+		{
+			if( RuiIsAlive( rui ) )
+			{
+				RuiSetBool( rui, "ultIsFlashing", false )
+			}
+			else
+			{
+				RuiSetBool( GetUltimateRui(), "ultIsFlashing", false )
+			}
+		}
+	)
+
+	wait FLASH_DURATION
+
+	if( !IsValid( localPlayer ) )
+		return
+
+	rui = PlayerHasPassive( localPlayer, ePassives.PAS_CRYPTO ) ? CryptoDrone_GetUltimateRui() : GetUltimateRui()
+	RuiSetGameTime( rui, "ultIsFlashingTime", Time() )
+}
+
+void function ServerToClient_DoUltimateScreenFx()
+{
+	thread DoAcceleratorScreenFx( GetLocalViewPlayer() )
+}
+
+void function DoAcceleratorScreenFx( entity player )
+{
+	EndSignal( player, "OnDeath", "OnDestroy" )
+
+	if ( file.fxDebounceActive )
+		return
+
+	if ( player != GetLocalViewPlayer() )
+		return
+
+	entity cockpit = player.GetCockpit()
+	if ( !IsValid( cockpit ) )
+		return
+
+	if ( EffectDoesExist( file.accelScreenFxHandle ) )
+		return
+
+	int fxID = GetParticleSystemIndex( VFX_ACCEL_POP )
+	file.accelScreenFxHandle = StartParticleEffectOnEntity( cockpit, fxID, FX_PATTACH_ABSORIGIN_FOLLOW, ATTACHMENTID_INVALID )
+	EffectSetIsWithCockpit( file.accelScreenFxHandle, true )
+	EffectSetControlPointVector( file.accelScreenFxHandle, 1, <255, 208, 56> )
+	const vector REGULAR_OFFSET = <0, -45, 0>
+	const vector CAMERA_OFFSET = < 0, -35, 0>
+	vector offset = StatusEffect_HasSeverity( player, eStatusEffect.camera_view ) ? CAMERA_OFFSET : REGULAR_OFFSET
+	EffectSetControlPointVector( file.accelScreenFxHandle, 2, offset )
+
+	OnThreadEnd( function() {
+		if ( EffectDoesExist( file.accelScreenFxHandle ) )
+			EffectStop( file.accelScreenFxHandle, false, true )
+
+		file.fxDebounceActive = false
+	} )
+
+	file.fxDebounceActive = true
+
+	wait 2
+}
+
+
+
+
+
+
+
+
+
+
+
+

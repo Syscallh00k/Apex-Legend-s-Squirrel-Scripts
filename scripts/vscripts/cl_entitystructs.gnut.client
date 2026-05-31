@@ -1,0 +1,332 @@
+
+global struct ClientEntityStruct
+{
+	EHIScriptStruct& ehiss
+
+	
+	entity mainVGUI
+
+	bool hudVisible = false
+
+	var overheadRui
+
+	table<string, AnimEventData> animEventDataForEntity
+	table<string, TokenizedAnimEventData> tokenizedAnimEventDataForEntity
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	float localPingBeginTime = -999.0
+	int   predictedUseCount = 0
+	bool  predictedUseSuccess = true
+
+	float lastVocalizedCommsTime = -999.0
+
+	array<DamageHistoryStruct>       recentDamageHistory
+	string functionref( entity ent ) entTextOverrideCallback
+
+	bool functionref( entity player, entity ent, int useFlags ) canUseEntityCallback = null
+	bool functionref( entity player, entity ent ) shouldUseBlockReloadCallback = null
+
+	array<void functionref( entity ent, entity player, int useInputType )> onUseEntityCallbacks
+	array<void functionref( entity vehicle )>                              onVehicleLaunchCallbacks
+	array<void functionref( entity vehicle )>                              onVehicleCollideCallbacks
+	array<void functionref( entity vehicle )>                              onPlayerUseButtonPressed
+	array<void functionref( entity vehicle )>                              onPlayerUseButtonReleased
+	array<void functionref( entity player )>                               onPlayerLandedCallbacks
+	array<void functionref( entity )>                                      onEntityDestroyedCallbacks
+
+	string enemyHighlight = ""
+
+	bool  isSelected
+	float lastUseTime
+	bool  isBusy
+
+	int skinItemFlavorGUID  = ASSET_SETTINGS_UNIQUE_ID_INVALID
+	int charmItemFlavorGUID = ASSET_SETTINGS_UNIQUE_ID_INVALID
+
+	
+	void functionref( entity, entity, var )                    Callback_VortexTriggerBulletHit
+	void functionref( entity, entity, entity, entity, vector ) Callback_VortexTriggerProjectileHit
+
+
+
+
+
+
+
+	int cameraMaxRangeFXHandle = -1
+
+	bool castleWallIsEnergized = false
+
+
+
+
+
+
+	bool munitionsDropSpawned = false
+
+
+	bool                       eyeForQuality_isScanned
+	bool                       blackMarket_haveSeenReady
+	bool                       ignorePingTrace = false
+
+	string clientEntMinimapClassName
+	int    clientEntMinimapCustomState
+	int    clientEntMinimapFlags
+	float  clientEntMinimapScale = 1.0
+	int    clientEntMinimapZOrder
+
+	int deathBoxMenu_lastSeenClipCount
+
+
+	ItemFlavor ornull     animWindowCosmeticItemFlavor = null
+	ItemFlavor ornull     animWindowSkinItemFlavor = null
+	ItemFlavor ornull     animWindowMeleeSkinItemFlavor = null
+
+
+
+
+	bool activatedWeaponEffects = false
+
+	asset	baseModel
+	asset   altModel
+}
+
+
+global struct ProxyParticleFX
+{
+	int handle = -1
+	float lastTimeAboveVisibilityThreshold = 0.0
+	bool hasFailedVisibilityTest = false
+}
+
+
+
+global struct ClientPlayerStruct
+{
+
+
+
+	bool  playerScriptsInitialized
+
+	int currentZoneId = -1
+
+	table<int, array<void functionref( entity )> > playerMovementEventCallbacks
+
+
+		array<int> activePerks
+
+
+
+		bool readyToLaunch = false
+
+
+	entity knife = null
+
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	string            sayLineLatestSound
+	float             sayLineLatestTime = -99.0
+	int               lastSaidCommsAction
+	int               lastCanceledCommsAction
+	table<int, float> commActionFlavorDebounceTimes
+	float             commActionFlavorGlobalDebounceTime = -30.0
+
+	entity                 cryptoActiveCamera
+	bool                   isInExtendedUse = false
+	entity 				   lastExtededUseEnt = null
+
+	int					   extendedUseInputFlags = 0
+
+	float 				   lastUseTime = 0
+	table<string, int>     requiredLootTypes = {}
+
+	string lastEventNotificationText
+
+	int mapPingTicketID = -1
+
+	array<int> freefallContrailFXHandles
+	int        freefallWindEffectHandle = -1
+
+	float nextTraceCheckTime
+
+	bool classActuallyChanged
+
+	table<entity, int> reconScannedByThisPlayerRefCount
+	table<entity, int> reconScannedByThisPlayerRequiresLOSRefCount
+	table<entity, int> reconScannedByThisPlayerRequiresLOSHideNonPermCount
+	
+	
+	
+	
+	table<entity, var> reconScanRUIs
+	
+	
+
+
+	table<entity, ProxyParticleFX> proxyParticleFX
+
+
+	table<entity, float> damageHealthBarStartTime
+
+	float lastTimeDeactivatedJet[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/class/C_Player.nut.client
+[dump] scripts/vscripts/class/C_Player.nut.client (381 bytes)global function CodeCallback_RegisterClass_C_Player
+global function HasPlayerSettingMod
+
+var function CodeCallback_RegisterClass_C_Player()
+{
+	C_Player.ClassName <- "C_Player"
+
+	C_Player.classChanged <- true
+	C_Player.cv <- null
+}
+
+bool function HasPlayerSettingMod( entity player, string mod )
+{
+	array<string> mods = player.GetPlayerSettingsMods()
+	return mods.contains( mod )
+}
+[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/client/cl_scoreboard_mp.nut.client
+[dump] scripts/vscripts/client/cl_scoreboard_mp.nut.client (26547 bytes)untyped
+
+global const SCOREBOARD_LOCAL_PLAYER_COLOR = <LOCAL_R / 255.0, LOCAL_G / 255.0, LOCAL_B / 255.0>
+global const SCOREBOARD_PARTY_COLOR = <PARTY_R / 255.0, PARTY_G / 255.0, PARTY_B / 255.0>
+const SCOREBOARD_FRIENDLY_COLOR = <FRIENDLY_R / 255.0, FRIENDLY_G / 255.0, FRIENDLY_B / 255.0>
+const SCOREBOARD_FRIENDLY_SELECTED_COLOR = <0.6640625,0.7578125,0.85546875>
+const SCOREBOARD_ENEMY_COLOR = <ENEMY_R / 255.0, ENEMY_G / 255.0, ENEMY_B / 255.0>
+const SCOREBOARD_ENEMY_SELECTED_COLOR = <1.0,0.7019,0.592>
+const SCOREBOARD_DEAD_FONT_COLOR = <0.7,0.7,0.7>
+const SCOREBOARD_FFA_COLOR = <0.5,0.5,0.5>
+const SCOREBOARD_BG_ALPHA = 0.35
+const SCOREBOARD_EMPTY_COLOR = <0,0,0>
+const SCOREBOARD_EMPTY_BG_ALPHA = 0.35
+
+const SCOREBOARD_TITLE_HEIGHT = 50
+const SCOREBOARD_SUBTITLE_HEIGHT = 35
+const SCOREBOARD_FOOTER_HEIGHT = 35
+const SCOREBOARD_TEAM_LOGO_OFFSET = 24
+const SCOREBOARD_TEAM_LOGO_HEIGHT = 64
+const SCOREBOARD_PLAYER_ROW_OFFSET = 12
+const SCOREBOARD_PLAYER_ROW_HEIGHT = 35
+const SCOREBOARD_PLAYER_ROW_SPACING = 2
+
+const int MAX_TEAM_SLOTS = 16
+
+const int MIC_STATE_NO_MIC = 0
+const int MIC_STATE_HAS_MIC = 1
+const int MIC_STATE_TALKING = 2
+const int MIC_STATE_PARTY_HAS_MIC = 3
+const int MIC_STATE_PARTY_TALKING = 4
+const int MIC_STATE_MUTED = 5
+
+global function ClScoreboardMp_Init
+
+global function ScoreboardFocus
+global function ScoreboardLoseFocus
+global function ScoreboardSelectPrevPlayer
+global function ScoreboardSelectNextPlayer
+global function ShowScoreboardOrMap_Teams
+global function HideScoreboardOrMap_Teams
+
+
+global function AddScoreboardCallback_OnShowing
+global function AddScoreboardCallback_OnHiding
+
+global function Scoreboard_AddRui
+global function Scoreboard_SetVisible
+global function Scoreboard_IsVisible
+
+struct {
+	bool hasFocus = false
+	entity selectedPlayer
+	entity prevPlayer
+	entity nextPlayer
+
+	var scoreboardBg
+	var scoreboard
+	var background
+
+	array<var> scoreboardOverlays
+	array<var> scoreboardElems
+
+	table header = {
+		background = null
+		gametypeAndMap = null
+		gametypeDesc = null
+		scoreHeader = null
+	}
+
+	var footer
+	var pingText
+
+	table teamElems
+
+	table highlightColumns
+
+	var nameEndColumn
+
+	table playerElems
+
+	var scoreboardRUI
+
+	bool scoreboardVisible = false
+	array<var> scoreb

@@ -1,0 +1,319 @@
+[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/_odl_smoke.gnut.client
+[dump] scripts/vscripts/_odl_smoke.gnut.client (10241 bytes)global function Odl_SmokeTestInit
+
+
+global function Odl_ClientSmokeTestCallback
+global function Odl_ClientEndCurrentTest
+global function Odl_ClientAddSpawnPoint
+global function Odl_ClientValidateAllSkins
+
+
+
+
+
+
+#if DEV
+global function OdlStressSwitchChar
+global function OdlStressDoForceReload
+global function OdlStressDoRandomSkin
+global function OdlRemoveTesterEnts
+global function OdlStressTestCreateTesterEnt
+global function OdlSetPostLoadWaitFrames
+
+global function OdslStressTestAllTesterEnts
+
+global function OdslKillTest
+
+
+
+
+
+
+
+
+
+
+global function Odl_ValidateAllSkins
+
+global struct ODLTestingParams
+{
+	int testNetworkId
+	bool doForceReload
+	bool randomSkin
+	int entCount
+	int postLoadWaitFrames
+	int postLoadWaitFramesMax
+	float reselectPercentage
+	int maxReselect
+}
+
+global table<string, table> ALL_ODL_TEST_PARAMS =
+{
+	["basic_force_reload_stress_test"] = {
+		enabled = false
+		testNetworkId = 0,
+		doForceReload = true,
+		randomSkin = false,
+		doFullResetAtEnd = false,
+		entCount = 1,
+		postLoadWaitFrames = 0
+		postLoadWaitFramesMax = 0
+		reselectPercentage = 0
+		maxReselect = 0
+	},
+	["lod_streaming_stress_basic"] = {
+		enabled = false
+		testNetworkId = 1,
+		doForceReload = true,
+		randomSkin = false,
+		doFullResetAtEnd = false,
+		entCount = 1,
+		postLoadWaitFrames = 1
+		postLoadWaitFramesMax = 10
+		reselectPercentage = 0
+		maxReselect = 0
+	},
+	["small_group_load_stress_test"] = {
+		enabled = false
+		testNetworkId = 2,
+		doForceReload = true,
+		doFullResetAtEnd = false,
+		randomSkin = true,
+		entCount = 6,
+		postLoadWaitFrames = 0
+		postLoadWaitFramesMax = 10
+		reselectPercentage = 0
+		maxReselect = 0
+	},
+	["reselect_stress_basic"] = {
+		enabled = false
+		testNetworkId = 3,
+		doForceReload = false,
+		doFullResetAtEnd = true,
+		randomSkin = true,
+		entCount = 6,
+		postLoadWaitFrames = 0
+		postLoadWaitFramesMax = 0
+		reselectPercentage = 0.1
+		maxReselect = 5
+	},
+	["reselect_stress_50"] = {
+		enabled = false
+		testNetworkId = 4,
+		doForceReload = false,
+		doFullResetAtEnd = true,
+		randomSkin = true,
+		entCount = 6,
+		postLoadWaitFrames = 0
+		postLoadWaitFramesMax = 0
+		reselectPercentage = 0.5
+		maxReselect = 5
+	},
+	["reselect_stress_100"] = {
+		enabled = false
+		testNetworkId = 5,
+		doForceReload = false,
+		doFullResetAtEnd = true,
+		randomSkin = true,
+		entCount = 6,
+		postLoadWaitFrames = 0
+		postLoadWaitFramesMax = 0
+		reselectPercentage = 1.0
+		maxReselect = 5
+	},
+	["reselect_max_stress"] = {
+		enabled = false
+		testNetworkId = 6,
+		doForceReload = false,
+		doFullResetAtEnd = true,
+		randomSkin = true,
+		entCount = 60,
+		postLoadWaitFrames = 0
+		postLoadWaitFramesMax = 0
+		reselectPercentage = 0.1
+		maxReselect = 5
+	},
+}
+
+const array<string> BLACKLIST_MDLS = [
+	"mdl/techart/mshop/characters/legends/ballistic/ballistic_v23_goldenweek_v.rmdl",
+	"mdl/Humans/class/heavy/caustic_v23_goldenweek_w.rmdl"
+]
+
+
+const array<string> WHITELIST_MDSL = [
+
+]
+
+float SMOKE_TEST_TIME = 60
+
+struct
+{
+	table dummy = {}
+	array<entity> testerEnts = []
+	array<vector> spawnPoints = []
+	array<vector> spawnRotations = []
+	table testingParams 
+} file;
+
+void function OdlSetPostLoadWaitFrames(int frames)
+{
+	file.testingParams.postLoadWaitFrames = frames
+}
+
+void function OdlRemoveTesterEnts()
+{
+	foreach(entity e in file.testerEnts)
+	{
+		e.Destroy()
+	}
+
+	file.testerEnts.clear()
+}
+
+void function OdlStressDoForceReload(bool v)
+{
+	file.testingParams.doForceReload = v
+}
+
+void function OdlStressDoRandomSkin(bool v)
+{
+	file.testingParams.randomSkin = v
+}
+
+void function DoSkinLoadExample()
+{
+	asset skin = $"mdl/Humans/class/medium/pilot_medium_holo.rmdl"
+	PrecacheModel( skin )
+
+	vector origin = gp()[0].GetOrigin()
+	vector angles = gp()[0].GetAngles()
+	entity skinDummy = CreatePropDynamic( skin, origin, angles )
+}
+
+void function OdlStressSwitchChar( entity e )
+{
+	while (true)
+	{
+		
+		ItemFlavor char = GetRandomGoodItemFlavorForLoadoutSlot( ToEHI( gp()[0] ), Loadout_Character() )
+		ItemFlavor skin = CharacterClass_GetDefaultSkin( char )
+		
+		if ( file.testingParams.randomSkin )
+		{
+			ItemFlavor maybeSkin = GetRandomGoodItemFlavorForLoadoutSlot( ToEHI( gp()[0] ), Loadout_CharacterSkin( char ) )
+			if ( !BLACKLIST_MDLS.contains( CharacterSkin_GetBodyModel( maybeSkin ) ) )
+			{
+				skin = maybeSkin
+			}
+		}
+
+		int odlHandle = ODL_FindAsset(CharacterSkin_GetBodyModel( skin ))
+		if (odlHandle == -1)
+			continue
+
+		if (ODL_IsLoaded(odlHandle))
+			continue
+
+		e.SetModel( CharacterSkin_GetBodyModel( skin ) )
+		int skinIndex = e.GetSkinIndexByName( CharacterSkin_GetSkinName( skin ) )
+		int camoIndex = CharacterSkin_GetCamoIndex( skin )
+		e.SetSkin( skinIndex )
+		e.SetCamo( camoIndex )
+		e.Anim_Play( "ACT_MP_MENU_LOBBY_CENTER_IDLE" )
+
+		return
+	}
+}
+
+
+void function OdlStressReSelectorThread( entity e )
+{
+	EndSignal(file.dummy, "KillOdlStressTest")
+	EndSignal(e, "OnDestroy")
+	EndSignal(e, "KillOdlReSelector")
+
+	int odlHandle = ODL_FindAsset(e.GetModelName())
+	if (odlHandle == -1)
+		return[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/cl_vscript.gnut.client
+[dump] scripts/vscripts/cl_vscript.gnut.client (151 bytes)
+
+global function UniqueString
+
+int __uniqueStringId = 0
+
+string function UniqueString( string str = "" )
+{
+	return str + "_us" + __uniqueStringId++
+}
+[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/sh_anim_windows.gnut.client
+[dump] scripts/vscripts/sh_anim_windows.gnut.client (61199 bytes)global function ShAnimWindows_LevelInit
+
+
+global function ShowEntityAndChildren
+global function HideEntityAndChildren
+
+global function ClientCodeCallback_AnimWindowStream
+global function ClientCodeCallback_AnimWindowStart
+global function ClientCodeCallback_AnimWindowTransition
+global function ClientCodeCallback_AnimWindowStop
+
+
+
+
+
+
+global function RegisterScriptAnimWindowCallbacks
+global function TryResolveScriptAnimWindowWeapon
+
+
+
+
+
+
+global const asset BLOODHOUND_BIRD_MDL = $"mdl/creatures/bird/bird.rmdl"
+global const asset REVENANT_MDL = $"mdl/humans/class/heavy/pilot_heavy_revenant.rmdl"
+const string BLOODHOUND_BIRD_KEY = "set_bloodhound_raven_skin"
+const string REVENANT_SHADOW_KEY = "set_revenant_shadow_skin"
+const string MELEE_SKIN_KEY = "match_melee_skin"
+const string ARTIFACT_SMEAR_KEY = "artifact_3p_smear"
+
+const bool SCRIPT_ANIM_WINDOWS_DEBUG = false
+
+const MIRAGE_HOLO_FLASH_FX = $"P_mirage_holo_flash"
+const MIRAGE_HOLO_TRAIL_FX = $"P_mirage_holo_trail"
+
+const asset SHADOW_TRAIL_FX = $"P_Bshadow_body"
+const asset SHADOW_EYE_FX = $"P_BShadow_eye"
+const asset SHADOW_DEATH_FX = $"P_BShadow_death"
+
+const asset SHADOWReborn_body_FX = $"P_rev_lobby_ult_body"
+const asset SHADOWReborn_EYE_FX = $"P_rev_lobby_eye"
+const asset SHADOWReborn_activation_FX = $"p_rev_lobby_ult_activate_body"
+
+const asset LIFELINE_DRONE_MDL = $"mdl/props/lifeline_drone/lifeline_drone.rmdl"
+const asset LIFELINE_DRONE_JET_FX = $"P_LL_med_drone_jet_loop"
+int LIFELINE_DRONE_JET_FX_IDX = -1
+const asset LIFELINE_DRONE_VENT_FX = $"P_LL_med_drone_jet_ctr_loop"
+int LIFELINE_DRONE_VENT_FX_IDX = -1
+const asset LIFELINE_DRONE_EYEGLOW_FX = $"P_LL_med_drone_eye_loop"
+int LIFELINE_DRONE_EYEGLOW_FX_IDX = -1
+const int LIFELINE_DRONE_OFFLINE_SKIN = 0
+const int LIFELINE_DRONE_ONLINE_SKIN = 1
+
+const asset WRAITH_KUNAI_MDL = $"mdl/techart/mshop/props/class/heirloom/wraith/v18_kunai/heirloom_wraith_v18_kunai_w.rmdl"
+const int WRAITH_KUNAI_SKIN = 0
+const int WRAITH_KUNAI_SKIN_NEW = 1
+
+
+const table< string, asset > FUSE_MYTHIC_SKINS_AND_LAUNCHERS = {
+	["fuse_mythic_v25_pilot_level01"] = $"mdl/props/fuse_mythic_launcher_tier01/fuse_mythic_launcher_tier01.rmdl",
+	["fuse_mythic_v25_pilot_level02"] = $"mdl/props/fuse_mythic_launcher_tier02/fuse_mythic_launcher_tier02.rmdl",
+	["fuse_mythic_v25_pilot_level03"] = $"mdl/props/fuse_mythic_launcher_tier03/fuse_mythic_launcher_tier03.rmdl",
+}
+
+
+
+struct {
+	table<string, void functionref(ScriptAnimWindow, var, entity)> createPropScriptCallbackMap
+	table<string, void functionref(entity ent, string parameter)>  scriptAnimWin

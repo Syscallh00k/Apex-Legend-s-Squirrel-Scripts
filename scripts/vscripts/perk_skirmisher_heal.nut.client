@@ -1,0 +1,32 @@
+global function Perk_SkirmisherHeal_Init
+
+global function Perk_CanPlayerSkirmisherHeal
+
+
+void function Perk_SkirmisherHeal_Init()
+{
+	PerkInfo skirmisherHeal
+	skirmisherHeal.perkId = ePerkIndex.SKIRMISHER_HEAL
+	Perks_RegisterClassPerk( skirmisherHeal )
+
+	if ( !Perk_SkirmisherHeal_Enabled() )
+		return
+}
+
+bool function Perk_SkirmisherHeal_Enabled()
+{
+	return Perks_SkirmisherUpdateEnabled() && GetCurrentPlaylistVarBool( "perks_skirmisher_heal_enabled", true )
+}
+
+
+
+bool function Perk_CanPlayerSkirmisherHeal( entity player )
+{
+	if( !Perk_SkirmisherHeal_Enabled() )
+		return false
+
+	return Perks_DoesPlayerHavePerk( player, ePerkIndex.SKIRMISHER_HEAL )
+}
+
+
+

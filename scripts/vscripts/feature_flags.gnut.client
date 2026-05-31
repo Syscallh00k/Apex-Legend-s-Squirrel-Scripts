@@ -1,0 +1,7 @@
+[LoadScriptFile] self 0x7ff67896f188  out 0x24c2dacd20  path : maps/mp_lobby.bsp.0062.bsp_lump.client
+
+
+
+
+global const bool DFS_MAGIC_SERVER_STRIPPED = false 
+#if DFS_M

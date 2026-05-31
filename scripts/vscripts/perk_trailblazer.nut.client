@@ -1,0 +1,613 @@
+global function Perk_Trailblazer_Init
+
+
+
+
+
+
+
+
+const float SPEED_BOOST_DEFAULT_AMOUNT 		= 0.15
+const float SPEED_BOOST_DEFAULT_DURATION	= 1.5
+const float SPEED_BOOST_DEFAULT_CHARGE_TIME	= 2.0
+const float PERK_TRAILBLAZER_MIN_RANGE	= 20.0 * METERS_TO_INCHES
+const float PERK_TRAILBLAZER_MAX_RANGE	= 180.0 * METERS_TO_INCHES
+
+
+global const string TRAILBLAZER_BEST_TARGET_NETVAR = "trailblazer_bestTarget"
+global const string TRAILBLAZER_CHARGE_END_NETVAR 	= "trailblazer_chargeEndTime"
+
+
+const string SPEED_BOOST_COCKPIT_FX			= $"P_screen_buff_speed"
+const string TRAILBLAZER_SPEED_BOOST_SFX_1P	= "Skirmisher_Perk_Trailblazer_LP_1P"
+
+
+const string TRAILBLAZER_STOP				= "trailblazer_stop"
+const string TRAILBLAZER_COCKPIT_FX_STOP	= "trailbalzer_cockpit_fx_stop"
+
+
+
+
+
+
+
+
+
+
+
+struct
+{
+
+
+
+
+		bool canThank = false
+
+}file
+
+struct
+{
+	float speedBoostAmount
+	float speedBoostDuration
+	float speedBoostChargeTime
+	float speedBoostMinRange
+	float speedBoostMaxRange
+}tuning
+
+
+void function Perk_Trailblazer_Init()
+{
+	PerkInfo TrailblazerPerk
+	TrailblazerPerk.perkId = ePerkIndex.TRAILBLAZER
+
+
+		TrailblazerPerk.activateCallback = Perk_Trailblazer_OnActivate
+		TrailblazerPerk.deactivateCallback = Perk_Trailblazer_OnDeactivate
+
+
+	Perks_RegisterClassPerk( TrailblazerPerk )
+	if( !Perk_Trailblazer_IsEnabled() )
+		return
+
+
+		AddCallback_OnPassiveChanged( ePassives.PAS_FOLLOW_TRAILBLAZER, Perk_Trailblazer_OnPassiveChanged )
+
+
+
+
+
+
+
+		StatusEffect_RegisterEnabledCallback( eStatusEffect.perk_trailblazer, Perk_Trailblazer_OnStatusEnabled )
+		StatusEffect_RegisterDisabledCallback( eStatusEffect.perk_trailblazer, Perk_Trailblazer_OnStatusDisabled )
+
+
+	RegisterNetworkedVariable( TRAILBLAZER_BEST_TARGET_NETVAR, SNDC_PLAYER_EXCLUSIVE, SNVT_ENTITY )
+	RegisterNetworkedVariable( TRAILBLAZER_CHARGE_END_NETVAR, SNDC_PLAYER_EXCLUSIVE, SNVT_TIME, -1 )
+	RegisterSignal( TRAILBLAZER_STOP )
+	RegisterSignal( TRAILBLAZER_COCKPIT_FX_STOP )
+
+		PrecacheParticleSystem( SPEED_BOOST_COCKPIT_FX )
+
+
+	tuning.speedBoostAmount 	= GetCurrentPlaylistVarFloat( "perk_trailblazer_amount", SPEED_BOOST_DEFAULT_AMOUNT )
+	tuning.speedBoostDuration	= GetCurrentPlaylistVarFloat( "perk_trailblazer_duration", SPEED_BOOST_DEFAULT_DURATION )
+	tuning.speedBoostChargeTime = GetCurrentPlaylistVarFloat( "perk_trailblazer_charge_time", SPEED_BOOST_DEFAULT_CHARGE_TIME )
+	tuning.speedBoostMinRange 	= GetCurrentPlaylistVarFloat( "perk_trailblazer_min_range", PERK_TRAILBLAZER_MIN_RANGE )
+	tuning.speedBoostMaxRange 	= GetCurrentPlaylistVarFloat( "perk_trailblazer_max_range", PERK_TRAILBLAZER_MAX_RANGE )
+}
+
+
+bool function Perk_Trailblazer_IsEnabled()
+{
+	return Perks_SkirmisherUpdateEnabled() && GetCurrentPlaylistVarBool( "perk_trailblazer_is_enabled", true )
+}
+
+bool function Perk_Trailblazer_UsesSharedPassive()
+{
+	return Perks_SkirmisherUpdateEnabled() && GetCurrentPlaylistVarBool( "perk_trailblazer_uses_shared_passive", true )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function Perk_Trailblazer_OnActivate( entity player, string characterName )
+{
+	if( !Perk_Trailblazer_IsEnabled() )
+		return
+
+	if( !IsValid( player ) )
+		return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+}
+
+void function Perk_Trailblazer_OnDeactivate( entity player )
+{
+	if( !Perk_Trailblazer_IsEnabled() )
+		return
+
+	if( !IsValid( player ) )
+		return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+}
+
+void function Perk_Trailblazer_OnPassiveChanged( entity player, int passive, bool didHave, bool nowHas )
+{
+	if( nowHas )
+	{
+
+
+
+
+
+
+
+
+
+
+
+			thread Perk_Trailblazer_TargetingRuiThink( player )
+
+	}
+	if( didHave )
+	{
+		Signal( player, TRAILBLAZER_STOP )
+	}
+}
+
+
+
+void function Perk_Trailblazer_OnStatusEnabled( entity player, int statusEffect, bool actuallyChanged )
+{
+	if( !IsValid( player ) )
+		return
+
+	entity localViewPlayer = GetLocalViewPlayer()
+	if ( player == localViewPlayer )
+	{
+		entity cockpit = player.GetCockpit()
+		if ( !IsValid( cockpit ) )
+			return
+
+		int fxHandle = StartParticleEffectOnEntity( cockpit, GetParticleSystemIndex( SPEED_BOOST_COCKPIT_FX ), FX_PATTACH_ABSORIGIN_FOLLOW, ATTACHMENTID_INVALID )
+		thread Perk_Trailblazer_ScreenFXThink( player, fxHandle, cockpit )
+	}
+	else if ( Perks_DoesPlayerHavePerk( localViewPlayer, ePerkIndex.TRAILBLAZER ) && localViewPlayer.GetTeam() == player.GetTeam() )
+		SetUnitFrameTrailblazerFollowingState( player, true )
+}
+
+void function Perk_Trailblazer_OnStatusDisabled( entity player, int statusEffect, bool actuallyChanged )
+{
+	if ( !IsValid( player ) )
+		return
+
+	Signal( player, TRAILBLAZER_COCKPIT_FX_STOP )
+	SetUnitFrameTrailblazerFollowingState( player, false )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+bool function Perk_Trailblazer_TeamHasPerk( entity player )
+{
+	array< entity > allies = GetPlayerArrayOfTeam( player.GetTeam() )
+	ArrayRemoveInvalid( allies )
+	foreach( ally in allies)
+	{
+		if( ally == player )
+			continue
+
+		if( Perks_DoesPlayerHavePerk( ally, ePerkIndex.TRAILBLAZER ) )
+			return true
+	}
+
+	return false
+}
+
+
+
+void function Perk_Trailblazer_ScreenFXThink( entity player, int fxHandle, entity cockpit )
+{
+	if( player != GetLocalViewPlayer() )
+		return
+
+	EndSignal( player, "OnDestroy"  )
+	EndSignal( player, "OnDeath" )
+	EndSignal( player, TRAILBLAZER_COCKPIT_FX_STOP )
+	EndSignal( cockpit,"OnDestroy" )
+
+	OnThreadEnd(
+		function() : ( fxHandle , player )
+		{
+			if ( !EffectDoesExist( fxHandle ) )
+				return
+
+			EffectStop( fxHandle, false, true )
+
+			if( IsValid( player ) )
+				StopSoundOnEntity( player, TRAILBLAZER_SPEED_BOOST_SFX_1P )
+		}
+	)
+
+	EmitSoundOnEntity( player, TRAILBLAZER_SPEED_BOOST_SFX_1P )
+	while( IsValid( player ) && EffectDoesExist( fxHandle ) )
+	{
+		float velocityX = Length( player.GetVelocity() )
+		velocityX = GraphCapped( velocityX, 0.0, 360, 5, 200 )
+		EffectSetControlPointVector( fxHandle, 1, <velocityX,999,0> )
+		WaitFrame()
+	}
+}
+
+void function Perk_Trailblazer_TargetingRuiThink( entity player )
+{
+	if ( !IsValid( player ) )
+		return
+
+	EndSignal( player, "OnDestroy", "OnDeath" )
+	EndSignal( player, TRAILBLAZER_STOP )
+
+	while( !IsValid( player.GetPlayerNetEnt( TRAILBLAZER_BEST_TARGET_NETVAR ) ) )
+	{
+		WaitFrame()
+	}
+
+	
+	var rui = RuiCreate( $"ui/in_world_targeted_speed_boost.rpak", clGlobal.topoFullScreen, RUI_DRAW_HUD, RuiCalculateDistanceSortKey( player.EyePosition(), player.GetOrigin() ) )
+	InitHUDRui( rui )
+	RuiSetBool( rui, "isVisible", true )
+	RuiKeepSortKeyUpdated( rui, true, "pos" )
+	RuiSetBool( rui, "showPassive", true )
+	RuiSetFloat3( rui, "pos", player.GetWorldSpaceCenter() )
+
+	ItemFlavor character = LoadoutSlot_GetItemFlavor( ToEHI( player ), Loadout_Character() )
+	string characterRef  = ItemFlavor_GetCharacterRef( character ).tolower()
+
+	if ( characterRef == "character_conduit" || characterRef == "character_lifeline" )
+		RuiSetBool( rui, "shouldOffsetDown", true )
+
+
+	OnThreadEnd(
+		function() : ( rui )
+		{
+			RuiDestroyIfAlive( rui )
+		}
+	)
+
+	while( true )
+	{
+		entity target = player.GetPlayerNetEnt( TRAILBLAZER_BEST_TARGET_NETVAR )
+		if( !IsValid( target ) )
+		{
+			RuiSetBool( rui, "isVisible", false )
+		}
+		else if ( target != player )
+		{
+			float chargeEndTime       = player.GetPlayerNetTime( TRAILBLAZER_CHARGE_END_NETVAR )
+			float chargeTimeRemaining = chargeEndTime != -1 ? max( chargeEndTime - Time(), 0.0 ) : tuning.speedBoostChargeTime
+
+			if( Time() > chargeEndTime && file.canThank )
+			{
+				file.canThank = false
+				AddOnscreenPromptFunction( "quickchat", CreateQuickchatFunction( eCommsAction.REPLY_THANKS, target ), 6.0, Localize( "#PING_SAY_THANKS", target.GetPlayerName() ) )
+				thread Perk_Trailblazer_ResetThanks( player, target )
+			}
+			RuiSetFloat3( rui, "pos", target.GetWorldSpaceCenter() )
+			RuiSetBool( rui, "isVisible", true )
+			RuiSetFloat( rui, "passiveFill", 1.0 - chargeTimeRemaining / tuning.speedBoostChargeTime )
+			RuiSetBool( rui, "enemyObstructing", CheckIfEnemyIsObstructing(player, target) )
+		}
+		else
+		{
+			RuiSetBool( rui, "isVisible", false )
+		}
+
+		WaitFrame()
+	}
+}
+
+void function Perk_Trailblazer_ResetThanks( entity player, entity startingTarget )
+{
+	EndSignal( player, "OnDestroy"  )
+	EndSignal( player, "OnDeath" )
+
+	const RESET_DELAY = 10.0
+	bool hasValidTarget = true
+
+	while( hasValidTarget )
+	{
+		entity currentTarget = player.GetPlayerNetEnt( TRAILBLAZER_BEST_TARGET_NETVAR )
+		if( currentTarget != startingTarget )
+			hasValidTarget = false
+
+		WaitFrame()
+	}
+
+	wait RESET_DELAY
+
+	file.canThank = true
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

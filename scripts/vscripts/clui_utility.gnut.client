@@ -1,0 +1,1847 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+untyped
+globalize_all_functions
+
+global enum eStreamMode
+{
+	DISABLED,
+	KILLER,
+	ALL,
+}
+
+
+global enum eUIDrawStage
+{
+	WORLD = RUI_DRAW_WORLD,
+	VIEW_MODEL = RUI_DRAW_VIEW_MODEL,
+	COCKPIT = RUI_DRAW_COCKPIT,
+	HUD = RUI_DRAW_HUD,
+	POSTEFFECTS = RUI_DRAW_POSTEFFECTS,
+}
+
+
+global enum eMenuState
+{
+	NOT_IN_MENU,
+	IN_MENU,
+	IN_DIALOG,
+}
+
+global enum eFakeMenuState
+{
+	NOT_IN_FAKE_MENU,
+	IN_FAKE_MENU
+}
+
+
+global enum ePinCorners
+{
+	TOP_LEFT,
+	TOP_RIGHT,
+	BOTTOM_LEFT,
+	BOTTOM_RIGHT,
+	TOP,
+	RIGHT,
+	BOTTOM,
+	LEFT,
+	CENTER,
+	COUNT
+}
+
+global const table< int, vector > PIN_CORNER_COORDINATES =
+{
+	[ePinCorners.TOP_LEFT] 		= <0.0, 0.0, 0.0>,
+	[ePinCorners.TOP] 			= <0.5, 0.0, 0.0>,
+	[ePinCorners.TOP_RIGHT] 	= <1.0, 0.0, 0.0>,
+	[ePinCorners.LEFT] 			= <0.0, 0.5, 0.0>,
+	[ePinCorners.CENTER] 		= <0.5, 0.5, 0.0>,
+	[ePinCorners.RIGHT] 		= <1.0, 0.5, 0.0>,
+	[ePinCorners.BOTTOM_LEFT] 	= <0.0, 1.0, 0.0>,
+	[ePinCorners.BOTTOM] 		= <0.5, 1.0, 0.0>,
+	[ePinCorners.BOTTOM_RIGHT] 	= <1.0, 1.0, 0.0>
+}
+
+global struct RuiPin
+{
+	int selfPinCorner = ePinCorners.TOP_LEFT
+	int siblingPinCorner = ePinCorners.TOP_LEFT
+
+	vector pinOffset = <0, 0, 0>
+}
+
+struct
+{
+	int hud_setting_accessibleChatCache
+} file
+
+ToolTipData function CreateSimpleToolTip( string titleText, string descText, string actionHint1 = "", string actionHint2 = "", string actionHint3 = "", string actionHint4 = "" )
+{
+	ToolTipData toolTipData
+	toolTipData.titleText = titleText
+	toolTipData.descText = descText
+	toolTipData.actionHint1 = actionHint1
+	toolTipData.actionHint2 = actionHint2
+	toolTipData.actionHint3 = actionHint3
+	toolTipData.actionHint4 = actionHint4
+
+	return toolTipData
+}
+
+bool function PointInBounds( vector point, UIPos pos, UISize size )
+{
+	if ( point.x < pos.x )
+		return false
+	if ( point.y < pos.y )
+		return false
+	if ( point.x > pos.x + size.width )
+		return false
+	if ( point.y > pos.y + size.height )
+		return false
+
+	return true
+}
+
+
+UIPos function REPLACEHud_GetPos( var panel )
+{
+	var untypedPos = Hud_GetPos( panel )
+
+	UIPos pos
+	pos.x = expect int( untypedPos[0] )
+	pos.y = expect int( untypedPos[1] )
+
+	return pos
+}
+
+
+UIPos function REPLACEHud_GetAbsPos( var panel )
+{
+	var untypedPos = Hud_GetAbsPos( panel )
+
+	UIPos pos
+	pos.x = expect int( untypedPos[0] )
+	pos.y = expect int( untypedPos[1] )
+
+	return pos
+}
+
+
+UIPos function REPLACEHud_GetBasePos( var panel )
+{
+	var untypedPos = Hud_GetBasePos( panel )
+
+	UIPos pos
+	pos.x = expect int( untypedPos[0] )
+	pos.y = expect int( untypedPos[1] )
+
+	return pos
+}
+
+
+UISize function REPLACEHud_GetSize( var panel )
+{
+	var untypedSize = Hud_GetSize( panel )
+
+	UISize size
+	size.width = expect int( untypedSize[0] )
+	size.height = expect int( untypedSize[1] )
+
+	return size
+}
+
+UIPos function REPLACEHud_GetParentRelativePos( var panel )
+{
+	var untypedPos = Hud_GetParentRelativePos( panel )
+
+	UIPos pos
+	pos.x = expect int( untypedPos[0] )
+	pos.y = expect int( untypedPos[1] )
+
+	return pos
+}
+
+UISize function GetScreenSize()
+{
+#if HEADLESS_PROG
+	UISize size
+	size.width = 1920
+	size.height = 1080
+	return size
+#else
+
+
+
+		array screenSize = expect array( Hud.GetScreenSize() )
+
+		UISize size
+		size.width = expect int( screenSize[0] )
+		size.height = expect int( screenSize[1] )
+
+		return size
+
+#endif
+}
+
+UIScaleFactor function GetContentScaleFactor( var panel )
+{
+#if HEADLESS_PROG
+	UIScaleFactor scaleFactor
+	scaleFactor.x = 1
+	scaleFactor.y = 1
+#else
+	UISize size
+	float heightBasis = 1080.0
+
+
+
+
+		array screenSize = expect array( panel.GetScreenSize() )
+		size.width = expect int( screenSize[0] )
+		size.height = expect int( screenSize[1] )
+
+
+	float aspectRatio = size.width / float( size.height )
+
+	UIScaleFactor scaleFactor
+	scaleFactor.x = size.width / (heightBasis * aspectRatio)
+	scaleFactor.y = size.height / heightBasis
+#endif
+	return scaleFactor
+}
+
+UIScaleFactor function GetContentFixedScaleFactor( var panel )
+{
+#if HEADLESS_PROG
+	UIScaleFactor scaleFactor
+	scaleFactor.x = 1
+	scaleFactor.y = 1
+#else
+	UISize size
+	float vwidth  = 1920
+	float vheight = 1080
+
+
+
+
+		array screenSize = expect array( panel.GetScreenSize() )
+		size.width = expect int( screenSize[0] )
+		size.height = expect int ( screenSize[1] )
+
+
+	float rx = size.width / vwidth
+	float ry = size.height / vheight
+
+	UIScaleFactor scaleFactor
+	if ( rx < ry )
+	{
+		scaleFactor.x = rx
+		scaleFactor.y = rx
+	}
+	else
+	{
+		scaleFactor.x = ry
+		scaleFactor.y = ry
+	}
+#endif
+	return scaleFactor
+}
+
+UIScaleFactor function GetScaleFactorFromScreenSize()
+{
+	float heightBasis = 1080.0
+	UISize size = GetScreenSize()
+	float aspectRatio = size.width / float( size.height )
+
+	UIScaleFactor scaleFactor
+	scaleFactor.x = size.width / (heightBasis * aspectRatio)
+	scaleFactor.y = size.height / heightBasis
+
+	return scaleFactor
+}
+
+vector function ScalePixelsForScreenSize( vector sizeInPixels )
+{
+	UIScaleFactor scalars = GetScaleFactorFromScreenSize()
+	return < sizeInPixels.x * scalars.x, sizeInPixels.y * scalars.y, 0 >
+}
+
+vector function PixelsToScreenFrac( vector sizeInPixels )
+{
+	UISize screenSize 	= GetScreenSize()
+	return < sizeInPixels.x / screenSize.width, sizeInPixels.y / screenSize.height, 0.0 >
+}
+
+vector function ScreenFracToPixels( vector screenFrac )
+{
+	UISize screenSize 	= GetScreenSize()
+	return < screenFrac.x * screenSize.width, screenFrac.y * screenSize.height, 0.0 >
+}
+
+vector function Hud_GetPinCoordinatesOfElem[LoadScriptFile] self 0x7ff67896f188  out 0x24cf3d8ee0  path : scripts/vscripts/sh_damage_history.gnut.client
+[dump] scripts/vscripts/sh_damage_history.gnut.client (3606 bytes)global function DamageHistoryInit
+global function ClearRecentDamageHistory
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global const MAX_DAMAGE_HISTORY_TIME = 30
+const DEATH_RECAP_DAMAGE_HISTORY_TIME = 30    
+const DEATH_REACP_GROUP_MAX_TIME = 1.0        
+const DEATH_REACP_GROUP_MAX_HITS = 9          
+const INVALID_EHANDLE = -1
+
+global enum eDamageHistorySet
+{
+	DEFAULT, 
+	HEALTH,
+	SHIELD,
+	BLEEDOUT, 
+	ALL,
+}
+
+global struct DeathRecapDamageData
+{
+	
+	int   attackerEHandle   
+	int   victimEHandle     
+	int   damageSourceID    
+	int   damageType        
+	int   totalDamage       
+	int   hitCount          
+	int   headShotBits      
+	float healthFrac        
+	float shieldFrac        
+	float blockTime         
+
+	
+	int   gladCardSlotIndex    
+	asset customImage        
+	int   index                
+}
+
+global struct DamageHistoryStruct
+{
+	vector origin
+	float  damage
+	int    damageType
+	int    damageSourceId
+	entity attacker
+	int    attackerEHandle
+	int    victimEHandle
+	float  time
+
+	bool wasBleedingOut
+
+	float healthFrac
+	float shieldFrac
+}
+
+global struct AssistingPlayerStruct
+{
+	entity player
+	int    damageSourceId
+	float  assistTime
+}
+
+void function DamageHistoryInit()
+{
+
+
+
+
+}
+
+
+void function ClearRecentDamageHistory( entity player )
+{
+	
+	player.e.recentDamageHistory.clear()
+
+
+
+
+
+
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function PurgeDamageHistory( entity player, float maxTime, float time )
+{
+	
+	int timedOutIndex = GetTimedOutDamageHistoryIndex( player.e.recentDamageHistory, maxTime, time )
+	if ( timedOutIndex < player.e.recentDamageHistory.len() )
+		player.e.recentDamageHistory.resize( timedOutIndex + 1 )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+int function GetTimedOutDamageHistoryIndex( array<DamageHistoryStruct> events, float maxTime, float time )
+{
+	float removeTime = time - maxTime
+
+	for ( int index = events.len() - 1 ; index >= 0; index-- )
+	{
+		if ( events[index].time > removeTime )
+			return index
+	}
+
+	return -1
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+AssistingPlayerStruct function GetLatestAssistingPlayerInfo( entity ent )
+{
+	float lastTime    = 0.0
+	float currentTime = Time()
+	AssistingPlayerStruct assistingPlayerInfo
+
+	foreach ( history in ent.e.recentDamageHistory )
+	{
+		if ( !IsValid( history.attacker ) || !history.attacker.IsPlayer() )
+			continue
+
+		if ( history.time <= lastTime )
+			continue
+
+		if ( currentTime - history.time >= MAX_NPC_KILL_STEAL_PREVENTION_TIME )
+			continue
+
+		lastTime = history.time
+		assistingPlayerInfo.player = history.attacker
+		assistingPlayerInfo.damageSourceId = history.damageSourceId
+		assistingPlayerInfo.assistTime = history.time
+	}
+
+	return assistingPlayerInfo
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[LoadScriptFile] self 0x7ff67896f188  out 0x24cf3d8ee0  path : scripts/vscripts/_utility_shared.nut.client
+[dump] scripts/vscripts/_utility_shared.nut.client (51985 bytes)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+untyped
+
+globalize_all_functions
+
+global const TRIG_FLAG_NONE = 0
+global const TRIG_FLAG_PLAYERONLY = 0x0001
+
+
+
+global const TRIG_FLAG_EXCLUSIVE = 0x0010 
+global const TRIG_FLAG_DEVDRAW = 0x0020
+global const TRIG_FLAG_START_DISABLED = 0x0040
+global const TRIG_FLAG_NO_PHASE_SHIFT = 0x0080
+global const float MAP_EXTENTS = 128 * 128
+
+
+
+
+global const TRIGGER_INTERNAL_SIGNAL = "OnTrigger"
+
+global const CALCULATE_SEQUENCE_BLEND_TIME = -1.0
+
+global const string SILENT_PLAYER_VOICE = "_silent"
+
+global struct GravityLandData
+{
+	array<vector> points
+	TraceResults& traceResults
+	float         elapsedTime
+}
+
+global struct FirstPersonSequenceStruct
+{
+	string                     firstPersonAnim = ""
+	string                     thirdPersonAnim = ""
+	string                     firstPersonAnimIdle = ""
+	string                     thirdPersonAnimIdle = ""
+	string                     relativeAnim = ""
+	string                     attachment = ""
+	bool                       teleport = false
+	bool                       noParent = false
+	float                      blendTime = CALCULATE_SEQUENCE_BLEND_TIME
+	float                      thirdPersonBlendInTime = -1.0
+	float                      firstPersonBlendInTime = -1.0
+	float                      firstPersonBlendOutTime = -1.0
+	float                      thirdPersonBlendOutTime = -1.0
+	bool                       noViewLerp = false
+	bool                       hideProxy = false
+	void functionref( entity ) viewConeFunction = null
+	vector ornull              origin = null
+	vector ornull              angles = null
+	bool                       enablePlanting = false
+	bool                       enableRelativeToGround = false
+	bool                       enableCollision = false
+	float                      setStartTime = -1 
+	float                      setInitialTime = 0.0 
+	bool                       useAnimatedRefAttachment = false 
+	bool                       renderWithViewModels = false
+	bool                       gravity = false 
+	bool                       playerPushable = false
+	array<string>              thirdPersonCameraAttachments = []
+	bool                       thirdPersonCameraVisibilityChecks = false
+	entity                     thirdPersonCameraEntity = null
+	bool                       snapPlayerFeetToEyes = true
+	bool                       prediction = false
+	bool                       setVelocityOnEnd = false
+	bool                       snapForLocalPlayer = false
+	bool                       forceThirdPerson = false
+}
+
+global enum eGradeFlags
+{
+	IS_OPEN = (1 << 0),
+	IS_BUSY = (1 << 1),
+	IS_OPEN_SECRET = (1 << 2),
+	IS_LOCKED = (1 << 3),
+}
+
+global enum eEntitiesDidLoadPriority
+{
+	
+	LOW,
+	MEDIUM,
+	HIGH
+}
+
+global struct PotentialTargetData
+{
+	entity target
+	float score
+}
+
+const array<string> ALLOWED_SCRIPT_PARENT_ENTS = [
+	"hatch_bunker_entrance_model_z16",
+	"hatch_bunker_entrance_model_z6",
+	"hatch_bunker_entrance_model_z5",
+	"hatch_bunker_entrance_model_z12",
+	"hatch_bunker_entrance_model_z12_treasure",
+]
+
+struct RefEntAreaData
+{
+	vector areaMin
+	vector areaMax
+}
+
+struct FunctionDebounceData_s
+{
+	int hitCount = 0
+	float lastCall = 0.0
+}
+
+struct
+{
+	array<entity>                 invalidEntsForPlacingPermanentsOnto
+	table<entity, RefEntAreaData> invalidAreasRelativeToEntForPlacingPermanentsOnto
+
+	int functionref()            getNumTeamsRemainingCallback
+	float functionref()			 getDeathCamTimeOverride
+	float functionref()			 getDeathCamSpectateTimeOverride
+	array<string>				 nonInstalledModsTracked
+
+	table< string, table< entity, FunctionDebounceData_s > > playerFunctionDebounce
+} file
+
+void function Utility_Shared_Init()
+{
+	PrecacheModel( $"mdl/weapons/arms/human_pov_cockpit.rmdl" )
+
+	RegisterSignal( TRIGGER_INTERNAL_SIGNAL )
+	RegisterSignal( "devForcedWin" )
+	RegisterSignal( "OnContinousUseStopped" )
+	RegisterSignal( "OnChargeEnd" )
+	RegisterSignal( "FadeModelIntensityOverTime" )
+	RegisterSignal( "FadeModelColorOverTime" )
+	RegisterSignal( "FadeModelAlphaOverTime" )
+	RegisterSignal( "StopCamPosBlend" )
+	RegisterSignal( "StopCamAngBlend" )
+
+	#document( "IsAlive", "Returns true if the given ent is not null, and is alive." )
+}
+
+
+void function InitWeaponScripts()
+{
+	SmartAmmo_Init()
+
+	
+
+
+
+	Grenade_FileInit()
+	Vortex_Init()
+	Weapon_Cubemap_Init()
+
+	
+	
+	
+	
+
+	Lifesteal_Init()
+
+
+		SquadHeal_Init()
+
+
+
+
+
+
+
+
+		HopupGoldenHorse_Init()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	HopupGunshield_Init()
+	HopupUltimateAccelerator_Init()
+
+
+		MpAbilityBoostKit_Init()
+		MpAbilityBoostKitPilotHover_Init()
+		MpAbilityBoostKitLifestealKit_Init()
+		MpAbilityBoostKitNessieSummon_Init()
+
+		MpAbilityBoostKitHealRadius_Init()
+
+
+		MpAbilityBoostKi

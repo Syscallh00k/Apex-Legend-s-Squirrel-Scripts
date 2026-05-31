@@ -1,0 +1,769 @@
+global function Pickup_XP_Cache_Init
+global function XPCache_IsValidRef
+global function XPCache_IsRefEvoCache
+global function XPCache_AutoPickupEvoCache
+global function XPCache_IsTinyXPCache
+
+global function XPCache_ConsolidationEnabled
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global const string XPCACHE_BASIC_NAME = "mp_pickup_xp_cache"
+global const string XPCACHE_ENHANCED_NAME = "mp_pickup_xp_cache_dynamic"
+global const string XPCACHE_LARGE_NAME = "mp_pickup_xp_cache_large"
+
+global const string XPCACHE_TINY_NAME = "mp_pickup_xp_cache_tiny"
+global const string XPCACHE_TINY_NAME_SIZE_02 = XPCACHE_TINY_NAME + "_small"
+global const string XPCACHE_TINY_NAME_SIZE_03 = XPCACHE_TINY_NAME + "_medium"
+global const string XPCACHE_TINY_NAME_SIZE_04 = XPCACHE_TINY_NAME + "_large"
+global const string XPCACHE_TINY_NAME_SIZE_05 = XPCACHE_TINY_NAME + "_xlarge"
+
+
+
+
+
+
+
+
+
+
+
+const string PVAR_TINY_CACHE_USES_HOLIDAY_MODEL_OVERRIDES = "evoorb_use_holiday_model_overrides"
+const asset PVAR_TINY_CACHE_01_HOLIDAY_MODEL_OVERRIDE = $"mdl/props/evo_orb_winterholiday/evo_orb_winterholiday_01.rmdl"
+const asset PVAR_TINY_CACHE_02_HOLIDAY_MODEL_OVERRIDE = $"mdl/props/evo_orb_winterholiday/evo_orb_winterholiday_02.rmdl"
+const asset PVAR_TINY_CACHE_03_HOLIDAY_MODEL_OVERRIDE = $"mdl/props/evo_orb_winterholiday/evo_orb_winterholiday_03.rmdl"
+const asset PVAR_TINY_CACHE_04_HOLIDAY_MODEL_OVERRIDE = $"mdl/props/evo_orb_winterholiday/evo_orb_winterholiday_04.rmdl"
+const asset PVAR_TINY_CACHE_05_HOLIDAY_MODEL_OVERRIDE = $"mdl/props/evo_orb_winterholiday/evo_orb_winterholiday_05.rmdl"
+
+
+const asset FX_UNHINGED_ORB_GLOW = $"P_unH_orb_glow"
+const asset FX_UNHINGED_ORB_PICKUP_T1 = $"P_unH_orb_pickup_t1"
+const asset FX_UNHINGED_ORB_PICKUP_T2 = $"P_unH_orb_pickup_t2"
+const asset FX_UNHINGED_ORB_PICKUP_T3 = $"P_unH_orb_pickup_t3"
+const asset FX_UNHINGED_ORB_PICKUP_T4 = $"P_unH_orb_pickup_t4"
+const asset FX_UNHINGED_ORB_PICKUP_T5 = $"P_unH_orb_pickup_t5"
+
+
+
+
+
+
+
+
+
+const asset FX_UNHINGED_ORB_PICKUP_HOLIDAY_T1 = $"P_unH_orb_pickup_holiday_t1"
+const asset FX_UNHINGED_ORB_PICKUP_HOLIDAY_T2 = $"P_unH_orb_pickup_holiday_t2"
+const asset FX_UNHINGED_ORB_PICKUP_HOLIDAY_T3 = $"P_unH_orb_pickup_holiday_t3"
+const asset FX_UNHINGED_ORB_PICKUP_HOLIDAY_T4 = $"P_unH_orb_pickup_holiday_t4"
+const asset FX_UNHINGED_ORB_PICKUP_HOLIDAY_T5 = $"P_unH_orb_pickup_holiday_t5"
+
+const string XPCACHE_TINY_ON_SPAWN_AUDIO_1 = "EvoEvolved_Orb_Lvl1_Spawn"
+const string XPCACHE_TINY_ON_SPAWN_AUDIO_2 = "EvoEvolved_Orb_Lvl2_Spawn"
+const string XPCACHE_TINY_ON_SPAWN_AUDIO_3 = "EvoEvolved_Orb_Lvl3_Spawn"
+const string XPCACHE_TINY_ON_SPAWN_AUDIO_4 = "EvoEvolved_Orb_Lvl4_Spawn"
+const string XPCACHE_TINY_ON_SPAWN_AUDIO_5 = "EvoEvolved_Orb_Lvl5_Spawn"
+
+const string XP_CACHE_TINY_CONSOLIDATE_AUDIO = "EvoEvolved_Orb_Merge_3P"
+const string XP_CACHE_TINY_ATTACH_POINT_CENTER = "evo_orb_uh_center"
+
+
+const float XPCACHE_CONSOLIDATE_RADIUS_DIST = 3
+const vector XPCACHE_PICKUP_VFX_COLOR = <220, 185, 39 > * 0.8
+
+
+global enum eEvoOrbType 
+{
+	DEFAULT,
+
+
+
+	HOLIDAY,
+
+	_count,
+}
+
+const table< string, string > EVO_CACHE_NAME_TO_SPAWN_AUDIO =
+{
+	[ XPCACHE_TINY_NAME ] 			= XPCACHE_TINY_ON_SPAWN_AUDIO_1,
+	[ XPCACHE_TINY_NAME_SIZE_02 ] 	= XPCACHE_TINY_ON_SPAWN_AUDIO_2,
+	[ XPCACHE_TINY_NAME_SIZE_03 ] 	= XPCACHE_TINY_ON_SPAWN_AUDIO_3,
+	[ XPCACHE_TINY_NAME_SIZE_04 ] 	= XPCACHE_TINY_ON_SPAWN_AUDIO_4,
+	[ XPCACHE_TINY_NAME_SIZE_05 ] 	= XPCACHE_TINY_ON_SPAWN_AUDIO_5
+}
+const table< int, string > EVO_REF_FROM_TIER =
+{
+	[ 0 ] = XPCACHE_TINY_NAME,
+	[ 1 ] = XPCACHE_TINY_NAME,
+	[ 2 ] = XPCACHE_TINY_NAME_SIZE_02,
+	[ 3 ] = XPCACHE_TINY_NAME_SIZE_03,
+	[ 4 ] = XPCACHE_TINY_NAME_SIZE_04,
+	[ 5 ] = XPCACHE_TINY_NAME_SIZE_05
+}
+
+const array< string > EVO_TYPE_ARRAY =
+[
+
+	XPCACHE_TINY_NAME,
+	XPCACHE_TINY_NAME_SIZE_02,
+	XPCACHE_TINY_NAME_SIZE_03,
+	XPCACHE_TINY_NAME_SIZE_04,
+	XPCACHE_TINY_NAME_SIZE_05,
+
+	XPCACHE_BASIC_NAME,
+	XPCACHE_LARGE_NAME,
+	XPCACHE_ENHANCED_NAME
+]
+
+
+global const array< string > EVO_ORB_ARRAY =
+[
+	XPCACHE_TINY_NAME,
+	XPCACHE_TINY_NAME_SIZE_02,
+	XPCACHE_TINY_NAME_SIZE_03,
+	XPCACHE_TINY_NAME_SIZE_04,
+	XPCACHE_TINY_NAME_SIZE_05
+]
+
+
+global enum eEvoCacheType
+{
+	EVO_CACHE_SMALL,
+	EVO_CACHE_LARGE,
+	EVO_CACHE_DYNAMIC,
+
+	EVO_CACHE_TINY,
+
+	Count
+}
+
+
+struct EvoOrbData
+{
+	string evoOrbRef = ""
+	int evoOrbRefXP = 0
+	asset evoOrbModel = $""
+	asset particleSystemFX = $"" 
+}
+
+
+struct
+{
+	bool autoLootXpCache = false
+
+
+	float timeToWaitBeforeConsolidatingEvoOrbs = 60
+	array<EvoOrbData> evoEntries
+	bool enableColorOverride = false
+	array<asset> evoOrbModels
+	float pickupVfxDuration = 2.0
+	int eventOrbOverrideEnum = eEvoOrbType.DEFAULT
+	string eventOrbOverrideName = "DEFAULT"
+
+	int lootbinJackpotOrbTier = 1
+
+
+}
+tunings
+
+
+
+void function Pickup_XP_Cache_Init()
+{
+
+		RegisterCustomItemPickupAction( XPCACHE_BASIC_NAME, XPCache_ItemPickup )
+		RegisterCustomItemPickupAction( XPCACHE_LARGE_NAME, XPCache_ItemPickup )
+		RegisterCustomItemPickupAction( XPCACHE_ENHANCED_NAME, XPCache_ItemPickup )
+
+			RegisterCustomItemPickupAction( XPCACHE_TINY_NAME, XPCache_ItemPickup )
+			RegisterCustomItemPickupAction( XPCACHE_TINY_NAME_SIZE_02, XPCache_ItemPickup )
+			RegisterCustomItemPickupAction( XPCACHE_TINY_NAME_SIZE_03, XPCache_ItemPickup )
+			RegisterCustomItemPickupAction( XPCACHE_TINY_NAME_SIZE_04, XPCache_ItemPickup )
+			RegisterCustomItemPickupAction( XPCACHE_TINY_NAME_SIZE_05, XPCache_ItemPickup )
+
+
+		XPCache_TuningInit()
+
+
+
+
+
+
+
+
+
+}
+
+void function XPCache_TuningInit()
+{
+	tunings.autoLootXpCache = GetCurrentPlaylistVarBool( "passive_upgrade_core_autoloot_xpcache", false )
+
+
+		tunings.timeToWaitBeforeConsolidatingEvoOrbs = GetCurrentPlaylistVarFloat( "xpcache_tiny_core_wait_before_consolidate", tunings.timeToWaitBeforeConsolidatingEvoOrbs )
+		tunings.enableColorOverride = GetCurrentPlaylistVarBool( "xpcache_tiny_core_enable_color_override", tunings.enableColorOverride )
+		tunings.pickupVfxDuration = GetCurrentPlaylistVarFloat( "xpcache_tiny_pickup_vfx_duration", tunings.pickupVfxDuration )
+		tunings.eventOrbOverrideName = GetCurrentPlaylistVarString( "xpcache_tiny_event_model_override", tunings.eventOrbOverrideName ).tolower()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+}
+
+bool function XPCache_ItemPickup( entity pickup, entity player, int pickupFlags, entity deathBox, int ornull desiredCount, LootData data )
+{
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	return true
+}
+
+
+bool function XPCache_ConsolidationEnabled()
+{
+	return tunings.timeToWaitBeforeConsolidatingEvoOrbs >= 0.0
+}
+
+
+bool function XPCache_IsValidRef( string cacheRef )
+{
+	return cacheRef.find( "mp_pickup_xp_cache" ) != -1
+}
+
+bool function XPCache_IsRefEvoCache( string ref )
+{
+	return EVO_TYPE_ARRAY.contains( ref )
+}
+
+bool function XPCache_AutoPickupEvoCache( LootData data )
+{
+	if ( tunings.autoLootXpCache )
+	{
+		string lootRef = data.ref
+
+		switch( lootRef )
+		{
+			case XPCACHE_BASIC_NAME:
+			case XPCACHE_LARGE_NAME:
+			case XPCACHE_ENHANCED_NAME:
+			return false
+
+
+			case XPCACHE_TINY_NAME:
+			case XPCACHE_TINY_NAME_SIZE_02:
+			case XPCACHE_TINY_NAME_SIZE_03:
+			case XPCACHE_TINY_NAME_SIZE_04:
+			case XPCACHE_TINY_NAME_SIZE_05:
+				return true
+
+		}
+	}
+
+	return false
+}
+
+bool function XPCache_IsTinyXPCache( LootData data )
+{
+
+	switch ( data.ref )
+	{
+		case XPCACHE_TINY_NAME:
+		case XPCACHE_TINY_NAME_SIZE_02:
+		case XPCACHE_TINY_NAME_SIZE_03:
+		case XPCACHE_TINY_NAME_SIZE_04:
+		case XPCACHE_TINY_NAME_SIZE_05:
+			return true
+	}
+
+	return false
+}
+
+#if INTELLIJ_OUTLINE_SECTION_MARKER
+void function _____________Evo_Cache_Tiny___________________________(){}
+#endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

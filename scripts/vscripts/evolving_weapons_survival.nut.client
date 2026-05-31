@@ -1,0 +1,1925 @@
+
+global function EvoWeapons_Init
+global function EvoWeapons_PlayerHasEvoWeapon
+global function EvoWeapons_IsEnabled
+
+
+global function EvoWeapons_GetEvoWeaponPoints
+global function EvoWeapons_GetRequirementForEvolution
+global function EvoWeapon_GetPlayerWeapons
+global function EvoWeapon_DoesPlayerHaveAllMaxTierWeapons
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global const int EVO_WEAPON_XP_DISABLED = -1
+const string EVO_WEAPON_XP_CHANGED_SIGNAL 	= "PlayerEvoWeaponXpChanged"
+global const string EVO_WEAPON_XP_NETVAR 	= "PlayerEvoWeaponXp"
+const string EVO_WEAPON_XP_OVERFLOW_NETVAR 	= "PlayerEvoWeaponXpOverflow"
+const string EVO_WEAPON_TIER_NETVAR 		= "PlayerEvoWeaponTier"
+const string EVO_WEAPON_NETVAR 				= "PlayerEvoWeaponToTrack"
+const string EVO_WEAPON_EQUIPPED_NETVAR 	= "PlayerHasEvoWeaponEquipped"
+
+const string EVO_WEAPON_ENHANCEMENT_COMPLETE_LINE = "bc_arsenalEnhanceComplete"
+const int EVO_SHARING_MIN_EQUIPPED_WEAPONS = 2
+
+
+global function ServerCallback_EvoWeapons_UpdatePlayerExpHUDWeaponEvo
+global function EvoWeapons_IsActiveWeaponReadyToEvolve
+global function ServerCallback_EvoWeapon_WeaponUpgraded
+global function EvoWeapon_PlayViewmodelWeaponEvolveHighlight 
+
+const string EVOWEAPON_SFX_WEAPON_EVO_FIRST_ALERT = "Ctrl_Loadout_EvoPending_Alert_A_1p"
+const string EVOWEAPON_SFX_WEAPON_EVO_ALERT = "Ctrl_Loadout_EvoPending_Alert_B_1p"
+
+global function EvoWeapons_UpdateRuiForEvoWeapons
+global function HideEvoRuiDuringWeaponInspect
+
+global function EvoWeapons_SetForceVisible
+global function EvoWeapons_GetHudEvoWeaponXPMeter
+global function EvoWeapons_CanShowEvoWeaponXPMeter
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+struct{
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	var evoWeaponRui
+	table< entity, array<int> > playerWeaponUpgradesToDisplay
+
+}file
+
+struct Tuning
+{
+	int damageThresholdZero		= 100
+	int damageThresholdOne		= 150
+	int damageThresholdTwo		= 225
+	int damageThresholdThree	= 275
+	int damageThresholdFour		= 350
+	int maxWeaponTier			= 5
+	int maxOverflow 			= 0
+
+	bool otherWeaponsGivePartial = true
+	float partialPercentGain	= 0.25
+	float respawnPercentToGive	= 0.5
+
+	bool shouldDroppedWeaponUpgradeIfAble = true
+	bool slingWeaponAllowed = false
+	float evoWeaponMessageDuration = 2.0
+
+	bool shareEvoAtAllMaxTier	= true
+	bool allowOverflowEvo 		= true
+	bool allowTierSkips 		= true
+}
+Tuning tunings
+
+void function EvoWeapons_Init()
+{
+	EvoWeapons_InitTuningValues()
+
+	if ( !EvoWeapons_IsEnabled() )
+		return
+
+
+		
+		if ( DormantHopups_IsEnabled() )
+			return
+
+
+
+	RegisterNetworkedVariable( EVO_WEAPON_XP_NETVAR, SNDC_PLAYER_EXCLUSIVE, SNVT_BIG_INT, 0 )
+	RegisterNetworkedVariable( EVO_WEAPON_XP_OVERFLOW_NETVAR, SNDC_PLAYER_EXCLUSIVE, SNVT_BIG_INT, 0 )
+	RegisterNetworkedVariable( EVO_WEAPON_TIER_NETVAR, SNDC_PLAYER_EXCLUSIVE, SNVT_UNSIGNED_INT, 0 )
+	RegisterNetworkedVariable( EVO_WEAPON_NETVAR, SNDC_PLAYER_EXCLUSIVE, SNVT_ENTITY )
+	RegisterNetworkedVariable( EVO_WEAPON_EQUIPPED_NETVAR, SNDC_PLAYER_EXCLUSIVE, SNVT_BOOL, false )
+
+	Remote_RegisterClientFunction( "ServerCallback_EvoWeapons_UpdatePlayerExpHUDWeaponEvo", "bool", "bool" )
+	Remote_RegisterClientFunction( "ServerCallback_EvoWeapon_WeaponUpgraded", "int", -1, 1023, "bool" )
+
+	RegisterSignal( EVO_WEAPON_XP_CHANGED_SIGNAL )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	AddCallback_OnClientScriptInit( EvoWeapons_Init_Client )
+	RegisterNetVarEntityChangeCallback( EVO_WEAPON_NETVAR, EvoWeaponEntityChanged )
+	RegisterNetVarIntChangeCallback( EVO_WEAPON_XP_NETVAR, EvoWeaponXpChanged )
+	if ( tunings.allowOverflowEvo )
+	{
+		RegisterNetVarIntChangeCallback( EVO_WEAPON_XP_OVERFLOW_NETVAR, EvoWeaponXpChanged )
+	}
+	RegisterNetVarIntChangeCallback( EVO_WEAPON_TIER_NETVAR, EvoWeaponXpChanged )
+	AddCallback_OnSelectedWeaponChanged( EvoWeapons_OnSelectedWeaponChanged )
+
+	RegisterSignal( "EvoWeapons_StopWeaponEvoHints" )
+
+	AddCallback_OnInventoryOpened( EvoWeapons_OnInventoryOpened )
+
+}
+
+#if INTELLIJ_OUTLINE_SECTION_MARKER
+void function _____________PlaylistVars___________________________(){}
+#endif
+
+void function EvoWeapons_InitTuningValues()
+{
+	tunings.damageThresholdZero      	= GetCurrentPlaylistVarInt( "evo_weapon_damagethreshold_zero", tunings.damageThresholdZero )
+	tunings.damageThresholdOne      	= GetCurrentPlaylistVarInt( "evo_weapon_damagethreshold_one", tunings.damageThresholdOne )
+	tunings.damageThresholdTwo      	= GetCurrentPlaylistVarInt( "evo_weapon_damagethreshold_two", tunings.damageThresholdTwo )
+	tunings.damageThresholdThree      	= GetCurrentPlaylistVarInt( "evo_weapon_damagethreshold_three", tunings.damageThresholdThree )
+	tunings.damageThresholdFour      	= GetCurrentPlaylistVarInt( "evo_weapon_damagethreshold_four", tunings.damageThresholdFour )
+	tunings.maxWeaponTier      			= GetCurrentPlaylistVarInt( "evo_weapon_max_tier", tunings.maxWeaponTier )
+	tunings.maxOverflow 				= tunings.damageThresholdZero + tunings.damageThresholdOne + tunings.damageThresholdTwo + tunings.damageThresholdThree + tunings.damageThresholdFour
+
+	tunings.otherWeaponsGivePartial		= GetCurrentPlaylistVarBool( "evo_weapon_give_partial_enabled", tunings.otherWeaponsGivePartial )
+	tunings.partialPercentGain      	= GetCurrentPlaylistVarFloat( "evo_weapon_partial_percent_gain", tunings.partialPercentGain )
+	tunings.respawnPercentToGive      	= GetCurrentPlaylistVarFloat( "evo_weapon_respawn_percent", tunings.respawnPercentToGive )
+
+	tunings.shouldDroppedWeaponUpgradeIfAble 	= GetCurrentPlaylistVarBool( "evo_weapon_upgrade_dropped_weapon", tunings.shouldDroppedWeaponUpgradeIfAble )
+	tunings.shareEvoAtAllMaxTier      			= GetCurrentPlaylistVarBool( "evo_weapon_share_evo_at_all_weapons_max_tier", tunings.shareEvoAtAllMaxTier )
+	tunings.slingWeaponAllowed      			= GetCurrentPlaylistVarBool( "evo_weapon_sling_weapon_allowed", tunings.slingWeaponAllowed )
+	tunings.allowOverflowEvo      				= GetCurrentPlaylistVarBool( "evo_weapon_allow_overflow", tunings.allowOverflowEvo )
+	tunings.allowTierSkips      				= GetCurrentPlaylistVarBool( "evo_weapon_allow_tier_skips", tunings.allowTierSkips )
+}
+
+bool function EvoWeapons_IsEnabled()
+{
+	return GetCurrentPlaylistVarBool( "enable_survival_evo_weapons", false )
+}
+
+bool function EvoWeapons_PlayerHasEvoWeapon( entity player )
+{
+	return player.GetPlayerNetBool( EVO_WEAPON_EQUIPPED_NETVAR )
+}
+
+bool function EvoWeapons_UsePlayerXPForProgression()
+{
+	return GetCurrentPlaylistVarBool( "evo_weapon_use_player_xp_for_progression", true )
+}
+
+bool function EvoWeapons_ApplyPlayerXPToAllWeapons()
+{
+	return GetCurrentPlaylistVarBool( "evo_weapon_apply_player_xp_to_all_weapons", true )
+}
+
+
+#if INTELLIJ_OUTLINE_SECTION_MARKER
+void function _____________SHARED___________________________(){}
+#endif
+
+int function EvoWeapons_GetRequirementForEvolution( int tier, LootData weaponData )
+{
+	switch ( tier )
+	{
+		case 0:
+			return tunings.damageThresholdZero
+
+		case 1:
+			return tunings.damageThresholdOne
+
+		case 2:
+			return tunings.damageThresholdTwo
+
+		case 3:
+			return tunings.damageThresholdThree
+
+		case 4:
+			return tunings.damageThresholdFour
+
+		default:
+			return 0
+	}
+
+	return 0
+}
+
+
+bool function EvoWeapons_IsActiveWeaponUnHolstered( entity player )
+{
+	if ( !IsValid( player ) )
+		return false
+
+	entity primaryWeapon = player.GetActiveWeapon( eActiveInventorySlot.mainHand )
+	return primaryWeapon != null && IsValid( primaryWeapon ) && primaryWeapon.GetWeaponTypeFlags() == WPT_PRIMARY
+}
+
+int function EvoWeapons_GetEvoWeaponPoints( entity weapon )
+{
+	if( !EvoWeapons_IsEnabled() )
+		return EVO_WEAPON_XP_DISABLED
+
+	return weapon.GetEvoWeaponPoints()
+}
+
+bool function EvoWeapon_DoesPlayerHaveAllMaxTierWeapons( entity player )
+{
+	array<entity> equippedWeapons = EvoWeapon_GetPlayerWeapons( player )
+	bool areAllWeaponsAtMaxTier = false
+
+	if ( equippedWeapons.len() < EVO_SHARING_MIN_EQUIPPED_WEAPONS ) 
+		return areAllWeaponsAtMaxTier
+
+	foreach ( weapon in equippedWeapons )
+	{
+		LootData weaponData = SURVIVAL_GetLootDataFromWeapon( weapon )
+		if ( !SURVIVAL_Loot_IsLootIndexValid( weaponData.index ) )
+			return areAllWeaponsAtMaxTier
+
+		int weaponTier = weaponData.tier
+		if( weaponTier < tunings.maxWeaponTier )
+		{
+			areAllWeaponsAtMaxTier = false
+			return areAllWeaponsAtMaxTier
+		}
+		else
+		{
+			areAllWeaponsAtMaxTier = true
+		}
+	}
+
+	return areAllWeaponsAtMaxTier
+}
+
+array<entity> function EvoWeapon_GetPlayerWeapons( entity player )
+{
+	array< entity > playerWeapons = []
+	array< entity > weapons       = tunings.slingWeaponAllowed ? SURVIVAL_GetPrimaryWeaponsIncludingSling( player ) : SURVIVAL_GetPrimaryWeapons( player )
+	foreach ( entity weapon in weapons )
+	{
+		if ( !IsValid( weapon ) )
+			continue
+
+		LootData weapData = SURVIVAL_GetLootDataFromWeapon( weapon )
+		if ( weapData.lootType != eLootType.MAINWEAPON )
+			continue
+
+		playerWeapons.append( weapon )
+	}
+
+	return playerWeapons
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#if INTELLIJ_OUTLINE_SECTION_MARKER
+void function _____________CLIENT___________________________(){}
+#endif
+
+bool function EvoWeapons_IsActiveWeaponReadyToEvolve( entity player )
+{
+	if ( !IsValid( player ) )
+	return false
+
+	entity weapon = player.GetPlayerNetEnt( EVO_WEAPON_NETVAR )
+	if ( !IsValid( weapon ) || (weapon.GetWeaponClassName() == "") )
+		return false
+
+	int evoXp = player.GetPlayerNetInt( EVO_WEAPON_XP_NETVAR )
+	int evoOverflowXp = player.GetPlayerNetInt( EVO_WEAPON_XP_OVERFLOW_NETVAR )
+	return evoOverflowXp > 0 || (evoXp == 0)
+}
+
+void function EvoWeaponXpChanged( entity player, int val )
+{
+	EvoWeapons_UpdateEvoWeaponXPMeter( player, file.evoWeaponRui )
+	EvoWeapons_UpdateEvoWeaponXPMeter( player, GetInventoryUltimateEvoWeaponsMeter() )
+}
+
+void function EvoWeapons_UpdateEvoWeaponXPMeter( entity player, var rui )
+{
+	if ( !IsValid( player ) || rui == null || !RuiIsAlive( rui ) )
+		return
+
+	entity weapon = player.GetPlayerNetEnt( EVO_WEAPON_NETVAR )
+	bool isBleedingOut = Bleedout_IsBleedingOut( player )
+
+	if ( !IsValid( weapon ) || isBleedingOut || ShouldUseLockedWeaponSlingLayout( player ) )
+	{
+		RuiSetBool( rui, "shouldDisplayExpUI", false )
+		return
+	}
+
+	bool showSlingWeapon = tunings.slingWeaponAllowed || GetSlotForWeapon( player, weapon ) != SLING_WEAPON_SLOT
+	int evoXp = player.GetPlayerNetInt( EVO_WEAPON_XP_NETVAR )
+	int evoOverflowXp = player.GetPlayerNetInt( EVO_WEAPON_XP_OVERFLOW_NETVAR )
+	
+	
+	
+	if( !showSlingWeapon || evoXp == EVO_WEAPON_XP_DISABLED || (weapon.GetWeaponClassName() == "") )
+	{
+		RuiSetBool( rui, "shouldDisplayExpUI", false )
+	}
+	else
+	{
+		LootData data = SURVIVAL_GetLootDataFromWeapon( weapon )
+		int tier = player.GetPlayerNetInt( EVO_WEAPON_TIER_NETVAR )
+		bool isMaxTier = tier == tunings.maxWeaponTier
+		bool isPastMaxTier = tier > tunings.maxWeaponTier
+		bool allMaxTier = EvoWeapon_DoesPlayerHaveAllMaxTierWeapons( player )
+
+		RuiSetImage( rui, "upgradeIcon", allMaxTier ? $"rui/hud/common/squad_trios" : data.hudIconSquare )
+		RuiSetBool( rui, "shouldDisplayExpUI", true )
+		RuiSetBool( rui, "isMaxTier", isMaxTier )
+		RuiSetBool( rui, "allMaxTier", allMaxTier )
+		RuiSetBool( rui, "isPastMaxTier", isPastMaxTier )
+		RuiSetString( rui, "headerText", isMaxTier || isPastMaxTier ? "#MAX_LEVEL" : "#EVO_WEAPON_UPGRADE_UNLOCK" )
+
+		int totalDamageToEvolve =  EvoWeapons_GetRequirementForEvolution( tier, data )
+		int overflowExp = (tunings.allowOverflowEvo ? evoOverflowXp : 0)
+		int currentTierExp =  totalDamageToEvolve - evoXp + overflowExp
+		RuiSetInt( rui, "expTotal", isMaxTier ? totalDamageToEvolve : currentTierExp )
+		RuiSetInt( rui, "expTierThreshold", totalDamageToEvolve )
+		RuiSetInt( rui, "expTierColor", tier )
+
+		RuiSetBool( rui, "forceFullExp", data.tier == eLootTier.MYTHIC )
+
+		if ( currentTierExp > 0 )
+		{
+			RuiSetGameTime( rui, "expGainedTime", Time() )
+		}
+	}
+}
+
+void function EvoWeapons_OnSelectedWeaponChanged( entity selectedWeapon )
+{
+	if ( !IsValid( selectedWeapon ) )
+		return
+
+	if ( file.evoWeaponRui == null || !RuiIsAlive( file.evoWeaponRui ) )
+		return
+
+	entity viewPlayer = GetLocalViewPlayer()
+	if ( !IsValid( viewPlayer ) )
+		return
+
+	array<entity> playerWeapons = EvoWeapon_GetPlayerWeapons( viewPlayer )
+
+	bool isSelectedWeaponEvoWeapon = false
+	foreach ( entity playerWeapon in playerWeapons )
+	{
+		
+		if ( playerWeapon == selectedWeapon )
+		{
+			isSelectedWeaponEvoWeapon = true
+			break
+		}
+	}
+
+	if ( ShouldUseLockedWeaponSlingLayout( viewPlayer ) )
+		isSelectedWeaponEvoWeapon = false
+
+	RuiSetBool( file.evoWeaponRui, "shouldDisplayExpUI", isSelectedWeaponEvoWeapon )
+
+	var inventoryEvoWeaponRui = GetInventoryUltimateEvoWeaponsMeter()
+	if ( inventoryEvoWeaponRui != null )
+	{
+		RuiSetBool( inventoryEvoWeaponRui, "shouldDisplayExpUI", isSelectedWeaponEvoWeapon )
+	}
+
+	
+	if ( isSelectedWeaponEvoWeapon )
+	{
+		UpdateEvoWeaponMeterOffset( viewPlayer, file.evoWeaponRui )
+		UpdateEvoWeaponMeterOffset( viewPlayer, inventoryEvoWeaponRui )
+	}
+}
+
+void function UpdateEvoWeaponMeterOffset( entity viewPlayer, var rui )
+{
+	if ( rui == null || !RuiIsAlive( rui ) )
+		return
+
+	int slot = eOffhandInv.ULTIMATE
+	entity weapon = viewPlayer.GetOffhandWeapon( slot )
+	if( weapon != null )
+	{
+		switch ( weapon.GetWeaponSettingEnum( eWeaponVar.cooldown_type, eWeaponCooldownType ) )
+		{
+			case eWeaponCooldownType.ammo_timed:
+			case eWeaponCooldownType.ammo_instant:
+			case eWeaponCooldownType.ammo_deployed:
+			case eWeaponCooldownType.ammo:
+				int maxAmmoReady = weapon.UsesClipsForAmmo() ? weapon.GetWeaponSettingInt( eWeaponVar.ammo_clip_size ) : weapon.GetWeaponPrimaryAmmoCountMax( weapon.GetActiveAmmoSource() )
+				int ammoPerShot = weapon.GetWeaponSettingInt( eWeaponVar.ammo_per_shot )
+
+				
+				int burstCount = weapon.GetWeaponSettingInt( eWeaponVar.burst_fire_count )
+				if ( burstCount <= 0 )
+				{
+					burstCount = 1
+				}
+
+				int ammoPerActivation = ammoPerShot * burstCount
+				if ( ammoPerActivation <= 0 )
+				{
+					RuiSetInt( rui, "ultimateSegments", 1 )
+					break
+				}
+
+				int segments = maxAmmoReady / ammoPerActivation
+				if ( segments < 1 )
+				{
+					segments = 1
+				}
+
+				RuiSetInt( rui, "ultimateSegments", segments )
+				break
+			default:
+				RuiSetInt( rui, "ultimateSegments", 1 )
+				break
+		}
+	}
+	else
+	{
+		RuiSetInt( rui, "ultimateSegments", 1 )
+	}
+}
+
+
+void function ServerCallback_EvoWeapons_UpdatePlayerExpHUDWeaponEvo( bool didGainNewExpTier, bool isActiveWeapon )
+{
+	entity player = GetLocalViewPlayer()
+	if ( !IsValid( player ) )
+		return
+
+	player.Signal( "EvoWeapons_StopWeaponEvoHints" ) 
+
+	if ( GetGameState() == eGameState.Playing )
+	{
+		EvoWeapons_UpdatePlayerExpHUDWeaponEvo( player, file.evoWeaponRui, didGainNewExpTier, isActiveWeapon )
+		EvoWeapons_UpdatePlayerExpHUDWeaponEvo( player, GetInventoryUltimateEvoWeaponsMeter(), didGainNewExpTier, isActiveWeapon )
+	}
+}
+
+void function EvoWeapons_UpdatePlayerExpHUDWeaponEvo( entity player, var rui, bool didGainNewExpTier, bool isActiveWeapon )
+{
+	if ( rui == null || !RuiIsAlive( rui ) )
+		return
+
+	if ( didGainNewExpTier )
+	{
+		RuiSetGameTime( rui, "expGainedTime", Time() )
+	}
+}
+
+void function EvoWeapons_OnInventoryOpened()
+{
+	EvoWeapons_UpdateEvoWeaponXPMeter( GetLocalClientPlayer(), GetInventoryUltimateEvoWeaponsMeter() )
+	UpdateEvoWeaponMeterOffset( GetLocalClientPlayer(), GetInventoryUltimateEvoWeaponsMeter() )
+}
+
+void function EvoWeapon_PlayViewmodelWeaponEvolveHighlight( int lootTier )
+{
+	entity player = GetLocalViewPlayer()
+	if ( !IsValid( player ) )
+		return
+
+	entity mainHandWeaponViewModel = player.GetViewModelEntity( eActiveInventorySlot.mainHand )
+	entity altHandWeaponViewModel = player.GetViewModelEntity( eActiveInventorySlot.altHand )
+	if ( IsValid( mainHandWeaponViewModel ) )
+	{
+		PlayWeaponEvolveHighlight( mainHandWeaponViewModel, lootTier )
+	}
+	if ( IsValid( altHandWeaponViewModel ) )
+	{
+		PlayWeaponEvolveHighlight( altHandWeaponViewModel, lootTier )
+	}
+}
+
+void function ServerCallback_EvoWeapon_WeaponUpgraded( int weaponIdx, bool isActiveWeapon )
+{
+	entity player = GetLocalViewPlayer()
+	if ( !IsValid( player ) )
+		return
+
+	if ( !SURVIVAL_Loot_IsLootIndexValid( weaponIdx ) )
+		return
+
+	if ( isActiveWeapon )
+	{
+		LootData data = SURVIVAL_Loot_GetLootDataByIndex( weaponIdx )
+
+		EvoWeapon_PlayViewmodelWeaponEvolveHighlight( data.tier )
+
+		string upgradeSFX = CONTROL_SFX_WEAPON_EVO_LVL_1
+		switch ( data.tier )
+		{
+			case 1:
+				upgradeSFX = CONTROL_SFX_WEAPON_EVO_LVL_1
+				break
+			case 2:
+				upgradeSFX = CONTROL_SFX_WEAPON_EVO_LVL_2
+				break
+			case 3:
+				upgradeSFX = CONTROL_SFX_WEAPON_EVO_LVL_3
+				break
+			case 4:
+				upgradeSFX = CONTROL_SFX_WEAPON_EVO_LVL_4
+				break
+			default:
+				upgradeSFX = CONTROL_SFX_WEAPON_EVO_LVL_1
+				break
+		}
+		EmitSoundOnEntity( player, upgradeSFX )
+	}
+
+	if ( player in file.playerWeaponUpgradesToDisplay )
+	{
+		file.playerWeaponUpgradesToDisplay[ player ].append( weaponIdx )
+	}
+	else
+	{
+		file.playerWeaponUpgradesToDisplay[ player ] <- [weaponIdx]
+		thread DisplayEvoWeaponUpgradeMessagingDelayed_Thread( player )
+	}
+}
+
+void function DisplayEvoWeaponUpgradeMessagingDelayed_Thread( entity player )
+{
+#if DEV
+		Assert( IsNewThread(), "Must be threaded off" )
+#endif
+
+	if ( GetGameState() > eGameState.Playing )
+		return
+
+	if ( !IsValid( clGlobal.levelEnt ) )
+		return
+
+	EndSignal( clGlobal.levelEnt, "OnDestroy" )
+
+	entity localPlayer = GetLocalClientPlayer()
+	if ( !IsValid( localPlayer ) )
+		return
+
+	EndSignal( localPlayer, "OnDestroy", "OnDeath" )
+
+	OnThreadEnd(
+		function() : ( player )
+		{
+			delete file.playerWeaponUpgradesToDisplay[ player ]
+		}
+	)
+
+	WaitFrame()
+
+	array< asset > upgradeIcons
+	array< int > upgradeTiers
+	array< vector > iconAspectRatios
+
+	foreach ( int weaponIdx in file.playerWeaponUpgradesToDisplay[ player ] )
+	{
+		LootData data = SURVIVAL_Loot_GetLootDataByIndex( weaponIdx )
+		upgradeTiers.append( data.tier )
+		upgradeIcons.append( data.hudIcon )
+
+		vector imageSize = GetImageSize( data.hudIcon )
+		vector aspectRatio = GetAspectRatioBase1( imageSize )
+		iconAspectRatios.append( aspectRatio )
+	}
+
+	string announcementMessage = Localize( "#EVOWEAPONS_HUD_EXP_WEAPON_EVOLVED" )
+	AnnouncementData announcement = Announcement_Create( announcementMessage )
+	Announcement_SetStyle( announcement, ANNOUNCEMENT_STYLE_WEAPON_UPGRADED )
+	Announcement_SetPurge( announcement, true )
+	Announcement_SetDuration( announcement, 3.0 )
+
+	if ( upgradeIcons.len() > 0 )
+	{
+		Announcment_SetOptionalImageAssetArgsArray( announcement, upgradeIcons )
+		Announcment_SetOptionalImageTierArgsArray( announcement, upgradeTiers )
+		Announcment_SetOptionalImageAspectRatioArgsArray( announcement, iconAspectRatios )
+	}
+
+	AnnouncementFromClass( GetLocalViewPlayer(), announcement )
+}
+
+void function EvoWeaponEntityChanged( entity player, entity weaponEntity )
+{
+	int evoXP = player.GetPlayerNetInt( EVO_WEAPON_XP_NETVAR )
+	EvoWeaponXpChanged( player, evoXP )
+}
+
+void function EvoWeapons_Init_Client( entity player )
+{
+	file.evoWeaponRui = CreateCockpitPostFXRui( $"ui/evo_weapon_survival.rpak", HUD_Z_BASE )
+	RuiSetBool( file.evoWeaponRui, "shouldDisplayExpUI", false )
+}
+
+var function EvoWeapons_GetHudEvoWeaponXPMeter()
+{
+	return file.evoWeaponRui
+}
+
+bool function EvoWeapons_CanShowEvoWeaponXPMeter()
+{
+	var evoWeaponRui = EvoWeapons_GetHudEvoWeaponXPMeter()
+	if ( !evoWeaponRui || !RuiIsAlive( evoWeaponRui ) )
+		return false
+
+	entity player = GetLocalViewPlayer()
+	if ( !IsValidPlayer( player ) )
+		return false
+
+	if ( Bleedout_IsBleedingOut( player ) )
+		return false
+
+	entity weapon = player.GetPlayerNetEnt( EVO_WEAPON_NETVAR )
+
+	if ( !IsValid( weapon ) )
+		return false
+
+	if ( ShouldUseLockedWeaponSlingLayout( player ) )
+		return false
+
+	return true
+}
+
+
+#if INTELLIJ_OUTLINE_SECTION_MARKER
+void function _____________Analytics___________________________(){}
+#endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#if DEV
+#if INTELLIJ_OUTLINE_SECTION_MARKER
+void function _____________DEV_HELPERS___________________________(){}
+#endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#endif
+
+
+void function EvoWeapons_UpdateRuiForEvoWeapons( entity player, entity weapon, var rui )
+{
+	if ( !RuiIsAlive( rui ) )
+		return
+
+	int expTotal         = -1
+	int expTierThreshold = -1
+	bool isPastMaxTier   = false
+	bool isMaxTier       = false
+	bool allMaxTier      = false
+	bool shouldDisplayExpUI = !ShouldUseLockedWeaponSlingLayout( player )
+
+	if ( IsValid( weapon ) )
+	{
+		LootData lootData = SURVIVAL_GetLootDataFromWeapon( weapon )
+		int tier = lootData.tier
+
+		isMaxTier     = (tier == tunings.maxWeaponTier)
+		isPastMaxTier = (tier > tunings.maxWeaponTier)
+		allMaxTier    = EvoWeapon_DoesPlayerHaveAllMaxTierWeapons( player )
+
+		bool hideXP = ( allMaxTier && isMaxTier ) || ( tier == eLootTier.MYTHIC && !allMaxTier )
+
+		if ( !hideXP )
+		{
+			int evoXp         = EvoWeapons_GetEvoWeaponPoints( weapon )
+			expTierThreshold  = EvoWeapons_GetRequirementForEvolution( tier, lootData )
+
+			int currentTierExp = expTierThreshold - evoXp
+			expTotal = isMaxTier ? expTierThreshold : currentTierExp
+		}
+	}
+
+	RuiSetInt( rui, "expTotal", expTotal )
+	RuiSetInt( rui, "expTierThreshold", expTierThreshold )
+	RuiSetBool( rui, "isPastMaxTier", isPastMaxTier )
+	RuiSetBool( rui, "allMaxTier", allMaxTier )
+	RuiSetBool( rui, "isMaxTier", isMaxTier )
+	RuiSetBool( rui, "shouldDisplayExpUI", shouldDisplayExpUI )
+}
+
+void function HideEvoRuiDuringWeaponInspect( bool inspect )
+{
+	RuiSetBool( file.evoWeaponRui, "weaponInspect", inspect )
+}
+
+
+
+void function EvoWeapons_SetForceVisible( bool forceVisible )
+{
+	if ( !RuiIsAlive( file.evoWeaponRui ) )
+		return
+
+	if ( forceVisible )
+	{
+		entity player = GetLocalViewPlayer()
+		entity weapon = IsValid( player ) ? player.GetPlayerNetEnt( EVO_WEAPON_NETVAR ) : null
+		RuiSetBool( file.evoWeaponRui, "shouldDisplayExpUI", !ShouldUseLockedWeaponSlingLayout( player ) )
+		RuiSetBool( file.evoWeaponRui, "weaponInspect", false )
+	}
+}
+
+
+

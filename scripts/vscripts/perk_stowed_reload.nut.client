@@ -1,0 +1,109 @@
+global function Perk_StowedReload_Init
+
+global function Perk_StowedReload_IsEnabled
+
+const string STOWED_RELOAD_IS_ENABLED					= "perk_stowed_reload_is_enabled"
+const float PERK_TIME_BEFORE_STOWED_RELOAD				= 4.0
+const string STOWED_RELOAD_SFX							= "UI_InGame_GoldMag_Reload"
+
+void function Perk_StowedReload_Init()
+{
+	PerkInfo StowedReloadPerk
+	StowedReloadPerk.perkId = ePerkIndex.STOWED_RELOAD
+	Perks_RegisterClassPerk( StowedReloadPerk )
+
+	if ( !Perk_StowedReload_IsEnabled() )
+		return
+
+
+
+
+
+
+
+
+}
+
+bool function Perk_StowedReload_IsEnabled()
+{
+	return Perks_AssaultClassUpdateEnabled() && GetCurrentPlaylistVarBool( STOWED_RELOAD_IS_ENABLED, true )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
