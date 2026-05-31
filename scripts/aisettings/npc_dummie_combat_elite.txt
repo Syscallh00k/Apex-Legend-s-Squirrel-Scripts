@@ -1,0 +1,277 @@
+npc_dummie_combat_elite
+{
+	AIClass							dummie
+	TraverseAnimType				spectre
+
+	title							DUMMIE
+	// useSequenceBounds				1
+	ui_targetinfo					"ui/targetinfo_npc_simple"
+
+	HullType						"HULL_HUMAN"
+	BodyType						human
+    // collideWithPlayer 1
+
+	BehaviorSelector				"behavior_dummie_combat_elite"
+
+	mechanical						0
+
+    // ragdollOnTraverseDeath			0 extra
+	BaseClass						"npc_dummie"
+
+	footstep_type					"dummie"
+
+	DefaultModelName				"mdl/humans/class/medium/dummie_medium_combat.rmdl"
+	// DefaultWeapon					"npc_weapon_super_spectre"
+	// DefaultWeapon					"mp_weapon_rspn101"
+
+	Health							120
+
+	FOV_Vert_Offset					0
+    FOV_Near_Dist					500		// distance at which we transition between near and far FOV values
+	FOV_Far_Dist					2000	// use far values after this distance, interpolate horizontal in between, use far for vertical
+
+	FOV_Idle_Near_Horz				130
+	FOV_Idle_Near_Vert				180
+	FOV_Idle_Far_Horz				60
+	FOV_Idle_Far_Vert				60
+
+	FOV_Alert_Near_Horz				130
+	FOV_Alert_Near_Vert				180
+	FOV_Alert_Far_Horz				60
+	FOV_Alert_Far_Vert				60
+
+	FOV_Combat_Near_Horz			160
+	FOV_Combat_Near_Vert			180
+	FOV_Combat_Far_Horz				130
+	FOV_Combat_Far_Vert				60
+
+	MoveYawSpeed					15
+	AimAngularSpeed					20
+
+	MeleeDamageMin					25
+	MeleeDamageMax					25
+	MeleeDamageRadius				40
+
+    MeleeRange						50
+    //MeleeDamageForce				15000
+
+    MeleeChargeDamageMin			25
+    MeleeChargeDamageMax			25
+    MeleeChargeDamageMinHeavyArmor	25
+    MeleeChargeDamageMaxHeavyArmor	25
+    MeleeChargeDamageRadius			25
+    MeleeChargeRange				135
+    //meleeInterval					2	//"0" Can do back to back melee attacks
+    meleeChargeInterval				1
+    MeleeChargeEnemyArmorType		any
+    //MeleeChargeOnlyPlayers		1
+
+    //meleeImpactEffectTable		"melee_spectre"
+
+    meleeRequiresStrictFacing       0
+    //fallDeathHeight 				300
+
+	//RepeatDamageTimeInterval		1.25
+	PainOnHeavyDamageThreshold		450
+	PainOnRepeatDamageThreshold		2400
+	// breakOutOfPainDamageThreshold	500
+	// PainOnSurpriseHit				0
+	// PainWhileRunning				0
+
+	MinStartMoveDist				100
+	MaxArrivalDist					250
+	MinForceWalkDist				200
+	// MinForceWalkDistVsHeavyArmor	150
+
+	magneticRange					125
+
+	reactChanceDefault				100
+
+	aiEnemy_usePriorityDist			1500
+	aiEnemy_immediateThreatDist		94
+    aiEnemy_currentBonusDist		1400
+	aiEnemy_priority				20
+
+    ArmorType                       normal
+	//ArmorType						heavy [$sp]
+	//ArmorType						heavy [$mp]
+
+    LocationScoringCriteria			"CommonShootWithLos"
+
+   	chaseStopDist					150
+   	chaseStopDistHeavyArmor			1200
+   	chaseOnlyReachable				1
+   	circleStrafeDist				500
+
+   	allowCower						0
+   	allowUseCover					1
+   	//allowFlee						0
+   	//allowInvestigate				1
+   	//allowPatrol					0
+   	//allowSignals					1
+   	allowClippingThroughDoors       0
+
+	traverseCostFactor				2.0
+	minGoalRadius					256
+
+	WeaponCapacity					"PilotMainWeapons"
+
+    //Precision
+   // aimingPrecisionMin              0
+   // aimingPrecisionMax              1
+    //aimingPrecisionIncreaseRate     0.175
+   // aimingPrecisionDecreaseRate     0.125
+
+    longJumpCheckMinInterval		8
+	longJumpCheckMaxInterval		15
+	longJumpMinDist					600
+	longJumpMaxDist					1000
+	longJumpHeight					300
+
+    //GibModel0						"mdl/robots/spectre/spectre_assault_d_gib_leg_l.rmdl"
+    //GibModel1						"mdl/robots/spectre/spectre_assault_d_gib_leg_r.rmdl"
+    //GibModel2						"mdl/robots/spectre/spectre_assault_d_gib_arm_l.rmdl"
+    //GibModel3						"mdl/robots/spectre/spectre_assault_d_gib_arm_r.rmdl"
+    //GibModelSoftened0				"mdl/robots/spectre/spectre_assault_d_gib_leg_l.rmdl"
+    //GibModelSoftened1				"mdl/robots/spectre/spectre_assault_d_gib_leg_r.rmdl"
+    //GibModelSoftened2				"mdl/robots/spectre/spectre_assault_d_gib_arm_l.rmdl"
+    //GibModelSoftened3				"mdl/robots/spectre/spectre_assault_d_gib_arm_r.rmdl"
+    //GibAttachment0				"left_leg"
+    //GibAttachment1				"right_leg"
+    //GibAttachment2				"left_arm"
+    //GibAttachment3				"right_arm"
+    //GibSpeed						200
+    //GibAngularSpeed				20
+    //GibMaxDist					1600
+    //GibFX							"P_exp_spectre_death"
+    //GibSound						"Explo_Spectre"
+
+	//headshotFX 						"P_headshot_pilot_robot"
+	landingImpactTable				"pilot_landing"
+	footstepImpactTable				"pilot_footstep"
+
+    faceEnemyToleranceAngle			45
+	faceEnemyStrictToleranceAngle	45
+	// faceEnemyWhileMovingDist		600
+
+	// crouchCombatDistInner			300
+	// crouchCombatDistOuter			350
+
+
+	NoticeForgetPostTime			5.0
+	NoticeForgetPreTime				1.0
+
+//	NoticeDistNear_Alert			300
+//	NoticeDistNear_Combat			300
+//	NoticeDistNear_Idle				150
+//	NoticeDistFar_Alert				2000
+//	NoticeDistFar_Combat			2000
+//	NoticeDistFar_Idle				2000
+//	NoticeTimeNear_Alert			0.1
+//	NoticeTimeNear_Combat			0.0
+//	NoticeTimeNear_Idle				0.1
+//	NoticeTimeFar_Alert				1.0
+//	NoticeTimeFar_Combat			1.0
+//	NoticeTimeFar_Idle				1.0
+//	NoticeTimePeripheral_Alert		0.7
+//	NoticeTimePeripheral_Combat 	0.7
+//	NoticeTimePeripheral_Idle		0.7
+
+//	leechAnimSet					spectre
+//	leechMaxDist					150
+
+	aimassist_adspull_centerAttachmentName		"CHESTFOCUS"
+	aimassist_adspull_centerRadius				11.0
+	aimassist_adspull_headshotAttachmentName	"HEADSHOT"
+	aimassist_adspull_headshotRadius			7.0
+
+	//allowTurn45Anims				0
+
+	//LookDistDefault_Idle			1500
+	//LookDistDefault_Alert			3000
+	//LookDistDefault_Combat		5000
+
+	//shootingCoverFightRadius 		600			[$sp]
+	//shootingCoverVantageUsage		required
+
+	DrawEnemyHealthBar				0
+	DrawTargetHealthBar				0
+
+	//resetBurstOnStopShootOverlay	1
+	//restrictAimGunToValidSequences	1
+
+	showFriendlyIcon				1
+	// showTitle						1
+
+
+    smartAmmoLockAttachmentName0	HEADFOCUS
+	waitBetweenWeaponBurst			0
+	suppressLSP_duration			5
+
+//	SmartAmmoLockType				large
+//	smartAmmoLockAttachmentName0	CHESTFOCUS
+//	smartAmmoLockAttachmentName1	HEADFOCUS
+//	smartAmmoLockAttachmentName2	exp_torso_main
+//	smartAmmoLockAttachmentName3	shell
+//	smartAmmoLockAttachmentName4	shell2
+
+    //GrenadeWeaponName		        "mp_weapon_grenade_bangalore"
+    GrenadeWeaponName               "npc_weapon_thermite_grenade"
+
+	//footstep_type					"superspectre"
+	//footstepSprintSpeedThreshold 	500
+
+	//nonCombatAI					1
+	footstepSprintSpeedThreshold 	500
+
+	AdditionalAISettings			"npc_frag_drone"
+
+    moveDeflectionSmallObstacleRadius	25
+	specialRangeAttackMinDist		700
+	specialRangeAttackMaxDist		1500
+	titanStompable					0
+
+
+	chaseTryRunningDodgeWhenAimedAtMinDist	200	//should be > MeleeChargeRange so ACT melee_charge prioritizes over dodging
+
+	dodgePeriod 					6 			// Don't dodge more than maxDodgePerPeriod within this time
+	maxDodgePerPeriod				1 			// Don't dodge more than this many times in dodgePeriod
+
+	minConsecutiveDodgeTime			0
+	missileAwarenessCos				-0.1
+	dodgeForwardThreshold			800
+	dodgeBackwardThreshold  		400
+	StrafeDodgeDamage				400
+	lockOnDodgeHealthThreshold		0.8
+	enemyAimAtMeWidthHeavyArmor		75
+
+	avoidEnemyAimStrafePathLength   100
+	avoidEnemyAimStrafeMaxDist      400
+
+	moveToEngageDistMaxThresholdDist    2000
+
+    flyingDodgeDist                 50
+
+	chasecamDistanceMax				320
+	chasecamMaxOrbitDepth			90
+	chasecamOffsetUp				0
+	chasecamOffsetRight				110
+
+	enable_frag_drones				1 [$sp]
+	enable_frag_drones				0 [$mp]
+
+	reactSurprised_maxRadius		2000
+	reactSurprised_distDelta		600
+
+	nuke_on_death					1
+
+   // alwaysDoEvasiveShooting         1
+    enemyAimAtMeWidth               50
+
+
+//////////////////////
+	//chancetohit_spread_ontarget		15.0
+//	disableMeleeExecution			1
+//////////////////////
+
+}
