@@ -1,0 +1,5445 @@
+global function ShBattlePass_LevelInit
+
+
+
+global function GetActiveBattlePass
+global function GetActiveBattlePassGUID
+global function GetPlayerActiveBattlePass
+global function GetPlayerBattlePassXPProgress
+global function GetBattlePassLevelForXP
+global function GetTotalXPToCompletePassLevel
+global function GetPlayerBattlePassLevel
+global function GetPlayerAccountPassLevel
+global function BattlePass_GetType
+global function BattlePass_GetProgressionSystemType
+
+
+global function BattlePassV2_IsV2BattlePass
+
+
+global function GetBattlePassV2Rewards
+
+
+global function BattlePassV2_GetScheduleDatatable
+
+global function GetPlayerActiveBattlePassV2
+global function GetActiveBattlePassV2
+
+global function BattlePassV2_GetCurrentSplit
+global function BattlePassV2_GetStartUnixTime
+global function BattlePassV2_GetFinishUnixTime
+global function BattlePassV2_GetUltimateOwnershipAsset
+global function BattlePassV2_GetUltimatePlusOwnershipAsset
+global function BattlePassV2_GetUltimateOwnershipFlavForBP
+global function BattlePassV2_GetUltimatePlusOwnershipFlavForBP
+global function BattlePassV2_GetMaxTrackCount
+global function BattlePassV2_ShouldDisplayCarousel
+global function BattlePassV2_DisplayBackupCarouselImage
+global function BattlePassV2_GetMaxVisibleLevels
+global function BattlePassV2_GetVisiblePassRewardsStartingPosition
+
+
+
+
+
+
+
+global function GetBattlePassPremiumRewards
+global function GetBattlePassXPEventValue
+global function GetBattlePassXPEventCount
+global function BattlePass_GetXPPurchaseFlav
+global function BattlePass_GetXPPurchaseLegendTokenFlav
+global function BattlePass_GetXPBoostFlav
+global function BattlePass_GetRerollFlav
+global function BattlePass_GetScheduleDatatable
+global function BattlePass_GetMilestoneDatatable
+global function BattlePass_GetBulletText
+global function BattlePass_GetStoreImage
+global function BattlePass_GetNPPTrackExplanationText
+global function BattlePass_ShouldEarnGrindForXP
+global function GetBattlePassDisplayLevel
+global function GetBattlePassDisplayBadge
+global function BattlePass_GetPassMaxLevelIndex
+global function GetBattlePassMaxLevelIndex
+global function GetBattlePassMaxPurchaseLevels
+global function GetPlayerBattlePassPurchasableLevels
+global function GetPlayerBattlePassPurchasableLevelsWithLegendTokens
+global function GetPlayerBattlePassUnpurchasedLevelsWithLegendTokens
+global function GetRewardPromptLevelArray
+global function GetMilestoneRepImageLevelArray
+global function BattlePass_GetStoreBundleContentsImage
+
+global function BattlePassPurchasedXP_GetXPAmount
+
+global function GetPlayerBattlePassEarnedXP
+global function GetPlayerBattlePassPurchasedXP
+global function GetPlayerBattlePassLastSeenPremium
+global function GetPlayerBattlePassLastSeenUltimatePlus
+global function GetPlayerBattlePassPurchasedLevels
+global function GetPlayerBattlePassLastSeenXP
+
+global function BattlepassGetEntitlementUltimate
+global function BattlepassGetEntitlementUltimatePlus
+global function BattlepassGetEntitlementUltToUltPlus
+
+global function DoesPlayerOwnBattlePassTier
+global function DoesPlayerOwnBattlePass
+global function DoesPlayerOwnUltimatePlusBattlePass
+global function DoesPlayerOwnUltimateBattlePass
+global function GetPlayerBattlePassTier
+global function GetCurrentBattlePassWeek
+global function GetCurrentBattlePassWeekExpirationTime
+global function GetBattlePassProgressBadge
+global function GetBattlePassChallenges
+global function GetNumBattlePassChallengesWeeks
+global function GetNumBattlePassChallenges
+global function BattlePassHasWeeklyChallenge
+global function GetBattlePassRecurringGrindlordChallenge
+global function ItemFlavorBagToBattlePassRewardByIndex
+
+global function GetMaxBattlePassLevelsWithLegendTokens
+global function IsPlayerLeveledToPurchaseBattlePassLevelsWithLegendTokens
+global function IsCurrentlyWithinTimeframeToPurchaseBattlePassLevelsWithLegendTokens
+global function CanPlayerPurchaseBattlePassLevelsWithLegendTokens
+global function SubstituteBattlePassRewardsForUserRestrictions
+
+global function CheckForBattlePassRewardPlaylistOverrides
+
+global function GetAccountProgressionPass
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global function GetCurrentBattlepassOfferIDs
+global function IsBattlepassFirstPartyOfferReady
+
+
+
+
+
+
+
+
+
+#if DEV
+global function DEV_BattlePass
+#endif
+
+
+
+
+
+
+
+
+
+
+
+
+global const int MAX_BATTLEPASS_CHARACTER_BONUS_XP_DEFAULT = 250000
+global const int STARS_TO_COMPLETE_BP_LEVEL = 10
+global const int BATTLEPASS_MAX_LEVEL = 100
+global const int BATTLEPASS_BUNDLE_LEVELS = 10
+global const int BATTLEPASS_FIRST_PARTY_OFFER_COUNT = 3
+
+global enum eBattlePassProgressionSystem
+{
+	STARS, 
+	ACCOUNT_XP,
+}
+
+global enum eBattlePassV2OwnershipTier
+{
+	INVALID = -1,
+	FREE,
+	PREMIUM, 
+	ULTIMATE, 
+	ULTIMATE_PLUS, 
+	_COUNT,
+}
+
+const string BATTLE_PASS_OWNERSHIP_CACHE_PVAR = "ownedBattlepassGUID[%d]"
+const int BATTLE_PASS_PREMIUM_INDEX = 0
+const int BATTLE_PASS_ULTIMATE_INDEX = 1
+const int BATTLE_PASS_ULTIMATE_PLUS_INDEX = 2
+
+global enum eBattlePassV2RewardTier
+{
+	UNSPECIFIED = -1,
+	FREE,
+	PREMIUM,		
+	ULTIMATE_PLUS,
+}
+
+global enum ePassType
+{
+	INVALID = -1,
+	SEASONAL = 0,
+	NEWPLAYER = 1,
+	EVENT = 2,
+	RETURNING_PLAYER = 3,
+
+	LEGEND = 4,
+
+	ACCOUNT = 5,
+	_COUNT,
+}
+
+global struct BattlePassReward
+{
+	ItemFlavor& flav
+	int    quantity
+	int    level
+	bool   isPremium = false 
+	bool   isUltimatePlus = false
+	bool   isEventReward = false
+	string eventName = ""
+	bool   isOwned = false 
+	bool   isTall = false 
+	bool   isRumble = false
+	bool   isMastery = false
+	int    rarityOrBadgeDisplayTier = 0 
+
+	bool isChaseReward
+	int bpRewardTier = eBattlePassV2RewardTier.UNSPECIFIED 
+	asset iconOverride
+	int passType = ePassType.INVALID
+}
+
+struct BattlePassData
+{
+	ItemFlavor& pass
+	ItemFlavor& season
+	int         maxPassLevel
+	int			xpPerLevel = STARS_TO_COMPLETE_BP_LEVEL 
+	int         maxPurchaseLevels = 59
+
+	int progressionSystem = eBattlePassProgressionSystem.STARS 
+
+	table< int, table< int, array<ItemFlavor> > > challenges
+	ItemFlavor ornull recurringGrindlordChallenge
+
+	ItemFlavor& ultimateOwnershipFlav
+	ItemFlavor& ultimatePlusOwnershipFlav
+}
+
+global enum ePassLastSeenType
+{
+	MATCH,
+	LOBBY,
+	COUNT
+}
+
+
+
+
+
+
+
+
+
+struct RewardSequenceUpdate
+{
+	int start = 0
+	int end = 0
+
+	ItemFlavorBag& rewards
+
+	bool isPastFixup = false
+	int tier = eBattlePassV2OwnershipTier.INVALID
+	ItemFlavor& pass
+}
+
+struct FileStruct_LifetimeLevel
+{
+	array<ItemFlavor> battlePassList
+
+	table<ItemFlavor, BattlePassData> battlePassMap
+	ItemFlavor ornull currentSeason
+	int expirationTimestamp
+	bool sorted = false
+
+	ItemFlavor ornull currentBattlePassV2
+	int expirationTimestampV2
+
+
+	table<int, string> battlepassFirstPartyOfferIDs
+	bool isBattlepassFirstPartyOffersReady = false
+
+
+	ItemFlavor& accountPass
+}
+FileStruct_LifetimeLevel& fileLevel
+
+global const int BATTLEPASS_NUMBER_OF_FIXUP_SEASONS = 3
+
+global const asset CHALLENGE_REWARD_MODEL = $"mdl/menu/challenge_reward_star/challenge_reward_star.rmdl"
+global const asset BATTLEPASS_STAR_REWARD_MODEL = $"mdl/menu/reward_star.rmdl"
+global const asset BATTLEPASS_MODEL_BOOST = $"mdl/menu/xp_badge.rmdl"
+global const asset BATTLEPASS_MODEL_APEX_COINS = $"mdl/menu/coin.rmdl"
+global const asset BATTLEPASS_MODEL_LEVEL_BADGE = $"mdl/menu/bp_badge.rmdl"
+global const asset BATTLEPASS_MODEL_CRAFTING_METALS = $"mdl/currency/crafting/currency_crafting_epic.rmdl"
+global const float BATTLEPASS_XP_BOOST_AMOUNT = 0.1
+
+const string RECURRING_GRINDLORD_STAT = "stats.challenge_xp_earned"
+const string GRINDLORD_CHALLENGE_BAKERY_KEY = "recurringGrindlordChallenge"
+
+const int BATTLEPASS_REWARD_SEQUENCE_QUERYGOAL = GRX_HTTPQUERYGOAL_GIVE_BATTLEPASS_SEQUENCE_REWARD
+
+
+
+
+
+
+void function ShBattlePass_LevelInit()
+{
+	FileStruct_LifetimeLevel newFileLevel
+	fileLevel = newFileLevel
+
+	ShBattlePass_RefreshCachedSeasonInfo()
+
+
+	Remote_RegisterServerFunction( "ClientCallback_UpdateBattlePassLastInfo", "itemflavor", eItemType.battlepass ) 
+	Remote_RegisterServerFunction( "ClientCallback_UpdateBattlePassGrantLastSeen", "itemflavor", eItemType.battlepass ) 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	AddCallback_RegisterRootItemFlavors( void function() {
+		foreach ( asset assetData in GetBaseItemFlavorsFromArray("accountPass") )
+		{
+			ItemFlavor ornull itemFlavorData = RegisterItemFlavorFromSettingsAsset( assetData )
+			Assert ( itemFlavorData != null, "Account pass should not be null." )
+			fileLevel.accountPass = expect ItemFlavor( itemFlavorData )
+			break
+		}
+	} )
+
+	AddCallback_OnItemFlavorRegistered( eItemType.battlepass, void function( ItemFlavor pass ) {
+		if ( !PlayerPass_IsPassOfType( pass, ePassType.SEASONAL ) ) 
+		{
+			return
+		}
+
+		
+		
+		int sortOrdinal = 0
+
+		fileLevel.battlePassList.append( pass )
+
+		BattlePassData passData
+		passData.pass = pass
+
+		var passDataTable                 = BattlePass_GetScheduleDatatable( pass )
+		int numRows                       = GetDataTableRowCount( passDataTable )
+		int maxLevels                     = GetDataTableInt( passDataTable, numRows - 1, GetDataTableColumnByName( passDataTable, "levelIndex" ) ) + 1
+		int cumulativeXP                  = 0
+		bool shouldRegisterSubArrayAssets = true
+
+		if ( GetCalEventBeingProcessed() != null )
+			shouldRegisterSubArrayAssets = !CalEvent_IsExpired( expect ItemFlavor( GetCalEventBeingProcessed() ) )
+
+		asset passAsset = ItemFlavor_GetAsset( pass )
+
+		
+		RegisterItemFlavorFromSettingsAsset( GetGlobalSettingsAsset( passAsset, "xpPurchaseFlav" ) )
+		asset xpPurchaseLegendToken = GetGlobalSettingsAsset( passAsset, "bubblePurchaseFlav" )
+		if ( xpPurchaseLegendToken != $"" )
+			RegisterItemFlavorFromSettingsAsset( xpPurchaseLegendToken )
+
+		if ( shouldRegisterSubArrayAssets )
+		{
+			RegisterItemFlavorFromSettingsAsset( GetGlobalSettingsAsset( passAsset, "xpBoostFlav" ) )
+
+			asset reroll = GetGlobalSettingsAsset( passAsset, "challengeRerollFlav" )
+			if ( reroll != $"" )
+				RegisterItemFlavorFromSettingsAsset( reroll )
+		}
+
+		passData.maxPassLevel = maxLevels - 1 
+
+		string typeStr = GetGlobalSettingsString( ItemFlavor_GetAsset( pass ), "progressionSystem" )
+		Assert( typeStr in eBattlePassProgressionSystem )
+		passData.progressionSystem = eBattlePassProgressionSystem[typeStr]
+		int xpPerLevel = GetDataTableInt( passDataTable, 0, GetDataTableColumnByName( passDataTable, "xpPerLevel" ) )
+		passData.xpPerLevel = GetCurrentPlaylistVarInt( format( "battlepass_%s_xp_per_level", ItemFlavor_GetGUIDString( pass ) ), xpPerLevel )
+
+
+
+
+
+
+
+
+
+
+
+
+		passData.challenges[ eChallengeTimeSpanKind.SEASON_WEEKLY_RECURRING ] <- {}
+		passData.challenges[ eChallengeTimeSpanKind.SEASON_WEEKLY_RECURRING ][-1] <- []
+		if ( shouldRegisterSubArrayAssets && passData.progressionSystem == eBattlePassProgressionSystem.STARS )
+		{
+			asset chAsset = GetGlobalSettingsAsset( passAsset, GRINDLORD_CHALLENGE_BAKERY_KEY )
+			Assert( chAsset != $"" )
+			ItemFlavor challenge = expect ItemFlavor( RegisterItemFlavorFromSettingsAsset( chAsset ) )
+			passData.challenges[ eChallengeTimeSpanKind.SEASON_WEEKLY_RECURRING ][-1].append( challenge )
+			Assert( Challenge_GetStatRefs( null, challenge, 0 )[0] == RECURRING_GRINDLORD_STAT )
+			passData.recurringGrindlordChallenge = challenge
+		}
+
+		array<asset> dupeCheck = []
+
+		passData.challenges[ eChallengeTimeSpanKind.DAILY ] <- {}
+		passData.challenges[ eChallengeTimeSpanKind.DAILY ][-1] <- []
+		if ( shouldRegisterSubArrayAssets)
+		{
+			foreach ( var block in IterateSettingsAssetArray( passAsset, "dailyChallenges" ) )
+			{
+				asset chAsset = GetSettingsBlockAsset( block, "flavor" )
+
+				Assert( !dupeCheck.contains( chAsset ) )
+				dupeCheck.append( chAsset )
+
+				ItemFlavor ornull challenge = RegisterItemFlavorFromSettingsAsset( chAsset )
+				if ( challenge != null )
+					passData.challenges[ eChallengeTimeSpanKind.DAILY ][-1].append( expect ItemFlavor( challenge ) )
+			}
+		}
+
+		dupeCheck.clear()
+
+		passData.challenges[ eChallengeTimeSpanKind.SEASON_WEEKLY ] <- {}
+		if ( shouldRegisterSubArrayAssets )
+		{
+			foreach ( var block in IterateSettingsAssetArray( passAsset, "weeklyChallenges" ) )
+			{
+				int week = GetSettingsBlockInt( block, "weekNumber" )
+				passData.challenges[ eChallengeTimeSpanKind.SEASON_WEEKLY ][week] <- []
+				foreach ( var chBlock in IterateSettingsArray( GetSettingsBlockArray( block, "challenges" ) ) )
+				{
+					asset chAsset = GetSettingsBlockAsset( chBlock, "flavor" )
+
+					Assert( !dupeCheck.contains( chAsset ) )
+					dupeCheck.append( chAsset )
+
+					ItemFlavor ornull challenge = RegisterItemFlavorFromSettingsAsset( chAsset )
+					if ( challenge != null )
+					{
+						expect ItemFlavor( challenge )
+						RegisterChallengeSource( challenge, pass, sortOrdinal++ )
+						passData.challenges[ eChallengeTimeSpanKind.SEASON_WEEKLY ][week].append( challenge )
+					}
+				}
+			}
+		}
+
+		dupeCheck.clear()
+
+		if ( BattlePassV2_IsV2BattlePass( pass ) )
+		{
+			asset ultimateOwnershipAsset = BattlePassV2_GetUltimateOwnershipAsset( pass )
+			if ( ultimateOwnershipAsset != $"" )
+			{
+				ItemFlavor ornull ultimateOwnershipFlav = RegisterItemFlavorFromSettingsAsset( ultimateOwnershipAsset )
+
+				if ( ultimateOwnershipFlav != null )
+				{
+					expect ItemFlavor( ultimateOwnershipFlav )
+					passData.ultimateOwnershipFlav = ultimateOwnershipFlav
+				}
+			}
+
+			asset ultimatePlusOwnershipAsset = BattlePassV2_GetUltimatePlusOwnershipAsset( pass )
+			if ( ultimatePlusOwnershipAsset != $"" )
+			{
+				ItemFlavor ornull ultimatePlusOwnershipFlav = RegisterItemFlavorFromSettingsAsset( ultimatePlusOwnershipAsset )
+
+				if ( ultimatePlusOwnershipFlav != null )
+				{
+					expect ItemFlavor( ultimatePlusOwnershipFlav )
+					passData.ultimatePlusOwnershipFlav = ultimatePlusOwnershipFlav
+				}
+			}
+		}
+
+		if ( shouldRegisterSubArrayAssets )
+		{
+			RegisterReferencedItemFlavorsFromArray( pass, "challengeTiles", "challengeTile" )
+		}
+
+		fileLevel.battlePassMap[pass] <- passData
+	} )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+}
+
+int function GetMaxBattlePassLevelIndex( var passDataTable )
+{
+	int numRows = GetDataTableRowCount( passDatr flav )
+{
+	Assert( ItemFlavor_GetType( flav ) == eItemType.battlepass )
+	Assert( BattlePassV2_IsV2BattlePass( flav ) )
+	Assert( "bpv2StartUnixTime" in flav.metaData )
+
+	if ( "bpv2StartUnixTime" in flav.metaData )
+	{
+		table< string, string > ornull metaData = flav.metaData
+		expect table< string, string >( metaData )
+
+		return int( metaData[ "bpv2StartUnixTime" ] )
+	}
+
+	Warning( "BPV2 asset (%s) did not have bpv2StartUnixTime defined; returning fallback", ItemFlavor_GetAssetString( flav ) )
+	return UNIX_TIME_FALLBACK_1970
+}
+
+int function BattlePassV2_GetFinishUnixTime( ItemFlavor flav )
+{
+	Assert( ItemFlavor_GetType( flav ) == eItemType.battlepass )
+	Assert( BattlePassV2_IsV2BattlePass( flav ) )
+	Assert( "bpv2FinishUnixTime" in flav.metaData )
+
+	if ( "bpv2FinishUnixTime" in flav.metaData )
+	{
+		table< string, string > ornull metaData = flav.metaData
+		expect table< string, string >( metaData )
+
+		return int( metaData[ "bpv2FinishUnixTime" ] )
+	}
+
+	Warning( "BPV2 asset (%s) did not have bpv2FinishUnixTime defined; returning fallback", ItemFlavor_GetAssetString( flav ) )
+	return UNIX_TIME_FALLBACK_2038
+}
+
+
+#if DEV
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#endif
+
+
+ItemFlavor function GetAccountProgressionPass()
+{
+	return fileLevel.accountPass
+}
+
+[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/time_gated_login_rewards.nut.client
+[dump] scripts/vscripts/time_gated_login_rewards.nut.client (1191 bytes)
+global function TimeGatedLoginRewards_Init
+global function LoginEvent_GetLoginRewards
+
+
+
+
+struct FileStruct_LifetimeLevel
+{
+
+
+
+}
+
+
+
+
+FileStruct_LifetimeLevel fileLevel 
+
+
+
+
+
+
+
+
+
+
+void function TimeGatedLoginRewards_Init()
+{
+
+
+
+
+
+
+
+
+
+}
+
+
+
+
+array<ItemFlavor> function GetActiveLoginEvents( int t )
+{
+	Assert( IsItemFlavorRegistrationFinished() )
+	array<ItemFlavor> activeEvents
+	foreach ( ItemFlavor ev in GetAllItemFlavorsOfType( eItemType.calevent_login ) )
+	{
+		if ( !CalEvent_IsActive( ev, t ) )
+			continue
+
+		activeEvents.append( ev )
+
+	}
+
+	return activeEvents
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+array<ItemFlavor> function LoginEvent_GetLoginRewards( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_login )
+
+	array<ItemFlavor> rewards = []
+	foreach ( var rewardBlock in IterateSettingsAssetArray( ItemFlavor_GetAsset( event ), "loginRewards" ) )
+	{
+		asset rewardAsset = GetSettingsBlockAsset( rewardBlock, "flavor" )
+		if ( IsValidItemFlavorSettingsAsset( rewardAsset ) )
+			rewards.append( GetItemFlavorByAsset( rewardAsset ) )
+	}
+	return rewards
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/collection_events.nut.client
+[dump] scripts/vscripts/collection_events.nut.client (17935 bytes)global function CollectionEvents_Init
+global function GetActiveCollectionEvent
+global function CollectionEvent_GetChallenges 
+global function CollectionEvent_GetFrontPageRewardBoxTitle
+global function CollectionEvent_GetCollectionName
+global function CollectionEvent_GetMainPackFlav
+global function CollectionEvent_GetMainPackShortPluralName
+global function CollectionEvent_GetMainPackImage
+global function CollectionEvent_GetFrontPageGRXOfferLocation
+global function CollectionEvent_GetRewardGroups
+global function CollectionEvent_IsGivenItemFlavorReward
+global function CollectionEvent_GetAboutText 
+global function CollectionEvent_GetStoreEventSectionMainImage
+global function CollectionEvent_GetStoreEventSectionMainText
+global function CollectionEvent_GetStoreEventSectionSubText
+global function CollectionEvent_GetMainIcon
+global function CollectionEvent_GetMainThemeCol
+global function CollectionEvent_GetFrontPageBGTintCol
+global function CollectionEvent_GetFrontPageTitleCol
+global function CollectionEvent_GetFrontPageSubtitleCol
+global function CollectionEvent_GetFrontPageTimeRemainingCol
+global function CollectionEvent_GetBGPatternImage
+global function CollectionEvent_GetBGTabPatternImage
+global function CollectionEvent_GetTabLeftSideImage 
+global function CollectionEvent_GetTabCenterImage 
+global function CollectionEvent_GetTabRightSideImage 
+global function CollectionEvent_GetTabImageSelectedAlpha
+global function CollectionEvent_GetTabImageUnselectedAlpha
+global function CollectionEvent_GetTabCenterRui 
+global function CollectionEvent_GetTabBGDefaultCol 
+global function CollectionEvent_GetTabBarDefaultCol 
+global function CollectionEvent_GetTabBGFocusedCol 
+global function CollectionEvent_GetTabTextDefaultCol 
+global function CollectionEvent_GetTabBarFocusedCol 
+global function CollectionEvent_GetTabGlowFocusedCol 
+global function CollectionEvent_GetTabBGSelectedCol 
+global function CollectionEvent_GetTabBarSelectedCol 
+global function CollectionEvent_GetTabTextSelectedCol 
+global function CollectionEvent_GetAboutPageSpecialTextCol 
+global function CollectionEvent_GetHeaderIcon 
+
+
+global function HeirloomEvent_GetItemCount
+global function HeirloomEvent_GetCurrentRemainingItemCount
+global function HeirloomEvent_GetPrimaryCompletionRewardItem
+global function HeirloomEvent_GetCompletionRewardPack
+global function HeirloomEvent_GetCompletionSequenceName
+global function HeirloomEvent_AwardHeirloomShards
+global function HeirloomEvent_IsRewardMythicSkin
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global function CollectionEvent_GetFrontTabText
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global struct CollectionEventRewardGroup
+{
+	string ref
+	int    quality = -1
+	
+	
+
+	array<ItemFlavor> rewards
+}
+
+
+global const array< int > HEIRLOOM_EVENTS = [ eItemType.calevent_collection, eItemType.calevent_themedshop, eItemType.calevent_milestone ]
+
+
+
+
+
+
+
+
+struct FileStruct_LifetimeLevel
+{
+
+
+
+
+
+	table<ItemFlavor, array<ItemFlavor> > eventChallengesMap
+}
+
+
+FileStruct_LifetimeLevel fileLevel 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function CollectionEvents_Init()
+{
+
+
+
+
+
+	AddCallback_OnItemFlavorRegistered( eItemType.calevent_collection, void function( ItemFlavor ev ) {
+		fileLevel.eventChallengesMap[ev] <- RegisterReferencedItemFlavorsFromArray( ev, "challenges", "flavor" )
+		foreach ( int challengeSortOrdinal, ItemFlavor challengeFlav in fileLevel.eventChallengesMap[ev] )
+			RegisterChallengeSource( challengeFlav, ev, challengeSortOrdinal )
+	} )
+
+
+
+
+
+}
+
+
+
+
+
+
+
+
+
+ItemFlavor ornull function GetActiveCollectionEvent( int t )
+{
+	Assert( IsItemFlavorRegistrationFinished() )
+	ItemFlavor ornull event = null
+	foreach ( ItemFlavor ev in GetAllItemFlavorsOfType( eItemType.calevent_collection ) )
+	{
+		if ( !CalEvent_IsActive( ev, t ) )
+			continue
+
+		Assert( event == null, format( "Multiple collection events are active!! (%s, %s)", string(ItemFlavor_GetAsset( expect ItemFlavor(event) )), string(ItemFlavor_GetAsset( ev )) ) )
+		event = ev
+	}
+	return event
+}
+
+
+
+
+array<ItemFlavor> function CollectionEvent_GetLoginRewards( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+
+	array<ItemFlavor> rewards = []
+	foreach ( var rewardBlock in IterateSettingsAssetArray( ItemFlavor_GetAsset( event ), "loginRewards" ) )
+	{
+		asset rewardAsset = GetSettingsBlockAsset( rewardBlock, "flavor" )
+		if ( IsValidItemFlavorSettingsAsset( rewardAsset ) )
+			rewards.append( GetItemFlavorByAsset( rewardAsset ) )
+	}
+	return rewards
+}
+
+
+
+
+array<ItemFlavor> function CollectionEvent_GetChallenges( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+
+	return fileLevel.eventChallengesMap[event]
+}
+
+
+
+
+string function CollectionEvent_GetFrontPageRewardBoxTitle( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+	return GetGlobalSettingsString( ItemFlavor_GetAsset( event ), "frontPageRewardBoxTitle" )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+string function CollectionEvent_GetCollectionName( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+	return GetGlobalSettingsString( ItemFlavor_GetAsset( event ), "collectionName" )
+}
+
+
+
+ItemFlavor function CollectionEvent_GetMainPackFlav( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+	return GetItemFlavorByAsset( GetGlobalSettingsAsset( ItemFlavor_GetAsset( event ), "mainPackFlav" ) )
+}
+
+
+
+
+string function CollectionEvent_GetMainPackShortPluralName( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+	return GetGlobalSettingsString( ItemFlavor_GetAsset( event ), "mainPackShortPluralName" )
+}
+
+
+
+
+asset function CollectionEvent_GetMainPackImage( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+	return GetGlobalSettingsAsset( ItemFlavor_GetAsset( event ), "mainPackImage" )
+}
+
+
+
+
+bool function HeirloomEvent_AwardHeirloomShards( ItemFlavor event )
+{
+	Assert( HEIRLOOM_EVENTS.contains( ItemFlavor_GetType( event ) ) )
+	return GetGlobalSettingsBool( ItemFlavor_GetAsset( event ), "awardHeirloomShards" )
+}
+
+
+
+
+ItemFlavor function HeirloomEvent_GetPrimaryCompletionRewardItem( ItemFlavor event )
+{
+	Assert( HEIRLOOM_EVENTS.contains( ItemFlavor_GetType( event ) ) )
+
+	if ( HeirloomEvent_AwardHeirloomShards( event ) )
+		return GetItemFlavorByAsset( $"settings/itemflav/currency_bundle/heirloom.rpak" )
+
+	return GetItemFlavorByAsset( GetGlobalSettingsAsset( ItemFlavor_GetAsset( event ), "primaryCompletionRewardItem" ) )
+}
+
+
+
+bool function HeirloomEvent_IsRewardMythicSkin( ItemFlavor event )
+{
+	ItemFlavor primaryRewardItem =  HeirloomEvent_GetPrimaryCompletionRewardItem( event )
+	return Mythics_IsItemFlavorMythicSkin( primaryRewardItem )
+}
+
+
+
+
+ItemFlavor function HeirloomEvent_GetCompletionRewardPack( ItemFlavor event )
+{
+	Assert( HEIRLOOM_EVENTS.contains( ItemFlavor_GetType( event ) ) )
+
+	if ( HeirloomEvent_AwardHeirloomShards( event ) )
+		return GetItemFlavorByAsset( $"settings/itemflav/pack/heirloom_shards.rpak" )
+
+	return GetItemFlavorByAsset( GetGlobalSettingsAsset( ItemFlavor_GetAsset( event ), "completionRewardPack" ) )
+}
+
+
+
+
+string function HeirloomEvent_GetCompletionSequenceName( ItemFlavor event )
+{
+	Assert( HEIRLOOM_EVENTS.contains( ItemFlavor_GetType( event ) ) )
+	return GetGlobalSettingsString( ItemFlavor_GetAsset( event ), "completionSequenceName" )
+}
+
+
+
+
+string function CollectionEvent_GetFrontPageGRXOfferLocation( ItemFlavor event, bool isRestricted = false )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+	return GetGlobalSettingsString( ItemFlavor_GetAsset( event ), "frontGRXOfferLocation" ) 
+}
+
+
+
+array<CollectionEventRewardGroup> function CollectionEvent_GetRewardGroups( ItemFlavor event )
+{
+	
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection || ItemFlavor_GetType( event ) == eItemType.calevent_milestone )
+
+	array<CollectionEventRewardGroup> groups = []
+	foreach ( var groupBlock in IterateSettingsAssetArray( ItemFlavor_GetAsset( event ), "rewardGroups" ) )
+	{
+		CollectionEventRewardGroup group
+		group.ref = GetSettingsBlockString( groupBlock, "ref" )
+		group.quality = eRarityTier[GetSettingsBlockString( groupBlock, "quality" )]
+		
+		
+		foreach ( var rewardBlock in IterateSettingsArray( GetSettingsBlockArray( groupBlock, "rewards" ) ) )
+			group.rewards.append( GetItemFlavorByAsset( GetSettingsBlockAsset( rewardBlock, "flavor" ) ) )
+
+		groups.append( group )
+	}
+	return groups
+}
+
+
+
+bool function CollectionEvent_IsGivenItemFlavorReward( ItemFlavor event, ItemFlavor item )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+
+	array<CollectionEventRewardGroup> rewardGroups = CollectionEvent_GetRewardGroups( event )
+
+	foreach( CollectionEventRewardGroup group in rewardGroups )
+	{
+		foreach( ItemFlavor flav in group.rewards )
+		{
+			if ( flav.guid == item.guid )
+			{
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+
+
+
+array<string> function CollectionEvent_GetAboutText( ItemFlavor event, bool restricted )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+
+	array<string> aboutText = []
+	string key              = (restricted ? "aboutTextRestricted" : "aboutTextStandard")
+	foreach ( var aboutBlock in IterateSettingsAssetArray( ItemFlavor_GetAsset( event ), key ) )
+		aboutText.append( GetSettingsBlockString( aboutBlock, "text" ) )
+	return aboutText
+}
+
+
+
+asset function CollectionEvent_GetStoreEventSectionMainImage( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+	return GetGlobalSettingsAsset( ItemFlavor_GetAsset( event ), "storeEventSectionMainImage" )
+}
+
+
+
+string function CollectionEvent_GetStoreEventSectionMainText( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+	return GetGlobalSettingsString( ItemFlavor_GetAsset( event ), "storeEventSectionMainText" )
+}
+
+
+
+string function CollectionEvent_GetStoreEventSectionSubText( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+	return GetGlobalSettingsString( ItemFlavor_GetAsset( event ), "storeEventSectionSubText" )
+}
+
+
+
+void function CollectionEvent_GetMainIcon( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+}
+
+
+
+
+vector function CollectionEvent_GetMainThemeCol( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+	return GetGlobalSettingsVector( ItemFlavor_GetAsset( event ), "mainThemeCol" )
+}
+
+
+
+
+vector function CollectionEvent_GetFrontPageBGTintCol( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+	return GetGlobalSettingsVector( ItemFlavor_GetAsset( event ), "frontPageBGTintCol" )
+}
+
+
+
+
+vector function CollectionEvent_GetFrontPageTitleCol( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+	return GetGlobalSettingsVector( ItemFlavor_GetAsset( event ), "frontPageTitleCol" )
+}
+
+
+
+
+vector function CollectionEvent_GetFrontPageSubtitleCol( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+	return GetGlobalSettingsVector( ItemFlavor_GetAsset( event ), "frontPageSubtitleCol" )
+}
+
+
+
+
+vector function CollectionEvent_GetFrontPageTimeRemainingCol( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+	return GetGlobalSettingsVector( ItemFlavor_GetAsset( event ), "frontPageTimeRemainingCol" )
+}
+
+
+
+string function CollectionEvent_GetFrontTabText( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+	return ItemFlavor_GetShortName( event )
+}
+
+
+
+asset function CollectionEvent_GetTabLeftSideImage( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+	return GetGlobalSettingsAsset( ItemFlavor_GetAsset( event ), "leftSideImage" )
+}
+
+
+
+asset function CollectionEvent_GetTabCenterImage( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+	return GetGlobalSettingsAsset( ItemFlavor_GetAsset( event ), "centerImage" )
+}
+
+
+
+asset function CollectionEvent_GetTabRightSideImage( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+	return GetGlobalSettingsAsset( ItemFlavor_GetAsset( event ), "rightSideImage" )
+}
+
+
+
+float function CollectionEvent_GetTabImageSelectedAlpha( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+	return GetGlobalSettingsFloat( ItemFlavor_GetAsset( event ), "imageSelectedAlpha" )
+}
+
+
+
+float function CollectionEvent_GetTabImageUnselectedAlpha( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+	return GetGlobalSettingsFloat( ItemFlavor_GetAsset( event ), "imageUnselectedAlpha" )
+}
+
+
+
+asset function CollectionEvent_GetTabCenterRui( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+	return GetGlobalSettingsStringAsAsset( ItemFlavor_GetAsset( event ), "centerRuiAsset" )
+}
+
+
+
+vector function CollectionEvent_GetTabBGDefaultCol( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+	return GetGlobalSettingsVector( ItemFlavor_GetAsset( event ), "tabBGDefaultCol" )
+}
+
+
+
+
+vector function CollectionEvent_GetTabBarDefaultCol( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+	return GetGlobalSettingsVector( ItemFlavor_GetAsset( event ), "tabBarDefaultCol" )
+}
+
+
+
+
+vector function CollectionEvent_GetTabTextDefaultCol( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+	return GetGlobalSettingsVector( ItemFlavor_GetAsset( event ), "tabTextDefaultCol" )
+}
+
+
+
+vector function CollectionEvent_GetTabBGFocusedCol( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+	return GetGlobalSettingsVector( ItemFlavor_GetAsset( event ), "tabBGFocusedCol" )
+}
+
+
+
+
+vector function CollectionEvent_GetTabBarFocusedCol( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+	return GetGlobalSettingsVector( ItemFlavor_GetAsset( event ), "tabBarFocusedCol" )
+}
+
+
+
+vector function CollectionEvent_GetTabGlowFocusedCol( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+	return GetGlobalSettingsVector( ItemFlavor_GetAsset( event ), "tabGlowFocusedCol" )
+}
+
+
+
+
+vector function CollectionEvent_GetTabBGSelectedCol( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+	return GetGlobalSettingsVector( ItemFlavor_GetAsset( event ), "tabBGSelectedCol" )
+}
+
+
+
+
+vector function CollectionEvent_GetTabBarSelectedCol( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+	return GetGlobalSettingsVector( ItemFlavor_GetAsset( event ), "tabBarSelectedCol" )
+}
+
+
+
+vector function CollectionEvent_GetTabTextSelectedCol( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+	return GetGlobalSettingsVector( ItemFlavor_GetAsset( event ), "tabTextSelectedCol" )
+}
+
+
+
+vector function CollectionEvent_GetAboutPageSpecialTextCol( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+	return GetGlobalSettingsVector( ItemFlavor_GetAsset( event ), "aboutPageSpecialTextCol" )
+}
+
+
+
+asset function CollectionEvent_GetBGPatternImage( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+	return GetGlobalSettingsAsset( ItemFlavor_GetAsset( event ), "bgPatternImage" )
+}
+
+
+
+asset function CollectionEvent_GetBGTabPatternImage( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+	return GetGlobalSettingsAsset( ItemFlavor_GetAsset( event ), "bgTabPatternImage" )
+}
+
+
+
+
+asset function CollectionEvent_GetHeaderIcon( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_collection )
+	return GetGlobalSettingsAsset( ItemFlavor_GetAsset( event ), "headerIcon" )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+int function HeirloomEvent_GetItemCount( ItemFlavor event, bool onlyOwned, entity player = null, bool dontCheckInventoryReady = false )
+{
+	Assert( dontCheckInventoryReady || !onlyOwned || ( player != null && GRX_IsInventoryReady( player ) ) )
+
+	int count = 0
+	array < ItemFlavor > eventItems
+
+	if ( ItemFlavor_GetType( event ) == eItemType.calevent_collection || ItemFlavor_GetType( event ) == eItemType.calevent_milestone )
+	{
+		eventItems = []
+		array<CollectionEventRewardGroup> rewardGroups = CollectionEvent_GetRewardGroups( event )
+		foreach ( CollectionEventRewardGroup rewardGroup in rewardGroups )
+		{
+			foreach ( ItemFlavor reward in rewardGroup.rewards )
+			{
+				eventItems.append( reward )
+			}
+		}
+	}
+	else if ( ItemFlavor_GetType( event ) == eItemType.calevent_themedshop )
+	{
+		eventItems = GRXPack_GetPackContents( GetItemFlavorByAsset( ThemedShopEvent_GetAssociatedPack( event ) ) )
+	}
+
+	foreach ( ItemFlavor item in eventItems )
+	{
+		
+
+
+
+
+
+
+
+
+
+			if ( !onlyOwned || GRX_HasItem( ItemFlavor_GetGRXIndex( item ) ) )
+				count++
+
+	}
+
+	return count
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+int function HeirloomEvent_GetCurrentRemainingItemCount( ItemFlavor event, entity player )
+{
+	return HeirloomEvent_GetItemCount( event, false ) - HeirloomEvent_GetItemCount( event, true, player )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/themed_shop_events.nut.client
+[dump] scripts/vscripts/themed_shop_events.nut.client (3117 bytes)
+
+
+global function ThemedShopEvents_Init
+
+
+
+
+global function GetActiveThemedShopEvent
+global function ThemedShopEvent_GetChallenges
+global function ThemedShopEvent_GetHeaderIcon
+global function ThemedShopEvent_HasWhatsNew
+global function ThemedShopEvent_GetAssociatedPack
+global function ThemedShopEvent_HasThemedShopTab
+global function ThemedShopEvent_HasSpecialsTab
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+struct FileStruct_LifetimeLevel
+{
+	table<ItemFlavor, array<ItemFlavor> > eventChallengesMap
+}
+
+
+FileStruct_LifetimeLevel fileLevel 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function ThemedShopEvents_Init()
+{
+
+
+
+
+
+	AddCallback_OnItemFlavorRegistered( eItemType.calevent_themedshop, void function( ItemFlavor ev ) {
+		fileLevel.eventChallengesMap[ev] <- RegisterReferencedItemFlavorsFromArray( ev, "challenges", "flavor" )
+		foreach ( int challengeSortOrdinal, ItemFlavor challengeFlav in fileLevel.eventChallengesMap[ev] )
+			RegisterChallengeSource( challengeFlav, ev, challengeSortOrdinal )
+	} )
+}
+
+
+
+
+
+
+
+
+
+
+
+ItemFlavor ornull function GetActiveThemedShopEvent( int t )
+{
+	Assert( IsItemFlavorRegistrationFinished() )
+	ItemFlavor ornull event = null
+	foreach ( ItemFlavor ev in GetAllItemFlavorsOfType( eItemType.calevent_themedshop ) )
+	{
+		if ( !CalEvent_IsActive( ev, t ) )
+			continue
+
+		Assert( event == null, format( "Multiple themedshop events are active!! (%s, %s)", string(ItemFlavor_GetAsset( expect ItemFlavor(event) )), string(ItemFlavor_GetAsset( ev )) ) )
+		event = ev
+	}
+	return event
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+array<ItemFlavor> function ThemedShopEvent_GetChallenges( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_themedshop )
+
+	return fileLevel.eventChallengesMap[event]
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+bool function ThemedShopEvent_HasWhatsNew( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_themedshop )
+	return GetGlobalSettingsBool( ItemFlavor_GetAsset( event ), "whatsNewTab" )
+}
+
+
+
+asset function ThemedShopEvent_GetAssociatedPack( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_themedshop )
+	return GetGlobalSettingsAsset( ItemFlavor_GetAsset( event ), "associatedPackFlav" )
+}
+
+
+
+bool function ThemedShopEvent_HasThemedShopTab( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_themedshop )
+	return GetGlobalSettingsBool( ItemFlavor_GetAsset( event ), "themedShopTab" )
+}
+
+
+
+bool function ThemedShopEvent_HasSpecialsTab( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_themedshop )
+	return GetGlobalSettingsBool( ItemFlavor_GetAsset( event ), "specialsTab" )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+asset function ThemedShopEvent_GetHeaderIcon( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_themedshop )
+	return GetGlobalSettingsAsset( ItemFlavor_GetAsset( event ), "headerIcon" )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/sh_wishlist.gnut.client
+[dump] scripts/vscripts/sh_wishlist.gnut.client (5538 bytes)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global enum eWishlistFrontState
+{
+	INACTIVE, 
+	INVALID,
+	ACTIVE, 
+	COMPLETED, 
+	MAYBE_INVALID 
+}
+
+enum eWishlistTrimMode
+{
+	CHARACTERS,
+	WEAPON_CATEGORIES,
+}
+
+const string WISHLIST_STRING_COLLECTION_ACCOUNT_ATTRIBUTE_NAME = "wishlist"
+
+const array< int > WISHLIST_BASE_SEEDING_LEGENDS = [
+	725342087, 
+	898565421, 
+	1409694078, 
+	827049897, 
+]
+
+const array< int > WISHLIST_COINFLIP_SEEDING_LEGENDS = [
+	182221730, 
+	1464849662, 
+]
+
+const int WISHLIST_CHARACTER_CATEGORY_SEASON_SEARCH_LIMIT = 8
+const int WISHLIST_CHARACTER_CATEGORY_SEASON_DATA_COUNT = 3
+
+const string WISHLIST_SAVE_OFFER_LOCATION = "wishlist"
+const string WISHLIST_PACK_UPGRADE_OFFER_LOCATION = "wishlist_packs"
+const string WISHLIST_ACCOUNT_ATTRIBUTE_VALUE_COLLECTION_EMPTY = "empty"
+
+global const int WISHLIST_REQUIRED_CHARACTER_COUNT = 5
+global const int WISHLIST_REQUIRED_WEAPONCLASS_COUNT = 2
+global const int WISHLIST_REQUIRED_TOTAL_LENGTH = WISHLIST_REQUIRED_CHARACTER_COUNT + WISHLIST_REQUIRED_WEAPONCLASS_COUNT
+global const asset WISHLIST_ACTIVATED_TAG_ASSET = $"rui/menu/inventory/buttons/wishlist_reward_tag"
+global const asset WISHLIST_UPGRADABLE_TAG_ASSET = $"rui/menu/inventory/buttons/wishlist_upgrade_tag"
+
+const array<int> WISHLIST_CORE_PACK_POOL_TYPES =
+[
+	
+	eItemType.character_skin,
+	eItemType.character_execution,
+	eItemType.gladiator_card_frame,
+	eItemType.gladiator_card_stance,
+	eItemType.gladiator_card_stat_tracker,
+	eItemType.gladiator_card_intro_quip,
+	eItemType.gladiator_card_kill_quip,
+	eItemType.character_emote,
+	eItemType.emote_icon,
+
+	
+	eItemType.weapon_skin,
+]
+
+const array<int> WISHLIST_CORE_PACK_POOL_CHARACTER_CATEGORY_TYPES = [
+	eItemType.character_skin,
+	eItemType.character_execution,
+	eItemType.gladiator_card_frame,
+	eItemType.gladiator_card_stance,
+	eItemType.gladiator_card_stat_tracker,
+	eItemType.gladiator_card_intro_quip,
+	eItemType.gladiator_card_kill_quip,
+	eItemType.character_emote,
+	eItemType.emote_icon,
+]
+
+const array<int> WISHLIST_CORE_PACK_POOL_WEAPON_CATEGORY_TYPES = [
+	eItemType.weapon_skin,
+]
+
+const table< int, array<int> > WISHLIST_TYPE_MAP = {
+	[ eItemType.character ] = WISHLIST_CORE_PACK_POOL_CHARACTER_CATEGORY_TYPES,
+	[ eItemType.weapon_category ] = WISHLIST_CORE_PACK_POOL_WEAPON_CATEGORY_TYPES,
+}
+
+global struct WishlistCategory
+{
+	int    guid
+	int    score
+	string description
+}
+
+global struct WishlistParameters
+{
+	int wishlistableCharacters = 0
+	int wishlistableWeaponCategories = 0
+	int completedWeaponCategories = 0
+	int completedCharacters = 0
+
+	array< int > completedClasses
+	array< WishlistCategory > availableWeaponCategories
+	array< WishlistCategory > availableCharacters
+	array< WishlistCategory > availableOwnedCharacters
+
+	int adjustedCharacterCount      = WISHLIST_REQUIRED_CHARACTER_COUNT
+	int adjustedWeaponCategoryCount = WISHLIST_REQUIRED_WEAPONCLASS_COUNT
+	int adjustedWishlistLength      = WISHLIST_REQUIRED_TOTAL_LENGTH
+}
+
+global struct Wishlist
+{
+	array< int > characters
+	array< int > weaponCategories
+	array< int > flattened
+}
+
+struct FileStruct
+{
+	
+	table< int, WishlistCategory functionref( ItemFlavor ) > wishlistGenerators
+	array< ItemFlavor > categoriesRegistered
+
+	
+	table< string, int > marketplaceRefToCategoryGUID
+	table< int, string > categoryGUIDtomarketplaceRef
+
+	
+	table< int, array< int > > categoryToFlavsMap
+
+	
+	table< int, int > flavToCategoryMap
+
+	
+	array< int > dirtyCategories
+
+	
+	Wishlist& wishlist
+	WishlistParameters& params
+
+	table< int, bool > cachedOwnershipState
+	bool initialOwnershipBuildDone = false
+	bool initialParamsBuildDone = false
+
+	bool ownsNonBaseLegends = false
+
+
+
+
+
+
+}
+
+FileStruct& file
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/milestone_events.nut.client
+[dump] scripts/vscripts/milestone_events.nut.client (23549 bytes)
+global function MilestoneEvents_Init
+
+
+
+global function GetActiveMilestoneEvent
+global function GetActiveEventTabMilestoneEvent
+global function GetActiveStoreOnlyMilestoneEvents
+global function GetAllMilestoneEvents
+global function IsMilestoneEventStoreOnly
+global function GetAllActiveMilestoneEvents
+global function MilestoneEvent_GetRewardTracker
+global function MilestoneEvent_HasRewardSetTracker
+global function MilestoneEvent_GetRewardTrackerQuantityForTier
+global function MilestoneEvent_GetProgressBasedOnRewardSetTrackerForTier
+global function MilestoneEvent_GetProgressBasedOnRewardSetTracker
+global function MilestoneEvent_SplitItemPoolIntoRarities
+global function MilestoneEvent_GetTotalItemsInPoolIncludingTrackerTiers
+global function MilestoneEvent_GetEventId
+global function MilestoneEvent_GetEventById
+global function MilestoneEvent_IsEventStoreOnly
+global function MilestoneEvent_GetFrontPageRewardBoxTitle
+global function MilestoneEvent_GetMainPackFlav
+global function MilestoneEvent_IsMilestonePackFlav
+global function MilestoneEvent_GetMainPackImage
+global function MilestoneEvent_GetFrontPageGRXOfferLocation
+global function MilestoneEvent_GetAboutText
+global function MilestoneEvent_GetMainIcon
+global function MilestoneEvent_GetRewardSequenceString
+global function MilestoneEvent_GetMilestoneGrantRewards
+global function MilestoneEvent_GetStoreEventSectionMainImage
+global function MilestoneEvent_GetStoreEventSectionMainText
+global function MilestoneEvent_GetStoreEventSectionSubText
+global function MilestoneEvent_IsChaseItem
+global function MilestoneEvent_IsItemInPool
+global function MilestoneEvent_GetEventItems
+global function MilestoneEvent_GetEventItemsInPool
+global function MilestoneEvent_GetMythicEventItems
+global function MilestoneEvent_GetRewardGroups
+global function MilestoneEvent_GetRewards
+global function MilestoneEvent_GetGuaranteedPackFlav
+global function MilestoneEvent_IsItemEventItem
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global struct MilestoneEventGrantReward
+{
+	int         grantingLevel
+	ItemFlavor& rewardFlav
+	asset 		customImage
+	string		customName
+	int			quantity
+	bool		isStackable
+}
+
+
+
+global struct MilestoneEventRewardTrackerTierData
+{
+	bool useRewardSetTracker
+	int quantity
+	ItemFlavor& rewardSetTracker
+}
+
+typedef MilestoneEventRewardTrackerData table< int, MilestoneEventRewardTrackerTierData >
+
+
+
+struct FileStruct_LifetimeLevel
+{
+	EntitySet chasePackGrantQueued
+	int milestoneEvents_MilestoneRewardCount = 0
+	bool storeOnlyEvents = false
+
+	table< ItemFlavor, MilestoneEventRewardTrackerData > rewardTrackerTierData
+}
+
+
+FileStruct_LifetimeLevel fileLevel 
+
+
+
+
+
+
+
+
+
+
+void function MilestoneEvents_Init()
+{
+
+
+
+
+
+
+
+
+
+}
+
+
+
+
+
+ItemFlavor ornull function GetActiveMilestoneEvent( int t )
+{
+	Assert( IsItemFlavorRegistrationFinished() )
+	if ( fileLevel.storeOnlyEvents )
+	{
+		array<ItemFlavor> activeStoreOnlyMilestoneEvents = GetActiveStoreOnlyMilestoneEvents( t )
+		if ( activeStoreOnlyMilestoneEvents.len() > 0 )
+		{
+			ItemFlavor ornull event = activeStoreOnlyMilestoneEvents[0]
+			return event
+		}
+		else
+			return null
+	}
+	else
+	{
+		return GetActiveEventTabMilestoneEvent( t )
+	}
+
+	unreachable
+}
+
+
+
+
+
+
+
+
+
+
+ItemFlavor ornull function GetActiveEventTabMilestoneEvent( int t )
+{
+	Assert( IsItemFlavorRegistrationFinished() )
+	ItemFlavor ornull event = null
+	foreach ( ItemFlavor ev in GetAllItemFlavorsOfType( eItemType.calevent_milestone ) )
+	{
+		if ( !CalEvent_IsActive( ev, t ) )
+			continue
+
+		bool isStoreOnly = GetGlobalSettingsBool( ItemFlavor_GetAsset( ev ), "isStoreOnlyMilestoneEvent" )
+		if ( isStoreOnly )
+			continue
+
+		Assert( event == null, format( "Multiple collection events are active!! (%s, %s)", string(ItemFlavor_GetAsset( expect ItemFlavor(event) )), string(ItemFlavor_GetAsset( ev )) ) )
+		event = ev
+	}
+	return event
+}
+
+
+
+array<ItemFlavor> function GetActiveStoreOnlyMilestoneEvents( int t )
+{
+	Assert( IsItemFlavorRegistrationFinished() )
+	array<ItemFlavor> activeStoreOnlyMilestoneEvents
+	foreach ( ItemFlavor ev in GetAllItemFlavorsOfType( eItemType.calevent_milestone ) )
+	{
+		if ( !CalEvent_IsActive( ev, t ) )
+			continue
+
+		bool isStoreOnly = GetGlobalSettingsBool( ItemFlavor_GetAsset( ev ), "isStoreOnlyMilestoneEvent" )
+		if ( !isStoreOnly )
+			continue
+
+		activeStoreOnlyMilestoneEvents.append( ev )
+	}
+	return activeStoreOnlyMilestoneEvents
+}
+
+
+
+array<ItemFlavor> function GetAllMilestoneEvents( bool includeEventTab = true, bool includeStoreOnly = false )
+{
+	Assert( IsItemFlavorRegistrationFinished() )
+	array<ItemFlavor> storeOnlyMilestoneEvents
+	foreach ( ItemFlavor ev in GetAllItemFlavorsOfType( eItemType.calevent_milestone ) )
+	{
+		bool isStoreOnly = GetGlobalSettingsBool( ItemFlavor_GetAsset( ev ), "isStoreOnlyMilestoneEvent" )
+
+		if ( !includeEventTab && !isStoreOnly )
+			continue
+
+		if ( !includeStoreOnly && isStoreOnly )
+			continue
+
+		storeOnlyMilestoneEvents.append( ev )
+	}
+	return storeOnlyMilestoneEvents
+}
+
+
+
+bool function IsMilestoneEventStoreOnly( ItemFlavor ornull event )
+{
+	if ( event == null )
+		return false
+
+	expect ItemFlavor( event )
+
+	Assert( IsItemFlavorRegistrationFinished() )
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_milestone )
+	return GetGlobalSettingsBool( ItemFlavor_GetAsset( event ), "isStoreOnlyMilestoneEvent" )
+}
+
+
+
+array<ItemFlavor> function GetAllActiveMilestoneEvents( int t )
+{
+	Assert( IsItemFlavorRegistrationFinished() )
+	array<ItemFlavor> activeMilestoneEvents
+
+	ItemFlavor ornull activeEvent = GetActiveEventTabMilestoneEvent( t )
+	if ( activeEvent != null )
+	{
+		expect ItemFlavor( activeEvent )
+		activeMilestoneEvents.append( activeEvent )
+	}
+
+	foreach ( ItemFlavor event in GetActiveStoreOnlyMilestoneEvents( t ) )
+	{
+		activeMilestoneEvents.append( event )
+	}
+
+	return activeMilestoneEvents
+}
+
+
+
+MilestoneEventRewardTrackerData function GetRewardTrackerDataFor( ItemFlavor event, bool isRestricted )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_milestone )
+	if ( event in fileLevel.rewardTrackerTierData )
+	{
+		return fileLevel.rewardTrackerTierData[ event ]
+	}
+
+	
+	MilestoneEventRewardTrackerData data
+	string rewardPath = isRestricted ? "restrictedRewardGroups" : "rewardGroups"
+	foreach ( var groupBlock in IterateSettingsAssetArray( ItemFlavor_GetAsset( event ), rewardPath ) )
+	{
+		MilestoneEventRewardTrackerTierData tierData
+		foreach ( var rewardBlock in IterateSettingsArray( GetSettingsBlockArray( groupBlock, "rewards" ) ) )
+		{
+			if ( GetSettingsBlockBool( rewardBlock, "useRewardSetTracker" ) )
+			{
+				tierData.useRewardSetTracker = true
+				asset trackerAsset = GetSettingsBlockAsset( rewardBlock, "flavor" )
+				tierData.rewardSetTracker = GetItemFlavorByAsset( trackerAsset )
+				tierData.quantity = GetSettingsBlockInt( rewardBlock, "rewardSetTrackerCount" )
+				break
+			}
+			else
+			{
+				tierData.useRewardSetTracker = false
+			}
+		}
+
+		int rarity = eRarityTier[ GetSettingsBlockString( groupBlock, "quality" ) ]
+		data[ rarity ] <- tierData
+	}
+
+	fileLevel.rewardTrackerTierData[ event ] <- data
+	return data
+}
+
+
+
+MilestoneEventRewardTrackerTierData function GetRewardTrackerTierDataFor( ItemFlavor event, int rarity, bool isRestricted )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_milestone )
+	MilestoneEventRewardTrackerData data = GetRewardTrackerDataFor( event, isRestricted )
+
+	Assert( rarity in data, format( "No rarity tier %d defined for milestone event %s", rarity, ItemFlavor_GetAssetString( event ) ) )
+
+	return data[ rarity ]
+}
+
+
+
+bool function MilestoneEvent_HasRewardSetTracker( ItemFlavor event, int rarity, bool isRestricted )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_milestone )
+	MilestoneEventRewardTrackerData data = GetRewardTrackerDataFor( event, isRestricted )
+
+	if ( rarity in data )
+	{
+		return data[ rarity ].useRewardSetTracker
+	}
+
+	return false
+}
+
+
+
+ItemFlavor function MilestoneEvent_GetRewardTracker( ItemFlavor event, int rarity, bool isRestricted )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_milestone )
+	MilestoneEventRewardTrackerTierData config = GetRewardTrackerTierDataFor( event, rarity, isRestricted )
+
+	return config.rewardSetTracker
+}
+
+
+
+int function MilestoneEvent_GetRewardTrackerQuantityForTier( ItemFlavor event, int rarity, bool isRestricted )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_milestone )
+	MilestoneEventRewardTrackerTierData config = GetRewardTrackerTierDataFor( event, rarity, isRestricted )
+
+	return config.quantity
+}
+
+
+
+int function MilestoneEvent_GetTotalItemsInPoolIncludingTrackerTiers( ItemFlavor event, bool isRestricted )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_milestone )
+	MilestoneEventRewardTrackerData data = GetRewardTrackerDataFor( event, isRestricted )
+
+	int count = 0
+	array<CollectionEventRewardGroup> rewardGroups = MilestoneEvent_GetRewardGroups( event, isRestricted )
+	foreach ( CollectionEventRewardGroup rewardGroup in rewardGroups )
+	{
+		if ( MilestoneEvent_HasRewardSetTracker( event, rewardGroup.quality, isRestricted ) )
+		{
+			count += data[ rewardGroup.quality ].quantity
+		}
+		else
+		{
+			count += rewardGroup.rewards.len()
+		}
+	}
+
+	return count
+}
+
+
+
+int function MilestoneEvent_GetProgressBasedOnRewardSetTrackerForTier( entity player, ItemFlavor event, int rarity, bool isRestricted )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_milestone )
+
+	if ( MilestoneEvent_HasRewardSetTracker( event, rarity, isRestricted ) )
+	{
+		ItemFlavor rewardSetTracker = MilestoneEvent_GetRewardTracker( event, rarity, isRestricted )
+
+
+
+
+			int count = GRX_GetConsumableCount( ItemFlavor_GetGRXIndex( rewardSetTracker ) )
+
+
+		return maxint( 0, count )
+	}
+
+	return 0
+}
+
+
+
+table< int, array< ItemFlavor > > function MilestoneEvent_SplitItemPoolIntoRarities( array< ItemFlavor > items )
+{
+	table< int, array< ItemFlavor > > sorted
+	foreach ( string _, int rarity in eRarityTier )
+	{
+		sorted[ rarity ] <- []
+	}
+
+	foreach ( ItemFlavor item in items )
+	{
+		int tier = ItemFlavor_GetQuality( item )
+		sorted[ tier ].append( item )
+	}
+
+	return sorted
+}
+
+
+
+int function MilestoneEvent_GetProgressBasedOnRewardSetTracker( entity player, ItemFlavor event, bool isRestricted )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_milestone )
+
+	int progress = 0
+	array< ItemFlavor > items = MilestoneEvent_GetEventItems( event, isRestricted )
+	table< int, array< ItemFlavor > > poolItems = MilestoneEvent_SplitItemPoolIntoRarities( items )
+
+	foreach ( string _, int rarity in eRarityTier )
+	{
+		if ( MilestoneEvent_HasRewardSetTracker( event, rarity, isRestricted ) )
+		{
+			progress += MilestoneEvent_GetProgressBasedOnRewardSetTrackerForTier( player, event, rarity, isRestricted )
+		}
+		else
+		{
+			progress += GRX_GetNumberOfOwnedItemsByPlayer( poolItems[ rarity ], player )
+		}
+	}
+
+	return progress
+}
+
+
+
+string function MilestoneEvent_GetEventId( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_milestone )
+	return ItemFlavor_GetGUIDString( event )
+}
+
+
+
+ItemFlavor ornull function MilestoneEvent_GetEventById( string id, bool activeOnly = false )
+{
+	Assert( IsItemFlavorRegistrationFinished() )
+	Assert( id != "" )
+	ItemFlavor ornull event = null
+	int unixTimeNow = GetUnixTimestamp()
+	foreach ( ItemFlavor ev in GetAllItemFlavorsOfType( eItemType.calevent_milestone ) )
+	{
+		if ( activeOnly && !CalEvent_IsActive( ev, unixTimeNow ) )
+			continue
+
+		if ( MilestoneEvent_GetEventId( ev ) == id )
+			return ev
+	}
+	return null
+}
+
+
+
+bool function MilestoneEvent_IsEventStoreOnly(  ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_milestone )
+	return GetGlobalSettingsBool( ItemFlavor_GetAsset( event ), "isStoreOnlyMilestoneEvent" )
+}
+
+
+
+array<ItemFlavor> function MilestoneEvent_GetLoginRewards( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_milestone )
+
+	array<ItemFlavor> rewards = []
+	foreach ( var rewardBlock in IterateSettingsAssetArray( ItemFlavor_GetAsset( event ), "loginRewards" ) )
+	{
+		asset rewardAsset = GetSettingsBlockAsset( rewardBlock, "flavor" )
+		if ( IsValidItemFlavorSettingsAsset( rewardAsset ) )
+			rewards.append( GetItemFlavorByAsset( rewardAsset ) )
+	}
+	return rewards
+}
+
+
+
+string function MilestoneEvent_GetFrontPageRewardBoxTitle( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_milestone )
+	return GetGlobalSettingsString( ItemFlavor_GetAsset( event ), "frontPageRewardBoxTitle" )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ItemFlavor function MilestoneEvent_GetMainPackFlav( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_milestone )
+	return GetItemFlavorByAsset( GetGlobalSettingsAsset( ItemFlavor_GetAsset( event ), "mainPackFlav" ) )
+}
+
+
+
+bool function MilestoneEvent_IsMilestonePackFlav( ItemFlavor pack, bool checkEventTab, bool checkStoreOnly )
+{
+	array<ItemFlavor> milstoneEvents = GetAllMilestoneEvents( checkEventTab, checkStoreOnly )
+
+	foreach ( ItemFlavor event in milstoneEvents )
+	{
+		ItemFlavor packFlav = MilestoneEvent_GetMainPackFlav( event )
+		if ( packFlav == pack )
+			return true
+	}
+	return false
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ItemFlavor function MilestoneEvent_GetGuaranteedPackFlav( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_milestone )
+	return GetItemFlavorByAsset( GetGlobalSettingsAsset( ItemFlavor_GetAsset( event ), "guaranteedPackFlav" ) )
+}
+
+
+
+bool function MilestoneEvent_IsChaseItem( ItemFlavor event, int grxIdx, bool isRestricted = false )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_milestone )
+
+	string rewardPath = isRestricted ? "restrictedRewardGroups" : "rewardGroups"
+	foreach ( var groupBlock in IterateSettingsAssetArray( ItemFlavor_GetAsset( event ), rewardPath ) )
+	{
+		foreach ( var rewardBlock in IterateSettingsArray( GetSettingsBlockArray( groupBlock, "rewards" ) ) )
+		{
+			ItemFlavor item = GetItemFlavorByAsset( GetSettingsBlockAsset( rewardBlock, "flavor" ) )
+			if ( item.grxIndex == grxIdx )
+			{
+				return GetSettingsBlockBool( rewardBlock, "milestoneItemIsChaseItem" )
+			}
+		}
+	}
+	unreachable
+}
+
+
+
+bool function MilestoneEvent_IsItemInPool( ItemFlavor event, int grxIdx, bool isRestricted = false )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_milestone )
+
+	string rewardPath = isRestricted ? "restrictedRewardGroups" : "rewardGroups"
+	foreach ( var groupBlock in IterateSettingsAssetArray( ItemFlavor_GetAsset( event ), rewardPath ) )
+	{
+		foreach ( var rewardBlock in IterateSettingsArray( GetSettingsBlockArray( groupBlock, "rewards" ) ) )
+		{
+			ItemFlavor item = GetItemFlavorByAsset( GetSettingsBlockAsset( rewardBlock, "flavor" ) )
+			if ( item.grxIndex == grxIdx )
+			{
+				return GetSettingsBlockBool( rewardBlock, "milestoneItemIsInItemPool" )
+			}
+		}
+	}
+	unreachable
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+asset function MilestoneEvent_GetMainPackImage( ItemFlavor event )
+{
+	Assert( ItemFlavor_GetType( event ) == eItemType.calevent_milestone )
+	return GetGlobalSettingsAsset( ItemFlavor_GetAsset( event ), "mainPackImage" )
+}
+
+
+
+string function MilestoneEvent_GetFrontPageGRXOfferLocation(

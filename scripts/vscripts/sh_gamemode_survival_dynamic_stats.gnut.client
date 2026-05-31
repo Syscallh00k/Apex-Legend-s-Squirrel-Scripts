@@ -1,0 +1,606 @@
+
+global function Sh_Survival_DynamicStats_Init
+global function IsDynamicStatsEnabled
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global function GetLocStringFromDynStatIndex
+global function GetCalculatedPersistenceDisplayValue
+
+
+enum DynamicStatType
+{
+	TIME,
+	UINT_8,
+	
+	UINT
+}
+
+global struct DynamicStats
+{
+	bool              multiStat = false
+	array < int > stats
+	table< int, int > statTypeByStatTable
+	table< int, int > medianByStatTable
+	int               weight = -1
+}
+
+global enum eDynamicStatGroupStats
+{
+	UNIQUE_ENEMIES_PINGED,
+	THANK_YOU_WELCOME,
+	LOOT_BIN,
+	DAMAGE_BLOCKED,
+	ENEMIES_SCANNED,
+	ENEMIES_TRAPPED,
+	SURVIVAL_TIME,
+	RESPAWNS,
+	REVIVES
+}
+
+global enum eDynamicGameModeSummaryStatsEnum {
+	UNIQUE_ENEMIES_PINGED = 0,
+	THANK_YOU,
+	WELCOME,
+	LOOT_BINS_OPENED,
+	GOLD_LOOT_BINS_OPENED,
+	MYTHIC_BINS_OPENED,
+	DAMAGE_BLOCKED,
+	ENEMIES_SCANNED,
+	ENEMIES_TRAPPED,
+	SURVIVAL_TIME,
+	RESPAWNS,
+	REVIVES
+
+	INVALID
+}
+
+struct
+{
+	table< int, DynamicStats > dynamicStatsByGroupTable
+
+
+
+
+
+} file
+
+void function Sh_Survival_DynamicStats_Init()
+{
+	if ( !IsDynamicStatsEnabled() )
+		return
+
+	InitDynamicStatsTable()
+
+
+
+
+
+
+}
+
+bool function IsDynamicStatsEnabled()
+{
+	return GetCurrentPlaylistVarBool( "use_dynamic_squadsummary_stats", false )
+}
+
+void function InitDynamicStatsTable()
+{
+	DynamicStats uniqueEnemiesPinged
+	uniqueEnemiesPinged.weight    = 2
+	uniqueEnemiesPinged.multiStat = false
+	uniqueEnemiesPinged.medianByStatTable[ eDynamicGameModeSummaryStatsEnum.UNIQUE_ENEMIES_PINGED ]   <- 5
+	uniqueEnemiesPinged.statTypeByStatTable[ eDynamicGameModeSummaryStatsEnum.UNIQUE_ENEMIES_PINGED ] <- DynamicStatType.UINT
+	uniqueEnemiesPinged.stats.append(  eDynamicGameModeSummaryStatsEnum.UNIQUE_ENEMIES_PINGED )
+	file.dynamicStatsByGroupTable[ eDynamicStatGroupStats.UNIQUE_ENEMIES_PINGED ] <- uniqueEnemiesPinged
+
+	DynamicStats thankYouWelcome
+	thankYouWelcome.weight    = 1
+	thankYouWelcome.multiStat = true
+	thankYouWelcome.medianByStatTable[ eDynamicGameModeSummaryStatsEnum.THANK_YOU ]   <- 5
+	thankYouWelcome.statTypeByStatTable[ eDynamicGameModeSummaryStatsEnum.THANK_YOU ] <- DynamicStatType.UINT_8
+	thankYouWelcome.medianByStatTable[ eDynamicGameModeSummaryStatsEnum.WELCOME ]     <- 5
+	thankYouWelcome.statTypeByStatTable[ eDynamicGameModeSummaryStatsEnum.WELCOME ]   <- DynamicStatType.UINT_8
+	thankYouWelcome.stats.append(  eDynamicGameModeSummaryStatsEnum.THANK_YOU )
+	thankYouWelcome.stats.append(  eDynamicGameModeSummaryStatsEnum.WELCOME )
+	file.dynamicStatsByGroupTable[ eDynamicStatGroupStats.THANK_YOU_WELCOME ] <- thankYouWelcome
+
+	DynamicStats lootBins
+	lootBins.weight    = 1
+	lootBins.multiStat = true
+	lootBins.medianByStatTable[ eDynamicGameModeSummaryStatsEnum.LOOT_BINS_OPENED ]        <- 3
+	lootBins.statTypeByStatTable[ eDynamicGameModeSummaryStatsEnum.LOOT_BINS_OPENED ]      <- DynamicStatType.UINT_8
+	lootBins.medianByStatTable[ eDynamicGameModeSummaryStatsEnum.GOLD_LOOT_BINS_OPENED ]   <- 1
+	lootBins.statTypeByStatTable[ eDynamicGameModeSummaryStatsEnum.GOLD_LOOT_BINS_OPENED ] <- DynamicStatType.UINT_8
+	lootBins.medianByStatTable[ eDynamicGameModeSummaryStatsEnum.MYTHIC_BINS_OPENED ]      <- 0
+	lootBins.statTypeByStatTable[ eDynamicGameModeSummaryStatsEnum.MYTHIC_BINS_OPENED ]    <- DynamicStatType.UINT_8
+	lootBins.stats.append(  eDynamicGameModeSummaryStatsEnum.LOOT_BINS_OPENED )
+	lootBins.stats.append(  eDynamicGameModeSummaryStatsEnum.GOLD_LOOT_BINS_OPENED )
+	lootBins.stats.append(  eDynamicGameModeSummaryStatsEnum.MYTHIC_BINS_OPENED )
+	file.dynamicStatsByGroupTable[ eDynamicStatGroupStats.LOOT_BIN ] <- lootBins
+
+	DynamicStats damagedBlocked
+	damagedBlocked.weight    = 2
+	damagedBlocked.multiStat = false
+	damagedBlocked.medianByStatTable[ eDynamicGameModeSummaryStatsEnum.DAMAGE_BLOCKED ]   <- 50
+	damagedBlocked.statTypeByStatTable[ eDynamicGameModeSummaryStatsEnum.DAMAGE_BLOCKED ] <- DynamicStatType.UINT
+	damagedBlocked.stats.append( eDynamicGameModeSummaryStatsEnum.DAMAGE_BLOCKED )
+	file.dynamicStatsByGroupTable[ eDynamicStatGroupStats.DAMAGE_BLOCKED ] <- damagedBlocked
+
+
+	DynamicStats enemiesScanned
+	enemiesScanned.multiStat = false
+	enemiesScanned.weight    = 3
+	enemiesScanned.medianByStatTable[ eDynamicGameModeSummaryStatsEnum.ENEMIES_SCANNED ]   <- 1
+	enemiesScanned.statTypeByStatTable[ eDynamicGameModeSummaryStatsEnum.ENEMIES_SCANNED ] <- DynamicStatType.UINT
+	enemiesScanned.stats.append( eDynamicGameModeSummaryStatsEnum.ENEMIES_SCANNED )
+	file.dynamicStatsByGroupTable[ eDynamicStatGroupStats.ENEMIES_SCANNED ] <- enemiesScanned
+
+	DynamicStats enemiesTrapped
+	enemiesTrapped.multiStat = false
+	enemiesTrapped.weight    = 3
+	enemiesTrapped.medianByStatTable[ eDynamicGameModeSummaryStatsEnum.ENEMIES_TRAPPED ]   <- 1
+	enemiesTrapped.statTypeByStatTable[ eDynamicGameModeSummaryStatsEnum.ENEMIES_TRAPPED ] <- DynamicStatType.UINT
+	enemiesTrapped.stats.append( eDynamicGameModeSummaryStatsEnum.ENEMIES_TRAPPED )
+	file.dynamicStatsByGroupTable[ eDynamicStatGroupStats.ENEMIES_TRAPPED ] <- enemiesTrapped
+
+	DynamicStats survivalTime
+	survivalTime.multiStat = false
+	survivalTime.weight    = 2
+	survivalTime.medianByStatTable[ eDynamicGameModeSummaryStatsEnum.SURVIVAL_TIME ]   <- 529
+	survivalTime.statTypeByStatTable[ eDynamicGameModeSummaryStatsEnum.SURVIVAL_TIME ] <- DynamicStatType.TIME
+	survivalTime.stats.append( eDynamicGameModeSummaryStatsEnum.SURVIVAL_TIME )
+	file.dynamicStatsByGroupTable[ eDynamicStatGroupStats.SURVIVAL_TIME ] <- survivalTime
+
+	DynamicStats respawns
+	respawns.multiStat = false
+	respawns.weight    = 2
+	respawns.medianByStatTable[ eDynamicGameModeSummaryStatsEnum.RESPAWNS ]   <- 1
+	respawns.statTypeByStatTable[ eDynamicGameModeSummaryStatsEnum.RESPAWNS ] <- DynamicStatType.UINT
+	respawns.stats.append( eDynamicGameModeSummaryStatsEnum.RESPAWNS )
+	file.dynamicStatsByGroupTable[ eDynamicStatGroupStats.RESPAWNS ] <- respawns
+
+	DynamicStats revives
+	revives.multiStat = false
+	revives.weight    = 2
+	revives.medianByStatTable[ eDynamicGameModeSummaryStatsEnum.REVIVES ]   <- 1
+	revives.statTypeByStatTable[ eDynamicGameModeSummaryStatsEnum.REVIVES ] <- DynamicStatType.UINT
+	revives.stats.append( eDynamicGameModeSummaryStatsEnum.REVIVES )
+	file.dynamicStatsByGroupTable[ eDynamicStatGroupStats.REVIVES ] <- revives
+
+}
+
+
+string function GetLocStringFromDynStatIndex( int i )
+{
+	switch ( i )
+	{
+		case eDynamicStatGroupStats.UNIQUE_ENEMIES_PINGED:
+			return "#DYN_SQD_SUMM_ENEMIESPINGED"
+			break
+		case eDynamicStatGroupStats.THANK_YOU_WELCOME:
+			return "#DYN_SQD_SUMM_THANKYOUS"
+			break
+		case eDynamicStatGroupStats.DAMAGE_BLOCKED:
+			return "#DYN_SQD_SUMM_DAMAGE_BLOCKED"
+			break
+		case eDynamicStatGroupStats.LOOT_BIN:
+			return "#DYN_SQD_SUMM_LOOT_BINS_OPENED"
+			break
+		case eDynamicStatGroupStats.ENEMIES_SCANNED:
+			return "#DYN_SQD_SUMM_ENEMIES_SCANNED"
+			break
+		case eDynamicStatGroupStats.ENEMIES_TRAPPED:
+			return "#DYN_SQD_SUMM_ENEMIES_TRAPPED"
+			break
+		case eDynamicStatGroupStats.SURVIVAL_TIME :
+			return "#DEATH_SCREEN_SUMMARY_SURVIVAL_TIME"
+			break
+		case eDynamicStatGroupStats.RESPAWNS:
+			return "#DEATH_SCREEN_SUMMARY_RESPAWNS"
+			break
+		case eDynamicStatGroupStats.REVIVES:
+			return "#DEATH_SCREEN_SUMMARY_REVIVES"
+			break
+		default:
+			Assert( false, "GetLocStringFromDynStatIndex invalid index provided " + i )
+			return ""
+			break
+	}
+
+	unreachable
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+float function GetZValueOfStatGroup( int priority, int median, int value )
+{
+	if ( value == 0 )
+		return 0
+
+	return ( priority  * fabs( ( float(value) - float( median ) ) / float(median) ) )
+}
+
+int function GetCalculatedPersistenceValue( int statGroup, table< int, int > dynamicSquadData )
+{
+	DynamicStats statsStruct = file.dynamicStatsByGroupTable[ statGroup ]
+	if ( !statsStruct.multiStat )
+	{
+		return dynamicSquadData[ statsStruct.stats[ 0 ] ]
+	}
+	else
+	{
+		int persistenceValue = 0
+		int bitshift = 0
+		foreach( stat in statsStruct.stats )
+		{
+			Assert( statsStruct.statTypeByStatTable[ stat ] == DynamicStatType.UINT_8, "[GetCalculatedPersistenceValue] multi value stats groups aren't supported for types apart from SHORT.")
+			int bitshiftedStat = dynamicSquadData[stat] << bitshift
+			persistenceValue += bitshiftedStat
+			bitshift += 8
+		}
+
+		return persistenceValue
+	}
+
+	return 0
+}
+
+
+string function GetCalculatedPersistenceDisplayValue( int statGroup, int value )
+{
+	DynamicStats statsStruct = file.dynamicStatsByGroupTable[ statGroup ]
+	if ( !statsStruct.multiStat )
+	{
+		int stat = statsStruct.stats[ 0 ]
+		if ( statsStruct.statTypeByStatTable[ stat ] ==  DynamicStatType.TIME )
+		{
+			string minutes = string( value/ 60 )
+			string seconds = string ( value % 60 )
+			if ( seconds.len() == 1 )
+				seconds = "0" + seconds
+
+			return Localize( "#DEATH_SCREEN_SUMMARY_SURVIVAL_TIME_FORMAT", minutes, seconds )
+		}
+		else
+		{
+			return string( value )
+		}
+
+	}
+	else
+	{
+		array< int > values
+		for ( int i = 0; i < statsStruct.stats.len(); i++ )
+		{
+			int bitshiftedValue =  ( value >> ( 8 * i ) ) & 255
+			value = value - bitshiftedValue
+			values.append( bitshiftedValue )
+		}
+
+		if ( values.len() == 2 )
+		{
+			return Localize( "#DEATH_SCREEN_SUMMARY_2_VALUES", values[0], values[1] )
+		}
+		else if ( values.len() == 3 )
+		{
+			return Localize( "#DEATH_SCREEN_SUMMARY_3_VALUES", values[0], values[1], values[2] )
+		}
+	}
+
+	return ""
+}
+
+
+      

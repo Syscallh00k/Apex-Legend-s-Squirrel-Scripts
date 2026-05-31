@@ -1,0 +1,491 @@
+global function ExtendedUse
+
+global function ExtendedUse_Init
+
+
+global function ExtendedUseTextOverride
+
+
+global function CodeCallback_ExtendedUseUpdate
+
+const string EXTENDED_USE_END_SIGNAL = "ExtendedUse_Stop"
+
+const bool EXTENDED_USE_DEBUG = false
+
+global enum eExtendedUseRuiDisplayType
+{
+	COCKPIT,
+	FULLSCREEN,
+	NONE
+}
+
+global enum eExtendedUseRui
+{
+	DEFAULT, 
+	PROGRESS_BAR, 
+	CUSTOM
+}
+
+global enum eExtendedUseResult
+{
+	NOT_STARTED,
+	IN_PROGRESS,
+	CANCELLED,
+	COMPLETED
+}
+
+global struct ExtendedUseSettings
+{
+	void functionref( entity ent, entity player, ExtendedUseSettings settings ) successFunc
+	void functionref( entity ent, entity player, ExtendedUseSettings settings ) failureFunc
+	void functionref( entity ent, entity player, ExtendedUseSettings settings ) startFunc
+	void functionref( entity ent, entity player, ExtendedUseSettings settings ) endFunc
+
+	int    useInputFlag = IN_USE 1.0, 1.0>
+
+		void functionref( entity ent, entity player, var rui, ExtendedUseSettings settings ) displayRuiFunc = null
+
+
+	bool movementDisable = false
+
+
+
+
+
+
+
+
+
+
+	array< string > additional_EndSignals_Player
+	array< string > additional_EndSignals_Ent
+
+	
+	float startTime_Internal = 0.0
+	entity useEnt_Internal
+	int result_Internal = eExtendedUseResult.NOT_STARTED
+	float maxUseDist2
+}
+
+struct
+{
+
+		var extendedUseRui
+
+
+	table< entity, ExtendedUseSettings > playerToExtendedUseSettings
+} file
+
+struct Tuning
+{
+	bool allowInteruption = false
+}
+Tuning tuning
+
+void function ExtendedUse_Init()
+{
+	SetupTuning()
+
+	RegisterSignal( EXTENDED_USE_END_SIGNAL )
+
+
+
+}
+
+void function SetupTuning()
+{
+	Tuning defaultTuning
+
+	tuning.allowInteruption = GetCurrentPlaylistVarBool( "interrupted_stops_extended_use", defaultTuning.allowInteruption )
+}
+
+void function ExtendedUse( entity ent, entity player, ExtendedUseSettings settings, bool shouldSetBusy = true )
+{
+	Assert ( IsNewThread(), "Must be started as new thread" )
+
+#if EXTENDED_USE_DEBUG
+	printt("EXTENDED USE: Starting Thread at " + Time())
+#endif
+
+
+	if ( !InPrediction() )
+	{
+		Assert( false, "Extended use should only be started from within prediction" )
+		return
+	}
+
+
+	if( !IsValid( ent ) )
+		return
+
+	if( !IsValid( player ) )
+		return
+
+	if ( player.p.isInExtendedUse )
+		return
+
+	if ( ent.e.isBusy )
+		return
+
+	ent.EndSignal( "OnDestroy" )
+	foreach( endSignal in settings.additional_EndSignals_Ent )
+	{
+		ent.EndSignal( endSignal )
+	}
+
+	player.EndSignal( "OnContinousUseStopped", EXTENDED_USE_END_SIGNAL, "OnDeath", "OnDestroy", "BleedOut_OnStartDying" )
+	foreach( endSignal in settings.additional_EndSignals_Player )
+	{
+		player.EndSignal( endSignal )
+	}
+
+	settings.startTime_Internal = Time()
+
+	settings.result_Internal = eExtendedUseResult.IN_PROGRESS
+	settings.useEnt_Internal = ent
+	settings.maxUseDist2 = DistanceSqr( player.GetOrigin(), ent.GetOrigin() ) + (64 * 64)
+
+	player.p.extendedUseInputFlags = settings.useInputFlag
+
+	Assert( !( player in file.playerToExtendedUseSettings ), "Player is already in the extended use table!" )
+	file.playerToExtendedUseSettings[player] <- settings
+
+	player.StartExtendedUse()
+
+	player.p.isInExtendedUse = true
+	player.p.lastExtededUseEnt = ent
+
+	if ( shouldSetBusy )
+		ent.e.isBusy = true
+
+#if EXTENDED_USE_DEBUG
+		printt("EXTENDED USE: Running Start Funcs")
+#endif
+	if ( settings.startFunc != null )
+		settings.startFunc( ent, player, settings )
+
+	entity localViewPlayer = null
+
+		if ( settings.displayRuiType != eExtendedUseRuiDisplayType.NONE )
+		{
+			asset ruiToCreate
+			if ( settings.ruiType == eExtendedUseRui.DEFAULT )
+			{
+				ruiToCreate = $"ui/extended_use_hint.rpak"
+			}
+			else ifon( useTarget )
+			vector eyePos2D    = <eyePos.x, eyePos.y, 0.0>
+			vector useTargetOrigin = useTarget.GetOrigin()
+			vector useOrigin2D = <useTargetOrigin.x, useTargetOrigin.y, 0.0>
+			float vertDist     = player.GetOrigin().z - useTargetOrigin.z
+			if ( (DistanceSqr( eyePos2D, useOrigin2D ) > settings.maxUseDist2) || ((vertDist * vertDist) > settings.maxUseDist2) )
+			{
+				extendedUseValid = false
+
+#if EXTENDED_USE_DEBUG
+					failReason = "RuiSetString( rui, "hintText", settings.hint )
+		RuiSetFloat( rui, "outlineAlpha", settings.outlineAlpha )
+	}
+	if ( settings.ruiType == eExtendedUseRui.PROGRESS_BAR )
+	{
+		RuiSetBool( rui, "isVisible", true )
+		RuiSetImage( rui, "icon", settings.icon )
+		RuiSetString( rui, "hintKeyboardMouse", settings.hint  )
+		RuiSetString( rui, "hintController", settings.hint  )
+		RuiSetBool( rui, "isSupportClass", settings.isSupportClass )
+		RuiSetColorAlphmarksman = eAttachmentTag.MARKSMAN
+	melee = eAttachmentTag.MELEE
+}
+
+global struct KitHealData
+{
+	HealthPickup & healthKit
+	int            kitType
+	int            count
+	int            overHeal
+	int            overShield
+
+	int possibleHealthAdd
+	int possibleShieldAdd
+
+	float healthPerSecond
+
+	int totalOverheal
+	int totalAppliedHeal
+}
+
+array<int> healthKitUseOrder = []
+
+global struct AttachmentTagData
+{
+	string        ammoRef
+	array<int>    attachmentTags
+	array<string> weaponRefs
+	table<int,string> exceptionToTheRuleForThisWeaponClass
+}
+
+global struct AttachmentData
+{
+	string             ref
+	array<string>      compatibleWeapons
+	array<string>      attachPoints
+	AttachmentTagData& tagData
+}
+
+struct CachedLootActionData
+{
+	LootActionStruct& actionStruct
+	float             lastUpdateTime
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+struct
+{
+	table<string, AttachmentData > attachmentMatrix
+
+	array<entity> allLoot
+
+	bool initialized
+
+	int evoArmor_ReqDamage_Tier1
+	int evoArmor_ReqDamage_Tier2
+	int evoArmor_ReqDamage_Tier3
+	int evoArmor_ReqDamage_Tier4
+
+	bool evoArmor_SquadPetsEnabled
+	bool evoArmor_AiPointsEnabled
+	float evoMultiplier_SquadPets
+	float evoMultiplier_Prowlers
+	float evoMultiplier_Flyers
+
+
+
+
+
+
+
+		float evoMultiplier_JungleSpiders
+
+
+		float evoMultiplier_Spectres
+
+	float evoMultiplier_Armorsmith
+	float evoMultiplier_Shadows
+
+	bool allowAutoLooting_Ordinance
+
+
+
+
+
+
+
+
+
+	float autoLootMinDistanceMultiplier = 3.0
+
+
+	
+	bool lootPickupHudFeed_Enabled
+	bool lootPickupHudFeed_ShowAutoLoot
+
+	bool showSpectatorUIForAllLootInteractions
+
+	table<string, int> maxAmmoForType
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+		array<void functionref( entity, LootData, int )> localPlayerPickedupLootCallbacks
+		array<void functionref( entity, LootData )> localPlayerDroppedLootCallbacks
+
+		float                                               lastCacheUpdateTime
+		table<entity, table<entity, CachedLootActionData> > cachedActionForGroundItemData
+		table<entity, table<entity, CachedLootActionData> > cachedActionForGroundItemDataAlt
+
+		table<entity, float>								autoPickupQueue
+
+		table<int, int>										playerInventoryCountBeforeDeath
+		bool												shouldUpdateInventoryBeforeDeathCounts = true
+
+		array< array< LockedInventoryData > functionref ( entity, array< LockedInventoryData > ) > lockedInventoryCallbacks
+		table< int, LockedInventoryData > inventoryLockedPositionsMap
+
+
+	table<int, HealthPickup>                                     healthPickups
+	table<string, string>                                        attachmentsWithToggleMods
+	table< string, array<string> >                               toggleModsRequiredAttachments
+	table<string, string>                                        weaponAutoToggledAttachments =
+	{
+		["mp_weapon_g2"] = "hopup_double_tap",
+		["mp_weapon_shotgun"] = "hopup_double_tap",
+		["mp_weapon_energy_shotgun"] = "hopup_energy_choke",
+		["mp_weapon_doubletake"] = "hopup_energy_choke",
+
+
+
+
+
+
+
+
+	}
+	array<string>                                                altModsToRemoveOnDrop = [ "altfire" ]
+	table<string, bool functionref( string, entity ) >           conditionalLootChecks
+
+	table<entity, int> evolvingArmorKillCount
+	int                evoShieldUpgradeFXFP
+	int                evoShieldUpgradeFX3P
+
+
+
+
+	int functionref( entity player, LootData data, int originalMax ) 			shieldHealthMaxOverride = null
+
+
+
+
+
+	array<void functionref( LootData )> preWeaponAttachmentInit
+	array<void functionref( LootData )> postWeaponAttachmentInit
+
+	
+	int functionref( int ) GetEvolvingArmorHealthForTier_Callback
+
+	table< string, bool functionref() > itemRefToCanDropEquipmentOnDeathCallback
+} file
+
+
+int function GetCommsActionEnumForName( string name )
+{
+	if ( name == "" )
+		return eCommsAction.BLANK
+	return eCommsAction[name]
+}
+
+void function SURVIVAL_Loot_InitShared()
+{
+	PrecacheModel( DEATH_BOX )
+	PrecacheModel( DEATH_BOX_FLAT_PLANE )
+	PrecacheModel( $"mdl/props/health_injector/health_injector.rmdl" )
+
+	PrecacheParticleSystem( $"P_survival_cylinder_CP" )
+	PrecacheParticleSystem( $"P_ar_titan_droppoint_tall" )
+	PrecacheParticleSystem( $"P_ar_loot_drop_point_far" )
+	PrecacheParticleSystem( FX_AIRDROP_BEAM_CP )
+	PrecacheParticleSystem( $"P_ar_loot_drop_point" )
+	PrecacheParticleSystem( FX_AIRDROP_GROUND_MARKER_DEFAULT_CP )
+	PrecacheParticleSystem( FX_AIRDROP_GROUND_MARKER_BRIGHT_CP )
+	PrecacheParticleSystem( $"P_ar_hot_zone_far" )
+
+	PrecacheParticleSystem( FX_SHIELD_EVO_UPGRADE_FP )
+	PrecacheParticleSystem( FX_SHIELD_EVO_UPGRADE_3P )
+	file.evoShieldUpgradeFXFP = GetParticleSystemIndex( FX_SHIELD_EVO_UPGRADE_FP )
+	file.evoShieldUpgradeFX3P = GetParticleSystemIndex( FX_SHIELD_EVO_UPGRADE_3P )
+
+	PrecacheModel( $"mdl/props/global_access_panel_button/global_access_panel_button_console_w_stand.rmdl" )
+
+	RegisterSignal( "_SetPlayerInventory" )
+
+	PrecacheScriptString( DEATH_BOX_SCRIPTNAME )
+
+	
+	Remote_RegisterServerFunction( "ClientToServer_AutoPickupLootItem", "typed_entity", "prop_survival" )
+
+
+
+
+	Remote_RegisterServerFunction( "ClientToServer_SwapSurvivalItemFromGround_UI", "int", -1, 64, "int", 0, INT_MAX )
+	Remote_RegisterServerFunction( "ClientCallback_Sur_SwapToNextOrdnance" )
+	Remote_RegisterServerFunction( "ClientCallback_Sur_SwitchToOrdnance", "int", 0, 1024, "bool" )
+	Remote_RegisterServerFunction( "ClientCallback_DeathboxOpened" )
+	Remote_RegisterServerFunction( "ClientCallback_DeathboxOpenedRemotely", "typed_entity", "prop_death_box" )
+	Remote_RegisterServerFunction( "ClientCallback_BackpackOpened" )
+	Remote_RegisterServerFunction( "ClientCallback_BackpackClosed" )
+	Remote_RegisterServerFunction( "ClientCallback_Sur_SwapPrimaryPositions" )
+	Remote_RegisterServerFunction( "ClientCallback_PickupSurvivalLootFromDeathbox", "int", 0, INT_MAX, "int", 0, MAX_DEATHBOX_ITEM_PICKUP_COUNT, "typed_entity", "prop_survival", "typed_entity", "prop_death_box", "int", -1, PICKUP_FLAG_MAX, "int", -1, 64 )
+	Remote_RegisterServerFunction( "ClientCallback_PickupSurvivalLootFromLootGrabber", "int", 0, INT_MAX, "int", 0, MAX_DEATHBOX_ITEM_PICKUP_COUNT, "typed_entity", "prop_survival", "typed_entity", "prop_loot_grabber", "int", -1, PICKUP_FLAG_MAX, "int", -1, 64 )
+
+	Remote_RegisterClientFunction( "ServerToSpectator_Deathbox_ItemGrabbed", "int", 0, INT_MAX, "int", 0, MAX_DEATHBOX_ITEM_PICKUP_COUNT, "typed_entity", "player", "bool" )
+
+	Remote_RegisterClientFunction( "ServerToClient_PickedupItem", "entity", "int", 0, MAX_LOOT_ITEMS, "int", 0, eLootAction._count, "int", 0, INT_MAX, "int", 0, INT_MAX )
+	Remote_RegisterClientFunction( "ServerCallback_DroppedItem", "entity", "int", 0, MAX_LOOT_ITEMS )
+	Remote_RegisterClientFunction( "ServerCallback_AttachedMod", "int", 0, 999, "int", 0, 999 )
+
+	Remote_RegisterClientFunction( "ServerCallback_PlayFPEvoShieldUpgradeFX", "entity", "int", 0 , 5 )
+	Remote_RegisterClientFunction( "ServerCallback_Play3PEvoShieldUpgradeFX", "entity" )
+
+	RegisterNetworkedVariable( "playerPrimaryWeapon0", SNDC_PLAYER_GLOBAL, SNVT_INT, -1 )
+	RegisterNetworkedVariable( "playerPrimaryWeapon1", S

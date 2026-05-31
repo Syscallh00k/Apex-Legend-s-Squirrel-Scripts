@@ -1,0 +1,717 @@
+
+
+
+global function ShCharacterAbilities_LevelInit
+
+
+
+
+global function CharacterClass_GetTacticalAbility
+global function CharacterClass_OverrideTacticalAbility
+global function CharacterClass_GetUltimateAbility
+global function CharacterClass_OverrideUltimateAbility
+global function CharacterClass_GetPassiveAbilities
+global function CharacterClass_OverridePassiveAbilities
+global function CharacterClass_GetPassiveAbilityToShow
+global function CharacterClass_GetPassiveAbilityForVariant
+global function GetAbilityNameOverrideForVariant
+global function GetAbilityDescOverrideForVariant
+global function GetAbilityIconOverrideForVariant
+global function CharacterClass_GetAllPassiveAbilitiesToShow
+global function CharacterAbility_ShouldShowDetails
+global function CharacterAbility_GetWeaponClassname
+global function CharacterAbility_GetPassiveIndex
+global function CharacterAbility_GetPassiveWeaponMod
+
+
+
+global function CharacterAbility_CheckAbilityVisibilityAndUpdate
+
+
+#if DEV
+global function GetActiveAbilityFromList
+#endif
+
+const bool DEBUG_PRINT_CHARACTER_ABILITY_LISTS = true
+
+
+
+
+
+
+
+struct
+{
+	bool hasInitialisedOnce = false
+
+
+
+} file
+
+struct FileStruct_LifetimeLevel
+{
+	table<ItemFlavor, ItemFlavor>         characterTacAbilityMap
+	table<ItemFlavor, ItemFlavor>         characterTacAbilityOverrides
+	table<ItemFlavor, ItemFlavor>         characterUltAbilityMap
+	table<ItemFlavor, ItemFlavor>         characterUltAbilityOverrides
+	table<ItemFlavor, array<ItemFlavor> > characterPasAbilitiesMap
+	table<ItemFlavor, array<ItemFlavor> > characterPasAbilitiesOverrides
+}
+FileStruct_LifetimeLevel& fileLevel
+
+
+
+
+
+
+
+
+
+
+
+
+void function ShCharacterAbilities_LevelInit()
+{
+	FileStruct_LifetimeLevel newFileLevel
+	fileLevel = newFileLevel
+
+
+
+
+
+
+
+
+	AddCallback_RegisterRootItemFlavors( void function() {
+
+
+
+	})
+
+
+
+
+
+
+
+
+		AddCallbackOrMaybeCallNow_OnAllItemFlavorsRegistered( CharacterAbilities_GeneralOverrides )
+
+
+	AddCallback_OnItemFlavorRegistered( eItemType.character, OnItemFlavorRegistered_Character )
+}
+
+
+
+void function CharacterAbilities_GeneralOverrides()
+{
+
+
+
+
+}
+
+void function ShCharacterAbilities_ResetOverrides()
+{
+	fileLevel.characterTacAbilityOverrides.clear()
+	fileLevel.characterUltAbilityOverrides.clear()
+	fileLevel.characterPasAbilitiesOverrides.clear()
+}
+
+
+
+
+#if DEV
+void function DEV_CheckWeaponAsset( string weaponClassname, asset settingsAsset, ItemFlavor abilityItemflav )
+{
+	asset weaponAsset = GetGlobalSettingsAsset( ItemFlavor_GetAsset( abilityItemflav ), "weaponAsset" )
+	string weaponClassnameFromAsset = GetWeaponAssetStringValue( weaponAsset, "weaponClassname" )
+	if ( weaponAsset == "" )
+	{
+		Warning( "Ability is missing a Weapon Asset.  Ability:'" + settingsAsset + "' WeaponClassname:'" + CharacterAbility_GetWeaponClassname( abilityItemflav ) + "'" )
+	}
+	else if ( weaponClassname != weaponClassnameFromAsset )
+	{
+		Warning( "Ability weaponClassname dosent match weaponAsset classname. Ability:'" + settingsAsset + "' WeaponClassname:'" + CharacterAbility_GetWeaponClassname( abilityItemflav ) + "'" + " WeaponAsset '" + weaponAsset + "' WeaponAsset classname '" + weaponClassnameFromAsset )
+	}
+}
+#endif
+
+
+
+
+ItemFlavor ornull function GetActiveAbilityFromList( ItemFlavor character, string arrayFieldName, string playlistControl )
+{
+	ItemFlavor ornull ability
+	string playlistVarName = format( "%s_%s", ItemFlavor_GetCharacterRef( character ), playlistControl ) 
+	int overrideIndex = GetCurrentPlaylistVarInt( playlistVarName, 0 )
+
+	foreach ( int index, var abilityBlock in IterateSettingsAssetArray( ItemFlavor_GetAsset( character ), arrayFieldName ) )
+	{
+		asset settingsAsset = GetSettingsBlockAsset( abilityBlock, "flavor" )
+		if ( settingsAsset != $"" )
+		{
+			ability = RegisterItemFlavorFromSettingsAsset( settingsAsset )
+			if ( ability != null )
+			{
+				expect ItemFlavor(ability)
+				Assert( CharacterAbility_GetWeaponClassname( ability ) != "", format( "%s %s: %s", ItemFlavor_GetAssetString( character ), arrayFieldName, settingsAsset + "' is missing a Weapon Asset" ) )
+#if DEV
+				DEV_CheckWeaponAsset( CharacterAbility_GetWeaponClassname( ability ), settingsAsset, ability )
+#endif
+
+				Assert( CharacterAbility_GetPassiveIndex( ability ) == ePassives.INVALID )  
+
+				if ( overrideIndex == index )
+				{
+#if DEBUG_PRINT_CHARACTER_ABILITY_LISTS
+						printf( "GetActiveAbilityFromList: Character %s using %s[%i] '%s'", ItemFlavor_GetCharacterRef( character ), arrayFieldName, index, string( ability ) )
+#endif
+					return ability
+				}
+			}
+		}
+	}
+
+	return ability
+}
+
+void function OnItemFlavorRegistered_Character( ItemFlavor character )
+{
+	array<ItemFlavor> abilityList = []
+
+	
+	{
+		ItemFlavor ornull ability = GetActiveAbilityFromList( character, "tacticalAbilities", "tactical_override" )
+		if ( ability != null )
+		{
+			expect ItemFlavor(ability)
+			fileLevel.characterTacAbilityMap[character] <- ability
+			abilityList.append( ability )
+		}
+	}
+
+	
+	{
+		ItemFlavor ornull ability = GetActiveAbilityFromList( character, "ultimateAbilities", "ultimate_override" )
+		if ( ability != null )
+		{
+			expect ItemFlavor( ability )
+			fileLevel.characterUltAbilityMap[character] <- ability
+			abilityList.append( ability )
+		}
+	}
+
+	
+	{
+		array<ItemFlavor> passives = []
+		foreach ( var passiveBlock in IterateSettingsAssetArray( ItemFlavor_GetAsset( character ), "passives" ) )
+		{
+			asset settingsAsset = GetSettingsBlockAsset( passiveBlock, "flavor" )
+			if ( settingsAsset != $"" )
+			{
+				ItemFlavor ornull ability = RegisterItemFlavorFromSettingsAsset( settingsAsset )
+				if ( ability != null )
+				{
+					expect ItemFlavor(ability)
+					Assert( CharacterAbility_GetWeaponClassname( ability ) == "" )
+					Assert( CharacterAbility_GetPassiveIndex( ability ) != ePassives.INVALID )  
+					passives.append( ability )
+					abilityList.append( ability )
+				}
+			}
+		}
+		fileLevel.characterPasAbilitiesMap[character] <- passives
+	}
+
+	
+	{
+		array<ItemFlavor> upgrades = []
+		foreach ( var passiveBlock in IterateSettingsAssetArray( ItemFlavor_GetAsset( character ), "extraPassives" ) )
+		{
+			asset settingsAsset = GetSettingsBlockAsset( passiveBlock, "flavor" )
+			if ( settingsAsset != $"" )
+			{
+				ItemFlavor ornull ability = RegisterItemFlavorFromSettingsAsset( settingsAsset )
+				if ( ability != null )
+				{
+					expect ItemFlavor(ability)
+					Assert( CharacterAbility_GetWeaponClassname( ability ) == "" )
+					Assert( CharacterAbility_GetPassiveIndex( ability ) != ePassives.INVALID )  
+					upgrades.append( ability )
+					abilityList.append( ability )
+				}
+			}
+		}
+		Assert( upgrades.len() == 0 || upgrades.len() >= UPGRADE_CORE_NUM_EXPECTED_UPGRADES )
+		UpgradeCore_RegisterUpgradesForCharacter( character, upgrades )
+	}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	if ( LinearUpgradeCore_IsEnabled() )  
+	{
+		array<ItemFlavor> upgrades = []
+		foreach ( var passiveBlock in IterateSettingsAssetArray( ItemFlavor_GetAsset( character ), "extraPassives" ) )
+		{
+			asset settingsAsset = GetSettingsBlockAsset( passiveBlock, "flavor" )
+			if ( settingsAsset != $"" )
+			{
+				ItemFlavor ornull ability = RegisterItemFlavorFromSettingsAsset( settingsAsset )
+				if ( ability != null )
+				{
+					expect ItemFlavor(ability)
+					Assert( CharacterAbility_GetWeaponClassname( ability ) == "" )
+					Assert( CharacterAbility_GetPassiveIndex( ability ) != ePassives.INVALID )
+					upgrades.append( ability )
+					abilityList.append( ability )
+				}
+			}
+		}
+		Assert( upgrades.len() == 0 || upgrades.len() >= LINEAR_UPGRADE_CORE_NUM_EXPECTED_UPGRADES )
+		LinearUpgradeCore_RegisterUpgradesForCharacter( character, upgrades )
+	}
+
+
+	foreach ( ItemFlavor ability in abilityList )
+	{
+		string weaponClassname = CharacterAbility_GetWeaponClassname( ability )
+
+			if ( weaponClassname != "" )
+				PrecacheWeapon( weaponClassname )
+
+
+		
+		CharacterAbility_GetPassiveIndex( ability )
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+void function CharacterClass_OverrideTacticalAbility( ItemFlavor character, ItemFlavor newAbility )
+{
+	Assert( ItemFlavor_GetType( character ) == eItemType.character )
+	Assert( ItemFlavor_GetType( newAbility ) == eItemType.ability )
+
+
+		string weaponClassname = CharacterAbility_GetWeaponClassname( newAbility )
+		if ( weaponClassname != "" )
+		{
+			PrecacheWeapon( weaponClassname )
+		}
+
+
+	fileLevel.characterTacAbilityOverrides[ character ] <- newAbility
+}
+
+
+
+ItemFlavor function CharacterClass_GetTacticalAbility( ItemFlavor character )
+{
+	Assert( ItemFlavor_GetType( character ) == eItemType.character )
+
+	if ( character in fileLevel.characterTacAbilityOverrides )
+	{
+		return fileLevel.characterTacAbilityOverrides[ character ]
+	}
+
+	return fileLevel.characterTacAbilityMap[character]
+}
+
+
+
+void function CharacterClass_OverrideUltimateAbility( ItemFlavor character, ItemFlavor newAbility )
+{
+	Assert( ItemFlavor_GetType( character ) == eItemType.character )
+	Assert( ItemFlavor_GetType( newAbility ) == eItemType.ability )
+
+
+		string weaponClassname = CharacterAbility_GetWeaponClassname( newAbility )
+		if ( weaponClassname != "" )
+		{
+			PrecacheWeapon( weaponClassname )
+		}
+
+
+	fileLevel.characterUltAbilityOverrides[ character ] <- newAbility
+}
+
+
+
+ItemFlavor function CharacterClass_GetUltimateAbility( ItemFlavor character )
+{
+	Assert( ItemFlavor_GetType( character ) == eItemType.character )
+
+	if ( character in fileLevel.characterUltAbilityOverrides )
+	{
+		return fileLevel.characterUltAbilityOverrides[ character ]
+	}
+
+	return fileLevel.characterUltAbilityMap[character]
+}
+
+
+
+void function CharacterClass_OverridePassiveAbilities( ItemFlavor character, array<ItemFlavor> newPassives )
+{
+	Assert( ItemFlavor_GetType( character ) == eItemType.character )
+	
+
+
+	foreach ( ItemFlavor passive in newPassives )
+	{
+		string weaponClassname = CharacterAbility_GetWeaponClassname( passive )
+		if ( weaponClassname != "" )
+		{
+			PrecacheWeapon( weaponClassname )
+		}
+	}
+
+
+	fileLevel.characterPasAbilitiesOverrides[ character ] <- newPassives
+}
+
+
+
+array<ItemFlavor> function CharacterClass_GetPassiveAbilities( ItemFlavor character )
+{
+	Assert( ItemFlavor_GetType( character ) == eItemType.character )
+
+	if ( character in fileLevel.characterPasAbilitiesOverrides )
+	{
+		return fileLevel.characterPasAbilitiesOverrides[ character ]
+	}
+
+	return fileLevel.characterPasAbilitiesMap[character]
+}
+
+
+
+ItemFlavor function CharacterClass_GetPassiveAbilityToShow( ItemFlavor character )
+{
+	ItemFlavor ornull passiveAbility = null
+	foreach ( ItemFlavor ability in CharacterClass_GetPassiveAbilities( character ) )
+	{
+		if ( CharacterAbility_ShouldShowDetails( ability ) )
+		{
+			passiveAbility = ability
+			break
+		}
+	}
+	expect ItemFlavor( passiveAbility )
+
+	return passiveAbility
+}
+
+
+
+ItemFlavor ornull function CharacterClass_GetPassiveAbilityForVariant( ItemFlavor character )
+{
+	array<ItemFlavor> availablePassives = CharacterClass_GetAllPassiveAbilitiesToShow( character )
+
+	if ( availablePassives.len() == 0 )
+		return null
+
+	return availablePassives[0]
+}
+
+
+
+bool function ShouldHideAbilityInVariant( ItemFlavor ability, int activeModeVariant )
+{
+	Assert( ItemFlavor_GetType( ability ) == eItemType.ability )
+
+	bool hasAnyVisibilityRules = false
+	bool hasRuleForCurrentVariant = false
+	bool shouldShowInCurrentVariant = false
+	bool hasAnyEnabledRules = false
+
+
+	foreach ( var overrideBlock in IterateSettingsAssetArray( ItemFlavor_GetAsset( ability ), "variantOverrides" ) )
+	{
+		hasAnyVisibilityRules = true
+
+		string variantName = GetSettingsBlockString( overrideBlock, "variant" )
+		variantName = strip( variantName )
+
+		if ( variantName.len() > 0 && variantName in eGameModeVariants )
+		{
+			int variantId = eGameModeVariants[variantName]
+			bool isEnabled = GetSettingsBlockBool( overrideBlock, "enabled" )
+
+			if ( isEnabled )
+				hasAnyEnabledRules = true
+
+			if ( variantId == activeModeVariant )
+			{
+				hasRuleForCurrentVariant = true
+				shouldShowInCurrentVariant = isEnabled
+			}
+		}
+	}
+
+	if ( !hasAnyVisibilityRules )
+		return false
+
+	if ( hasRuleForCurrentVariant )
+		return !shouldShowInCurrentVariant
+
+	if ( hasAnyEnabledRules )
+		return true
+
+	return false
+}
+
+
+
+
+array<ItemFlavor> function CharacterClass_GetAllPassiveAbilitiesToShow( ItemFlavor character )
+{
+	array<ItemFlavor> allPassives = CharacterClass_GetPassiveAbilities( character )
+	array<ItemFlavor> displayablePassives = []
+
+	int activeModeVariant = GameModeVariant_GetActiveMode()
+	foreach ( ItemFlavor ability in allPassives )
+    {
+		if ( ShouldHideAbilityInVariant( ability, activeModeVariant ) )
+			continue
+
+		if ( !CharacterAbility_ShouldShowDetails( ability ) )
+			continue
+
+		displayablePassives.append( ability )
+	}
+
+	return displayablePassives
+}
+
+
+
+asset function GetAbilityIconOverrideForVariant( ItemFlavor ability, int activeModeVariant )
+{
+	Assert( ItemFlavor_GetType( ability ) == eItemType.ability )
+
+	foreach ( var overrideBlock in IterateSettingsAssetArray( ItemFlavor_GetAsset( ability ), "variantOverrides" ) )
+	{
+		string variantName = GetSettingsBlockString( overrideBlock, "variant" )
+		variantName = strip( variantName )
+
+		if ( variantName.len() > 0 && variantName in eGameModeVariants )
+		{
+			int variantId = eGameModeVariants[variantName]
+			if ( variantId == activeModeVariant )
+			{
+				asset iconAsset = GetSettingsBlockAsset( overrideBlock, "iconAsset" )
+				if ( iconAsset != $"" )
+					return iconAsset
+			}
+		}
+	}
+
+	return $""
+}
+
+
+
+string function GetAbilityNameOverrideForVariant( ItemFlavor ability, int activeModeVariant )
+{
+	Assert( ItemFlavor_GetType( ability ) == eItemType.ability )
+
+	foreach ( var overrideBlock in IterateSettingsAssetArray( ItemFlavor_GetAsset( ability ), "variantOverrides" ) )
+	{
+		string variantName = GetSettingsBlockString( overrideBlock, "variant" )
+		variantName = strip( variantName )
+
+		if ( variantName.len() > 0 && variantName in eGameModeVariants )
+		{
+			int variantId = eGameModeVariants[variantName]
+			if ( variantId == activeModeVariant )
+			{
+				string nameKey = GetSettingsBlockString( overrideBlock, "nameKey" )
+				if ( nameKey.len() > 0 )
+					return nameKey
+			}
+		}
+	}
+
+	return ""
+}
+
+
+
+string function GetAbilityDescOverrideForVariant( ItemFlavor ability, int activeModeVariant )
+{
+	Assert( ItemFlavor_GetType( ability ) == eItemType.ability )
+
+	foreach ( var overrideBlock in IterateSettingsAssetArray( ItemFlavor_GetAsset( ability ), "variantOverrides" ) )
+	{
+		string variantName = GetSettingsBlockString( overrideBlock, "variant" )
+		variantName = strip( variantName )
+
+		if ( variantName.len() > 0 && variantName in eGameModeVariants )
+		{
+			int variantId = eGameModeVariants[variantName]
+			if ( variantId == activeModeVariant )
+			{
+				string descKey = GetSettingsBlockString( overrideBlock, "descKey" )
+				if ( descKey.len() > 0 )
+					return descKey
+			}
+		}
+	}
+
+	return ""
+}
+
+
+
+void function CharacterAbility_CheckAbilityVisibilityAndUpdate( asset characterAsset )
+{
+	entity player = GetLocalClientPlayer()
+	if ( !IsValid( player ) )
+		return
+
+	int activeModeVariant = GameModeVariant_GetActiveMode()
+	ItemFlavor character = GetItemFlavorByAsset( characterAsset )
+	ItemFlavor ornull selectedPassive = null
+	bool showTactical = true
+	bool showUltimate = true
+
+	array<ItemFlavor> displayablePassives = CharacterClass_GetAllPassiveAbilitiesToShow( character )
+
+	bool isPassiveAlwaysVisibleInMode = IsLobby() || activeModeVariant == eGameModeVariants.SURVIVAL_FIRING_RANGE
+
+	foreach ( ItemFlavor passive in displayablePassives )
+	{
+		asset passiveAsset = ItemFlavor_GetAsset( passive )
+		string passiveRef = GetGlobalSettingsString( passiveAsset, "passiveScriptRef" )
+
+		if ( passiveRef.len() > 0 )
+		{
+			if ( !isPassiveAlwaysVisibleInMode )
+			{
+				Assert( passiveRef in ePassives, "Unknown passive script ref: " + passiveRef )
+				int passiveIndex = ePassives[ passiveRef ]
+				if ( PlayerHasPassive( player, passiveIndex ) )
+					selectedPassive = passive
+			}
+			else if ( CharacterAbility_ShouldShowDetails( passive ) )
+			{
+				selectedPassive = passive
+			}
+
+			if ( selectedPassive != null )
+				break
+		}
+	}
+
+	bool showPassive = selectedPassive != null
+
+	if ( selectedPassive != null )
+	{
+		expect ItemFlavor( selectedPassive )
+		RunUIScript( "CharacterAbilitiesPanel_SetSelectedPassiveAbility", ItemFlavor_GetAsset( selectedPassive ) )
+	}
+
+	RunUIScript( "CharacterAbilitiesPanel_SetAbilityVisibility", showPassive, showTactical, showUltimate )
+}
+
+
+
+bool function CharacterAbility_ShouldShowDetails( ItemFlavor flavor )
+{
+	Assert( ItemFlavor_GetType( flavor ) == eItemType.ability )
+
+	return GetGlobalSettingsBool( ItemFlavor_GetAsset( flavor ), "showDetails" )
+}
+
+
+
+
+string function CharacterAbility_GetWeaponClassname( ItemFlavor flavor )
+{
+	Assert( ItemFlavor_GetType( flavor ) == eItemType.ability )
+
+	asset weaponAsset = GetGlobalSettingsAsset( ItemFlavor_GetAsset( flavor ), "weaponAsset" )
+
+	if ( weaponAsset != ""  )
+	{
+		string weaponClassname = GetWeaponAssetStringValue( weaponAsset, "weaponClassname" )
+		
+		return weaponClassname
+	}
+
+
+	return GetGlobalSettingsString( ItemFlavor_GetAsset( flavor ), "weaponClassname" )
+}
+
+
+
+
+int function CharacterAbility_GetPassiveIndex( ItemFlavor flavor )
+{
+	Assert( ItemFlavor_GetType( flavor ) == eItemType.ability )
+
+	string passiveRef = GetGlobalSettingsString( ItemFlavor_GetAsset( flavor ), "passiveScriptRef" )
+	if ( passiveRef == "" )
+		return ePassives.INVALID
+
+	Assert( passiveRef in ePassives, "Unknown passive script ref: " + passiveRef )
+	return ePassives[passiveRef]
+}
+
+
+
+string function CharacterAbility_GetPassiveWeaponMod( ItemFlavor flavor )
+{
+	Assert( ItemFlavor_GetType( flavor ) == eItemType.ability )
+
+	return GetGlobalSettingsString( ItemFlavor_GetAsset( flavor ), "passiveWeaponMod" )
+}
+
+
+
+
+
+
+
+
+

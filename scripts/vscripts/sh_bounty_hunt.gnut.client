@@ -1,0 +1,4375 @@
+
+global function BountyHunt_Init
+global function GetTheHuntStartWaitTime
+
+
+
+
+
+
+global function ServerToClient_HandleShowEnemyLocation
+global function ServerToClient_Bounty_ActivateWhiteRavenIconRUI
+global function ServerToClient_DisplayHuntStart
+global function ServerToClient_SendHuntAnnouncement
+global function ServerToClient_ActivateDataPadFX
+global function ServerToClient_ApplyHunterVFX
+global function ServerToClient_ClientHuntEndSignal
+global function Bounty_CreateNestedHuntHud
+global function Bounty_UpdateHudInfoFromState
+global function Bounty_UpdateThreatLevelHud
+
+
+global enum eBountyHuntState
+{
+	NONE,
+	AVAILABLE,
+	HUNTER_INTRO,
+	HUNTER_PULSE,
+	HUNTER_LOW_TIME,
+	PREY
+}
+
+global enum eBountyHuntThreatLevel
+{
+	NONE,
+	LOW,
+	MEDIUM,
+	HIGH
+}
+
+global enum eBountyHuntWidgetId
+{
+	NONE,
+	INTRO,
+	TRANSITION,
+	HUNTER_INTRO,
+	HUNTER_PULSE,
+	HUNTER_OUTRO,
+	PREY_INTRO,
+	PREY_PULSE,
+	PREY_OUTRO
+}
+
+global enum eBountyHuntAnnouncements
+{
+	SKYDIVE,
+	HUNTS_AVAILABLE,
+	HUNTER_START,
+	HUNTER_MARK_ELIMINATED,
+	HUNTER_MARK_POACHED,
+	HUNTER_EXPIRED,
+	HUNTER_POACHED,
+	HUNTER_SUCCESS,
+	PREY_START,
+	PREY_SUCCESS,
+	PREY_KILLED_HUNTERS,
+	COUNT
+}
+
+
+global struct BountyHuntStateData
+{
+	string objectiveText = ""
+	string subObjectiveText = ""
+
+	int widgetId = 0
+
+	
+	int delayedWidgetId = eBountyHuntWidgetId.NONE
+	float timeBeforeUsingDelayedWidget = 0
+
+	bool displayNothing = false
+
+	vector widgetTopColor = <1, 1, 1>
+	vector widgetBottomTimeColor = <0, 0, 0>
+}
+
+global struct BountyHuntAnnouncementData
+{
+	string 	header = ""
+	string 	subHeader = ""
+	float 	duration = 3.0
+	int 	style = ANNOUNCEMENT_STYLE_GENERIC_WARNING
+	asset 	icon = $""
+	int 	priority = 0
+	string 	soundAlias = SFX_HUD_ANNOUNCE_STANDARD
+
+	vector logoColor = <1, 1, 1>
+	vector objectiveTextColor = <1, 1, 1>
+	vector subObjectiveTextColor = <1, 1, 1>
+}
+
+
+struct
+{
+	
+	table < int, int > hunterTeamsRecord
+	
+	table < int, int > preyTeamsRecord
+
+	array< string > lootRefs = [
+		"health_pickup_combo_large",
+		"health_pickup_combo_large",
+		"health_pickup_combo_large",
+		"health_pickup_health_large",
+		"health_pickup_health_large",
+		"health_pickup_health_large",
+		"backpack_pickup_lv3"
+	]
+
+	table < entity , int > effectRecord
+	bool canGetHunt = false
+	table < int, bool > diedTeams
+
+		var nestedHuntTrackerRui
+		bool huntTrackerHudCreated = false
+		int currentBountyHuntState = eBountyHuntState.NONE
+		int currentThreatLevel = eBountyHuntThreatLevel.NONE
+		float lastStateChangeTime = 0
+		int preyRemaining = 0
+		int totalPrey = 0
+		float bountyHuntEndTime = 0
+		table < int, BountyHuntStateData > bountyHuntStateDataTable = {}
+		table < int, BountyHuntAnnouncementData > bountyHuntAnnouncementData = {}
+
+}file
+
+global float BOUNTY_DURATION 					= 360
+global const float CLOSE_DISTANCE_SQR			= ( 100 * METERS_TO_INCHES ) * ( 100 * METERS_TO_INCHES )
+global const float FAR_DISTANCE_SQR				= ( 700 * METERS_TO_INCHES ) * ( 700 * METERS_TO_INCHES )
+global const float MAX_DISTANCE_ALLOWED_SQR 	= ( 800 * METERS_TO_INCHES ) * ( 800 * METERS_TO_INCHES )
+global const float PREY_DETECT_RANGE_CLOSE		= 100 * METERS_TO_INCHES
+global const float PREY_DETECT_RANGE_CLOSE_SQR	= PREY_DETECT_RANGE_CLOSE * PREY_DETECT_RANGE_CLOSE
+global const float PREY_DETECT_RANGE_MID		= 200 * METERS_TO_INCHES
+global const float PREY_DETECT_RANGE_MID_SQR	= PREY_DETECT_RANGE_MID * PREY_DETECT_RANGE_MID
+global const float PREY_SCAN_TIME 				= 25
+global const float HUNTER_SCAN_TIME				= 1.0
+global const string BOUNTY_END_SIGNAL			= "BountyHuntEnd"
+global const float BOUNTY_SPAWN_INTERVAL 		= 20
+global const string HUNT_DATAPAD_TARGETNAME     = "Hunt"
+global const asset MINIMAP_PREY_ICON			= $"rui/hud/minimap/compass_icon_hunt_prey"
+
+const asset TEMP_HUNT_PAD 						= $"mdl/props/ultimate_accelerant/ultimate_accelerant.rmdl"
+const string ANIM_THE_HUNT_PICK_UP 				= "ptpov_hunt_card_activate_seq"
+const asset VFX_HUNT_LOOTTICK_SPAWN             = $"P_loot_tick_hunt_appear"
+const asset VFX_HUNT_DATAPAD_IDEL				= $"P_hunt_inf_card"
+const asset VFX_THE_HUNT_LOCK_ON				= $"P_revNade_lockon_sprite"
+
+const string HUNT_HUNT_AVAILABLE_SOUND			= "Hunt_InnerBeast_UI_Status_Generic_Hunt_Available"
+const string HUNT_TIME_RUNNING_OUT_SOUND 		= "Hunt_InnerBeast_UI_Status_Generic_TimeRunningOut"
+const string HUNT_HUNTER_START_SOUND 			= "Hunt_InnerBeast_UI_Status_Hunters_Hunt_Start"
+const string HUNT_HUNTER_SUCCESS_SOUND 			= "Hunt_InnerBeast_UI_Status_Hunters_Hunt_End_Success"
+const string HUNT_HUNTER_FAIL_SOUND 			= "Hunt_InnerBeast_UI_Status_Hunters_Hunt_End_Failure"
+const string HUNT_PREY_START_SOUND 				= "Hunt_InnerBeast_UI_Status_Prey_Hunt_Start"
+const string HUNT_PREY_SUCCESS_SOUND 			= "Hunt_InnerBeast_UI_Status_Prey_Hunt_End_Success"
+const string HUNT_LOOT_TICK_SPAWN_SOUND			= "Hunt_InnerBeast_LootTick_Spawn"
+const string HUNT_DATAPAD_SPAWN_SOUND			= "Hunt_InnerBeast_Datapad_Spawn"
+
+const float HUNT_ANNOUNCEMENT_DURATION 			= 5.0
+
+
+const vector HUNT_ANNOUNCEMENT_NEUTRAL_COLOR			= <1, 1, 1>
+const vector HUNT_ANNOUNCEMENT_HUNTER_LOGO_COLOR 		= <111.0, 41.0, 255.0> / 255.0
+const vector HUNT_ANNOUNCEMENT_HUNTER_OBJTEXT_COLOR 	= <126.0, 52.0, 217.0> / 255.0
+const vector HUNT_ANNOUNCEMENT_HUNTER_SUBOBJTEXT_COLOR 	= <28.0, 5.0, 52.0> / 255.0
+const vector HUNT_ANNOUNCEMENT_PREY_LOGO_COLOR 			= <255.0, 86.0, 41.0> / 255.0
+const vector HUNT_ANNOUNCEMENT_PREY_OBJTEXT_COLOR 		= <255.0, 69.0, 20.0> / 255.0
+const vector HUNT_ANNOUNCEMENT_PREY_SUBOBJTEXT_COLOR 	= <128.0, 23.0, 0.0> / 255.0
+
+const vector HUNT_WIDGET_HUNTER_MAIN			= <111.0, 41.0, 255.0> / 255.0
+const vector HUNT_WIDGET_HUNTER_TIME			= <192.0, 106.0, 229.0> / 255.0
+const vector HUNT_WIDGET_PREY_MAIN				= <255.0, 86.0, 41.0> / 255.0
+const vector HUNT_WIDGET_PREY_TIME				= <247.0, 130.0, 99.0> / 255.0
+
+const vector HUNT_WIDGET_PREY_THREAT_PIP_FULL	= <192.0, 40.0, 0.0> / 255.0
+const vector HUNT_WIDGET_PREY_THREAT_PIP_EMPTY	= <1, 1, 1>
+
+
+const string HUNT_NETVAR_STATE 					= "currentBountyHuntState"
+const string HUNT_NETVAR_THREAT_LEVEL			= "currentBountyHuntThreatLevel"
+const string HUNT_NETVAR_PREY_REMAINING 		= "bountyHuntPreyRemaining"
+const string HUNT_NETVAR_TOTAL_PREY				= "bountyHuntTotalPrey"
+const string HUNT_NETVAR_END_TIME				= "bountyHuntEndTime"
+
+void function BountyHunt_Init()
+{
+	PrecacheModel( TEMP_HUNT_PAD )
+	PrecacheParticleSystem( VFX_HUNT_LOOTTICK_SPAWN )
+	PrecacheParticleSystem( VFX_HUNT_DATAPAD_IDEL )
+	PrecacheParticleSystem( VFX_THE_HUNT_LOCK_ON )
+
+	RegisterSignal( BOUNTY_END_SIGNAL )
+
+	RegisterNetworkedVariable( HUNT_NETVAR_STATE, SNDC_PLAYER_EXCLUSIVE, SNVT_INT, eBountyHuntState.NONE )
+	RegisterNetworkedVariable( HUNT_NETVAR_THREAT_LEVEL, SNDC_PLAYER_EXCLUSIVE, SNVT_INT, eBountyHuntThreatLevel.NONE )
+	RegisterNetworkedVariable( HUNT_NETVAR_PREY_REMAINING, SNDC_PLAYER_EXCLUSIVE, SNVT_INT, 0 )
+	RegisterNetworkedVariable( HUNT_NETVAR_TOTAL_PREY, SNDC_PLAYER_EXCLUSIVE, SNVT_INT, 0 )
+	RegisterNetworkedVariable( HUNT_NETVAR_END_TIME, SNDC_PLAYER_EXCLUSIVE, SNVT_TIME, -1 )
+
+
+		RegisterNetVarIntChangeCallback( HUNT_NETVAR_STATE, OnBountyHuntStateChanged_Client )
+		RegisterNetVarIntChangeCallback( HUNT_NETVAR_THREAT_LEVEL, OnBountyHuntThreatLevelChanged_Client )
+		RegisterNetVarIntChangeCallback( HUNT_NETVAR_PREY_REMAINING, OnBountyHuntPreyRemainingChanged_Client )
+		RegisterNetVarIntChangeCallback( HUNT_NETVAR_TOTAL_PREY, OnBountyHuntTotalPreyChanged_Client )
+		RegisterNetVarTimeChangeCallback( HUNT_NETVAR_END_TIME, OnBountyHuntEndTimeChanged_Client )
+
+
+	Remote_RegisterClientFunction( "ServerToClient_HandleShowEnemyLocation", "entity", "entity" )
+	Remote_RegisterClientFunction( "ServerToClient_ActivateDataPadFX", "entity", "entity" )
+	Remote_RegisterClientFunction( "ServerToClient_Bounty_ActivateWhiteRavenIconRUI", "entity", "entity" )
+	Remote_RegisterClientFunction( "ServerToClient_DisplayHuntStart", "entity" )
+	Remote_RegisterClientFunction( "ServerToClient_SendHuntAnnouncement", "int", 0, eBountyHuntAnnouncements.COUNT )
+	Remote_RegisterClientFunction( "ServerToClient_ApplyHunterVFX", "entity", "int", 0, ABSOLUTE_MAX_TEAMS + 1 )
+	Remote_RegisterClientFunction( "ServerToClient_ClientHuntEndSignal", "entity" )
+
+
+
+
+
+
+
+
+
+	Hunt_OverrideGameState()
+	Hunt_CreateStateDataTable()
+	Hunt_CreateAnnouncementDataTable()
+	AddCallback_GameStateEnter( eGameState.Playing, Bounty_CreateNestedHuntHud )
+
+
+	RegisterCustomItemPickupAction( "sh_bounty_hunt", Bounty_ItemPickup )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function ServerToClient_ClientHuntEndSignal( entity player )
+{
+	Signal( player, BOUNTY_END_SIGNAL )
+}
+
+void function ServerToClient_DisplayHuntStart( entity player )
+{
+	string xpSound = "WXpress_Train_Update_Small"
+	AnnouncementMessageSweep( GetLocalViewPlayer(), "Hunt are avaiable, look for Datapads near you to grab Hunt" , "", <255, 227, 46>, $"", xpSound, 8.0 )
+}
+
+void function ServerToClient_HandleShowEnemyLocation( entity player, entity prey )
+{
+	threa[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/mp/sh_lootbin.gnut.client
+[dump] scripts/vscripts/mp/sh_lootbin.gnut.client (11719 bytes)global function ShLootBin_Init
+
+
+
+global function CanAccessSecretCompartments
+global function LootBin_IsOpenAtAll
+global function LootBin_IsFullyOpenedForPlayer
+global function LootBin_IsBusy
+global function LootBin_HasSecretCompartment
+global function LootBin_HasUnopenedSecretCompartment
+global function LootBin_GetSpawnedLoot
+global function GetLootBinForHitEnt
+global function GetAllLootBins
+global function AddCallback_OnLootBinOpening
+global function AddCallback_CanOpenLootBin
+
+global function LootBin_ArePerkBinsEnabled
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global function CL_LootBinOpening
+
+
+
+
+
+
+
+global const string SUPPORT_LOOT_BIN_SKIN_NAME = "SecretLoot"
+const string LOOT_BIN_SKIN_NAME_AVT = "avt_base"
+
+global const string LOOT_BIN_DELAY_LOOT_SPAWNING_PLAYLIST_VAR = "survival_lootbin_delay_loot_spawning"
+
+global const string LOOT_BIN_MARKER_SCRIPTNAME = "survival_lootbin"
+global const string LOOT_BIN_SCRIPTNAME = "survival_lootbin_spawned"
+
+global const asset LOOT_BIN_MODEL = $"mdl/props/loot_bin/loot_bin_01_loba.rmdl"
+global const asset LOOT_BIN_MODEL_AVT = $"mdl/props/loot_bin/loot_bin_01_loba_avt.rmdl"
+
+global const asset LOOT_BIN_OPEN_REGULAR_FX = $"P_LootBin_open"
+global const asset LOOT_BIN_OPEN_SECRET_FX = $"P_LootBin_open_lower"
+
+global const asset LOOT_BIN_OPEN_JACKPOT_FX = $"P_LootBin_open_Jackpot"
+
+
+
+
+const bool SURVIVAL_DEBUG_LOOT_BINS = false
+
+global enum eLootBinCompartment
+{
+	REGULAR,
+	SECRET,
+	BOTH,
+	_COUNT
+}
+global enum lootBinType 
+{
+	REGULAR,
+
+	MUNITIONS,
+	SUPPORT
+
+}
+
+global enum eLootBinSequenceKind
+{
+	OPEN_REGULAR,
+	OPEN_SECRET,
+	OPEN_BOTH,
+	CLOSE_REGULAR,
+	
+	CLOSE_BOTH,
+}
+
+
+
+
+
+global typedef OnLootBinOpeningCallbackType void functionref( entity )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+struct
+{
+	array<OnLootBinOpeningCallbackType> onLootBinOpeningCallbacks
+	table<entity, bool functionref(entity,entity)> canOpenLootBinCallback
+
+
+
+
+
+
+
+
+} file
+
+void function ShLootBin_Init()
+{
+	PrecacheModel( LOOT_BIN_MODEL )
+	PrecacheModel( LOOT_BIN_MODEL_AVT )
+	PrecacheScriptString( LOOT_BIN_SCRIPTNAME )
+	PrecacheParticleSystem( LOOT_BIN_OPEN_REGULAR_FX )
+	PrecacheParticleSystem( LOOT_BIN_OPEN_SECRET_FX )
+
+		PrecacheParticleSystem( LOOT_BIN_OPEN_JACKPOT_FX )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+		AddCreateCallback( "prop_dynamic", OnPropCreated )
+		AddDestroyCallback( "prop_dynamic", OnPropDestroyed )
+		AddCreateCallback( "prop_script", OnPropCreated )
+		AddDestroyCallback( "prop_script", OnPropDestroyed )
+
+}
+
+array<entity> function GetAllLootBins()
+{
+
+
+
+
+		return GetEntArrayByScriptName( LOOT_BIN_SCRIPTNAME )
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function AddCallback_OnLootBinOpening( OnLootBinOpeningCallbackType callbackFunc )
+{
+	Assert( !file.onLootBinOpeningCallbacks.contains( callbackFunc ), "Already added " + string( callbackFunc ) + " with Survival_AddCallback_OnLootbinOpened" )
+	file.onLootBinOpeningCallbacks.append( callbackFunc )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+bool function LootBin_HasSecretCompartment( entity lootBin )
+{
+
+
+
+		Assert( lootBin.GetScriptName() == LOOT_BIN_SCRIPTNAME || lootBin.GetScriptName() == LOOT_BIN_MARKER_SCRIPTNAME )
+
+
+
+
+
+
+	bool isSupportBin
+	bool isMunitionsBin
+
+
+		if( lootBin.GetSkin() == lootBin.GetSkinIndexByName( LOOT_BIN_SUPPORT_SKIN ) || lootBin.GetSkin() == lootBin.GetSkinIndexByName( SUPPORT_BIN_RESET_SKIN_NAME ) )
+			isSupportBin = true
+		if( lootBin.GetSkin() == lootBin.GetSkinIndexByName( MUNITIONS_BOX_LOOT_BIN_SKIN_NAME ) || lootBin.GetSkin() == lootBin.GetSkinIndexByName( ASSAULT_BIN_RESET_SKIN_NAME ) )
+			isMunitionsBin = true
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	if( isSupportBin )
+		return true
+
+
+	if( isMunitionsBin )
+		return true
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	return false
+}
+
+bool function LootBin_HasUnopenedSecretCompartment( entity lootBin )
+{
+	Assert( lootBin.GetScriptName() == LOOT_BIN_SCRIPTNAME || lootBin.GetScriptName() == LOOT_BIN_MARKER_SCRIPTNAME )
+
+	if ( lootBin.GetNetworkedClassName() != "prop_dynamic" )
+		return false
+
+	if (LootBin_HasSecretCompartment( lootBin ) == false)
+		return false
+
+	if (GradeFlagsHas( lootBin, eGradeFlags.IS_OPEN_SECRET ) == true)
+		return false
+
+	return true
+}
+
+array<entity> function LootBin_GetSpawnedLoot( entity lootBin, bool includeRegular, bool includeSecret )
+{
+
+		Assert( includeRegular && includeSecret, "Cannot distinguish between regular and secret compartments on CLIENT -- must include both" )
+
+
+	array<entity> out = []
+	foreach ( entity child in lootBin.GetChildren() )
+	{
+		if ( child.GetNetworkedClassName() != "prop_survival" )
+			continue
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+		out.append( child )
+	}
+	return out
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+bool function LootBin_OnUse( entity lootBin, entity player, int useInputFlags )
+{
+	if ( !IsBitFlagSet( useInputFlags, USE_INPUT_DEFAULT ) )
+	{
+
+
+
+
+
+
+
+
+
+
+
+			{
+				return false
+			}
+	}
+
+	if( LootBin_IsFullyOpenedForPlayer( lootBin, player ) )
+		return false
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	return true
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function CL_LootBinOpening( entity lootBin, int sequenceType )
+{
+	foreach ( OnLootBinOpeningCallbackType cb in file.onLootBinOpeningCallbacks )
+		cb( lootBin )
+}
+
+
+bool function CanAccessSecretCompartments( entity lootBin, entity player )
+{
+	if (!LootBin_HasSecretCompartment( lootBin ))
+        return false
+
+	if ( !IsValid( player ) )
+		return false
+
+
+
+
+		
+		bool canOpenCompartment = false
+
+		bool isSupportBin = SupportBin_EntityIsSupportBin( lootBin )
+		bool isMunitionsBin = Perk_MunitionsBox_IsEntMunitionsBox( lootBin ) 
+
+		if( isMunitionsBin && ( Perks_DoesPlayerHavePerk( player, ePerkIndex.MUNITIONS_BOX ) || MunitionsBox_ShouldEveryoneAccessMunitionsBox_Secret() ) )
+			canOpenCompartment = true
+		else if( isSupportBin && ( Perks_DoesPlayerHavePerk( player, ePerkIndex.EXTRA_BIN_LOOT ) || SupportBin_ShouldEveryoneAccessSupportBins_Secret() ) )
+			canOpenCompartment = true
+
+
+
+
+
+
+
+
+
+
+
+	return canOpenCompartment
+}
+
+bool function LootBin_IsOpenAtAll( entity lootBin )
+{
+	return GradeFlagsHas( lootBin, eGradeFlags.IS_OPEN ) || GradeFlagsHas( lootBin, eGradeFlags.IS_OPEN_SECRET )
+}
+
+bool function LootBin_IsFullyOpenedForPlayer( entity lootBin, entity player )
+{
+	if ( !GradeFlagsHas( lootBin, eGradeFlags.IS_OPEN ) )
+		return false
+
+	if ( CanAccessSecretCompartments( lootBin, player ) && !GradeFlagsHas( lootBin, eGradeFlags.IS_OPEN_SECRET ) )
+		return false
+
+	return true
+}
+
+bool function LootBin_CanBeClosed( entity lootBin )
+{
+	if ( IsInfiniteLootBinsEnabled() )
+		return true
+
+	return false
+}
+
+bool function IsInfiniteLootBinsEnabled()
+{
+#if DEV
+		if ( GetBugReproNum() == 50 )
+			return true
+#endif
+
+	return GetCurrentPlaylistVarBool( "lootbins_infinite", false )
+}
+
+bool function LootBin_IsBusy( entity lootBin )
+{
+	return GradeFlagsHas( lootBin, eGradeFlags.IS_BUSY )
+}
+
+void function OnPropCreated( entity lootBin )
+{
+	if ( lootBin.GetScriptName() != LOOT_BIN_SCRIPTNAME )
+		return
+
+	AddEntityCallback_GetUseEntOverrideText( lootBin, GetLootBinUseTextOverride )
+	SetCallback_CanUseEntityCallback( lootBin, CanUseLootBin )
+
+
+
+
+
+
+}
+
+
+
+
+void function OnPropDestroyed( entity lootBin )
+{
+	
+}
+
+
+entity function GetLootBinForHitEnt( entity hitEnt )
+{
+	if ( hitEnt.GetScriptName() == LOOT_BIN_SCRIPTNAME )
+		return hitEnt
+
+	entity parentEnt = hitEnt.GetParent()
+	if ( IsValid( parentEnt ) && parentEnt.GetScriptName() == LOOT_BIN_SCRIPTNAME )
+		return parentEnt
+
+	return null
+}
+
+void function AddCallback_CanOpenLootBin( entity lootBin, bool functionref( entity,entity ) callback )
+{
+	file.canOpenLootBinCallback[lootBin] <- callback
+}
+
+bool function CanUseLootBin( entity player, entity lootBin, int useFlags )
+{
+
+	if( lootBin in file.canOpenLootBinCallback )
+	{
+		if( !file.canOpenLootBinCallback[lootBin]( player, lootBin ) )
+			return false
+	}
+
+
+	if ( player.GetWeaponDisableFlags() == WEAPON_DISABLE_FLAGS_ALL )
+		return false
+
+	if ( Bleedout_IsBleedingOut( player ) )
+		return false
+
+	if ( LootBin_IsBusy( lootBin ) )
+		return false
+
+
+	if ( LootBin_IsFullyOpenedForPlayer( lootBin, player ) )
+	{
+
+
+
+
+
+
+
+		{
+			return false
+		}
+	}
+
+
+	return true
+}
+
+
+
+string function GetLootBinUseTextOverride( entity lootBin )
+{
+	entity player = GetLocalViewPlayer()
+
+
+
+
+
+
+
+
+	if ( !LootBin_IsFullyOpenedForPlayer( lootBin, player ) )
+	{
+		if ( GradeFlagsHas( lootBin, eGradeFlags.IS_LOCKED ) )
+		{
+			if ( IsValid( lootBin.GetOwner() ) )
+			{
+				entity lootBinOwner = lootBin.GetOwner()
+
+				EHI ornull ehi = ToEHI( lootBinOwner )
+				if ( ehi == null )
+					return ""
+				expect EHI( ehi )
+				if ( !EHIHasValidScriptStruct( ehi ) )
+					return ""
+
+				int team          = EHI_GetTeam( ehi )
+				string playerName = GetDisplayablePlayerNameFromEHI( ehi )
+
+				string hint = "#SURVIVAL_LOOTBIN_LOCKED_FRIENDLY"
+
+				if ( lootBinOwner == player || GetCurrentPlaylistVarBool( "lootbin_locking_disabled", false ) )
+					hint = "#SURVIVAL_LOOTBIN_LOCKED_SELF"
+				else if ( IsEnemyTeam( team, player.GetTeam() ) )
+					hint = "#SURVIVAL_LOOTBIN_LOCKED_ENEMY"
+
+				return Localize( hint, playerName )
+			}
+
+
+				if( LootBinReset_IsLootBin_Mythic( lootBin ) && LootBinReset_MythicBins_HaveUniqueInteractPrompt() )
+				{
+					return "#RESET_BIN_MYTHIC_INTERACT_PROMPT"
+				}
+
+
+			return "#SURVIVAL_LOOTBIN_LOCKED"
+		}
+		else if ( !GradeFlagsHas( lootBin, eGradeFlags.IS_OPEN ) )
+			{
+
+
+
+
+
+
+				return "#SURVIVAL_LOOTBIN_OPEN"
+			}
+
+		else if ( !GradeFlagsHas( lootBin, eGradeFlags.IS_OPEN_SECRET ) )
+			{
+
+
+
+
+
+
+				return "#SURVIVAL_LOOTBIN_OPEN_SECRET"
+			}
+
+	}
+	else if ( LootBin_CanBeClosed( lootBin ) )
+	{
+		return "#SURVIVAL_LOOTBIN_CLOSE"
+	}
+
+
+
+
+
+
+
+
+
+	return ""
+}
+
+
+bool function LootBin_ArePerkBinsEnabled()
+{
+	return ( GetCurrentPlaylistVarBool( "enable_perk_bins", true ) )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/mp/_sh_tutorial.gnut.client
+[dump] scripts/vscripts/mp/_sh_tutorial.gnut.client (16750 bytes)global function ShTutorial_Init
+
+
+
+
+
+
+
+
+global function ServerCallback_ActionCountUpdated
+
+
+
+
+const int ORDINANCE_MENU_STEP_INDEX = 3
+const int PING_MENU_STEP_INDEX = 4
+
+
+global struct InputHint
+{
+	string                                                 buttonText
+	string												   gamepadButtonText
+	string                                                 hintText
+	string                                                 altHintText
+	int                                                    triggerButtonEnum
+	bool functionref( entity player, InputHint inputHint ) triggerCallback
+	void functionref( entity player, InputHint inputHint ) altHintCallback
+	int                                                    requiredActionCount = 3
+
+	bool hideWithMenus = true
+
+	int context = -1
+	int index = -1
+	var rui = null
+
+	bool _completed = false
+}
+
+global enum eTutorialContext
+{
+	NONE = -1,
+
+	MOVEMENT = 0,
+	MOVEMENT_SLIDE
+
+
+
+	LOOT_BIN,
+	LOOT_BIN_ITEMS,
+
+	HEALTH,
+	HEALTH_PICKUP_DONE,
+	HEALTH_PICKUP_USED,
+	HEALTH_DONE,
+
+
+
+
+
+	WEAPON_LOOT_BIN,
+	WEAPON_PICKUP,
+
+	WEAPON_PICKUP_DONE,
+
+	WEAPON,
+
+	WEAPON_AMMO,
+	WEAPN_RELOAD,
+
+	WEAPON_SWAP,
+	WEAPON_SWAP_DONE,
+	PING,
+
+	PING_COMPLETED,
+
+	PATHFINDER,
+	PATHFINDER_INTRO,
+	REVIVE,
+	REVIVE_DONE,
+	HEALING_DRONE,
+	HEALING_DRONE_DONE,
+	PICK_UP_DNA,
+	RESPAWN_CHAMBER,
+	RESPAWN_CHAMBER_DONE,
+	ULTIMATE,
+	ULTIMATE_DONE,
+	PRELAUNCH,
+	FREEFALL,
+
+	_count
+}
+
+struct
+{
+	array<InputHint>                    inputHints
+	table< int, array< InputHint > >    contextInputHintMap
+	table< entity, array<bool> >        playerTutorialContextHistory
+} file
+
+table<int, void functionref( entity player ) > baseInputCallacks
+
+void function ShTutorial_Init()
+{
+	Remote_RegisterClientFunction( "ServerCallback_ActionCountUpdated", "int", INT_MIN, INT_MAX, "int", INT_MIN, INT_MAX )
+
+
+
+
+		AddCallback_OnClientScriptInit( OnLocalClientConnected )
+		AddCallback_FullUpdate( OnFullUpdate )
+		AddCallback_OnSettingsUpdated( UpdateTutorialWhenOptionsChange )
+		RegisterNetVarIntChangeCallback( "tutorialContext", OnTutorialContextChanged )
+
+
+	for( int i = eTutorialContext.NONE ; i < eTutorialContext._count ; i++ )
+		file.contextInputHintMap[i] <- []
+
+	AddInputHint( eTutorialContext.MOVEMENT, IN_FORWARD, "%forward%", "#SURVIVAL_TRAINING_MOVE", TryActionMove, "", null, "%S2_UP%" )
+	AddInputHint( eTutorialContext.MOVEMENT, -1, "%speed%", "#SURVIVAL_TRAINING_SPRINT", TryActionSprint )
+	AddInputHint( eTutorialContext.MOVEMENT, IN_JUMP, "%jump%", "#SURVIVAL_TRAINING_JUMP", TryActionJump )
+
+
+
+	AddInputHint( eTutorialContext.MOVEMENT, IN_DUCK, "%duck%", "#SURVIVAL_TRAINING_CROUCH", TryActionCrouch )
+
+
+	AddInputHint( eTutorialContext.MOVEMENT_SLIDE, -1, "%duck%", "#SURVIVAL_TRAINING_SLIDE", TryActionSlide )
+
+
+	AddInputHint( eTutorialContext.LOOT_BIN, -1, "%use%", "#SURVIVAL_TRAINING_OPEN_BIN", Tutorial_TryAction_OpenLootBin1 )
+
+	AddInputHint( eTutorialContext.LOOT_BIN_ITEMS, -1, "%use%", "#SURVIVAL_TRAINING_TAKE_FRAG", Tutorial_TryAction_TakeFrag )
+	AddInputHint( eTutorialContext.LOOT_BIN_ITEMS, -1, "%use%", "#SURVIVAL_TRAINING_TAKE_THERMITE", Tutorial_TryAction_TakeThermite )
+	AddInputHint( eTutorialContext.LOOT_BIN_ITEMS, -1, "%use%", "#SURVIVAL_TRAINING_TAKE_HEALTH", Tutorial_TryAction_TakeHealth )
+
+
+
+
+
+
+
+
+
+	AddInputHint( eTutorialContext.HEALTH, -1, "%use%", "#SURVIVAL_TRAINING_TAKE_HEALTH_KIT", Tutorial_TryAction_TakeHealth )
+	AddInputHint( eTutorialContext.HEALTH, -1, "%use%", "#SURVIVAL_TRAINING_TAKE_SHIELD_CELL", Tutorial_TryAction_TakeShieldCell )
+	AddInputHint( eTutorialContext.HEALTH_PICKUP_USED, -1, "#SURVIVAL_TRAINING_TAP_HEAL_BIND", "#SURVIVAL_TRAINING_USE_SYRINGE", Tutorial_TryAction_UseHealth )
+	AddInputHint( eTutorialContext.HEALTH_PICKUP_USED, -1, "#SURVIVAL_TRAINING_TAP_HEAL_BIND", "#SURVIVAL_TRAINING_USE_SHIELDCELL", Tutorial_TryAction_UseShieldCell )
+	AddInputHint( eTutorialContext.HEALTH_PICKUP_USED, -1, "#SURVIVAL_TRAINING_HEALTH_BIND", "#SURVIVAL_TRAINING_USE_HEALTH_MENU", Tutorial_TryAction_OrdnanceMenu )
+
+
+	
+
+	AddInputHint( eTutorialContext.WEAPON_LOOT_BIN, -1, "%use%", "#SURVIVAL_TRAINING_OPEN_BIN", Tutorial_TryAction_OpenLootBin2 )
+
+	AddInputHint( eTutorialContext.WEAPON_PICKUP, -1, "%use%", "#SURVIVAL_TRAINING_PICK_UP_WEAPON", Tutorial_TryAction_PickedUpWeapon )
+	AddInputHint( eTutorialContext.WEAPON_PICKUP, -1, "%use%", "#SURVIVAL_TRAINING_PICK_UP_AMMO", Tutorial_TryAction_PickedUpAmmo )
+
+	AddInputHint( eTutorialContext.WEAPON, IN_ZOOM, "%zoom%", "#SURVIVAL_TRAINING_AIM", TryActionADS )
+
+
+		AddInputHint( eTutorialContext.WEAPON, -1, "%attack%", "#SURVIVAL_TRAINING_SHOOT_DUMMIE", Tutorial_TryAction_ShotTrainingTargets )
+		AddInputHint( eTutorialContext.WEAPON, -1, "", "#SURVIVAL_TRAINING_EMPTY_CLIP", Tutorial_TryAction_EmptyAmmo )
+		AddInputHint( eTutorialContext.WEAPON_AMMO, -1, "%use%", "#SURVIVAL_TRAINING_PICK_UP_LIGHTAMMO", Tutorial_TryAction_PickedUpAmmo )
+		AddInputHint( eTutorialContext.WEAPN_RELOAD, -1, "%&reload%", "#SURVIVAL_TRAINING_RELOAD", TryActionReload )
+
+
+	AddInputHint( eTutorialContext.WEAPON_SWAP, -1, "%use%", "#SURVIVAL_TRAINING_SECOND_WEAPON", Tutorial_TryAction_SecondWeapon )
+	AddInputHint( eTutorialContext.WEAPON_SWAP, IN_WEAPON_CYCLE, "%weaponcycle%", "#SURVIVAL_TRAINING_SWITCH_WEAPONS", TryActionWeaponCycle )
+	AddInputHint( eTutorialContext.WEAPON_SWAP, -1, "#SURVIVAL_TRAINING_HOLD_USE_BIND", "#SURVIVAL_TRAINING_REPLACE_WEAPON", Tutorial_TryAction_ThirdWeapon )
+
+	AddInputHint( eTutorialContext.PING, IN_PING, "%ping%", "#SURVIVAL_TRAINING_PING_LOCATION", TryActionPing )
+	AddInputHint( eTutorialContext.PING, -1, "#SURVIVAL_TRAINING_DOUBLE_PING", "#SURVIVAL_TRAINING_PING_ENEMY_LOCATION", Tutorial_TryAction_PingEnemyLocation )
+	AddInputHint( eTutorialContext.PING, -1, "%ping%", "#SURVIVAL_TRAINING_PING_WEAPON", Tutorial_TryAction_PingWeapon )
+	AddInputHint( eTutorialContext.PING, -1, "%ping%", "#SURVIVAL_TRAINING_PING_AMMO", Tutorial_TryAction_PingAmmo )
+	AddInputHint( eTutorialContext.PING, -1, "#SURVIVAL_TRAINING_HOLD_PING", "#SURVIVAL_TRAINING_PING_MENU", Tutorial_TryAction_PingMenu )
+	
+
+	AddInputHint( eTutorialContext.PATHFINDER, -1, "", "#SURVIVAL_TRAINING_PATHFINDER", Tutorial_TryAction_Pathfinder )
+	AddInputHint( eTutorialContext.PATHFINDER, -1, "#SURVIVAL_TRAINING_HOLSTER_BIND", "#SURVIVAL_TRAINING_HOLSTER", TryActionHolster, "", null, "#SURVIVAL_TRAINING_HOLSTER_BIND_GAMEPAD" )
+	AddInputHint( eTutorialContext.PATHFINDER, -1, "#SURVIVAL_TRAINING_MANTLE_BIND", "#SURVIVAL_TRAINING_MANTLE", TryActionMantle, "", null, "#SURVIVAL_TRAINING_MANTLE_BIND_GAMEPAD" )
+
+
+	AddInputHint( eTutorialContext.REVIVE, -1, "%&use_long%", "#SURVIVAL_TRAININGV2_REVIVE", Tutorial_TryAction_ReviveDummy )
+
+
+
+
+	AddInputHint( eTutorialContext.HEALING_DRONE, -1, "%offhand1%", "#SURVIVAL_TRAINING_USE_TACTICAL", Tutorial_TryAction_HealDummy )
+
+
+		AddInputHint( eTutorialContext.PICK_UP_DNA, -1, "%use%", "#SURVIVAL_TRAININGV2_PICK_UP_CARD", Tutorial_TryAction_PickUpDNA )
+
+
+
+
+
+	AddInputHint( eTutorialContext.RESPAWN_CHAMBER, -1, "#SURVIVAL_TRAINING_HOLD_USE_BIND", "#SURVIVAL_TRAINING_RESPAWN", Tutorial_TryAction_UsedRespawnChamber )
+
+	AddInputHint( eTutorialContext.ULTIMATE, -1, "%offhand4%", "#SURVIVAL_TRAINING_ARM_ULTIMATE", Tutorial_TryAction_EquippedUltimate, "", null, "%offhand1%+%ping%" )
+	AddInputHint( eTutorialContext.ULTIMATE, -1, "%attack%", "#SURVIVAL_TRAINING_USE_ULTIMATE", Tutorial_TryAction_UsedUltimate )
+
+	AddInputHint( eTutorialContext.PRELAUNCH, IN_PING, "%ping%", "#SURVIVAL_TUTORIAL_PING_SUGGEST", TryActionPing, "#SURVIVAL_TUTORIAL_PING_DEST", PingAltHintInit )
+
+	AddInputHint( eTutorialContext.FREEFALL, IN_FORWARD, "%[S2_UP|forward]%", "#SURVIVAL_TUTORIAL_ADJUST_SPEED", TryActionMove )
+	AddInputHint( eTutorialContext.FREEFALL, -1, "%zoom%", "#SURVIVAL_TUTORIAL_FREE_LOOK", TryActionFreeLook )
+
+
+	
+	
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function OnLocalClientConnected( entity player )
+{
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+}
+
+void function OnFullUpdate()
+{
+	printt( "tutorial: OnFullUpdate" )
+	entity player = GetLocalClientPlayer()
+	if ( !IsValid( player ) )
+		return
+
+	int context = player.GetPlayerNetInt( "tutorialContext" )
+	array<InputHint> inputHints = file.contextInputHintMap[ context ]
+
+
+
+
+
+
+
+
+
+	if ( context == eTutorialContext.PING )
+
+	{
+		if ( !IsTutorialInputCompleted( player, inputHints[ PING_MENU_STEP_INDEX ] ) )
+			ServerCallback_MonitorCommsMenuUsage( 1 )
+	}
+}
+
+void function OnTutorialContextChanged( entity player, int new )
+{
+	if ( player != GetLocalClientPlayer() )
+		return
+
+	
+
+	if ( new < 0 )
+		return
+
+
+	OpenDetailedInfoUI( new )
+
+
+	foreach ( index, inputHint in file.contextInputHintMap[new] )
+	{
+		var hintRui = CreateFullscreenRui( $"ui/tutorial_hint_line.rpak" )
+		inputHint.rui = hintRui
+		inputHint._completed = false
+
+		RuiSetString( hintRui, "buttonText", inputHint.buttonText )
+		RuiSetString( hintRui, "gamepadButtonText", inputHint.gamepadButtonText )
+		RuiSetString( hintRui, "hintText", inputHint.hintText )
+		RuiSetString( hintRui, "altHintText", inputHint.altHintText )
+		RuiSetInt( hintRui, "hintOffset", index )
+		RuiSetBool( hintRui, "hideWithMenus", inputHint.hideWithMenus )
+
+		if ( IsTutorialInputCompleted( player, inputHint ) )
+			RuiSetBool( hintRui, "hintCompleted", true )
+
+		if ( inputHint.altHintCallback != null )
+			inputHint.altHintCallback( player, inputHint )
+	}
+
+	UpdateTutorialBindingIcons()
+
+	thread ClientTutorialContextThink( player, new )
+}
+
+
+void function OpenDetailedInfoUI( int context )
+{
+	switch ( context )
+	{
+		case eTutorialContext.HEALTH_PICKUP_DONE:
+			RunUIScript( "UI_OpenFeatureTutorialDialog", "TUTORIAL_HEALING_SCREEN" )
+			break
+		case eTutorialContext.WEAPON_PICKUP_DONE:
+			RunUIScript( "UI_OpenFeatureTutorialDialog", "TUTORIAL_WEAPON_SCREEN" )
+			break
+		case eTutorialContext.PING_COMPLETED:
+			RunUIScript( "UI_OpenFeatureTutorialDialog", "TUTORIAL_RING_SCREEN" )
+			break
+		case eTutorialContext.ULTIMATE:
+			RunUIScript( "UI_OpenFeatureTutorialDialog", "TUTORIAL_ABILITY_SCREEN" )
+			break
+		default:
+			break
+	}
+}
+
+
+void function ClientTutorialContextThink( entity player, int context )
+{
+	while ( player.GetPlayerNetInt( "tutorialContext" ) == context )
+	{
+		foreach ( index, inputHint in file.contextInputHintMap[context] )
+		{
+			RuiSetBool( inputHint.rui, "hintValid", inputHint.triggerCallback( player, inputHint ) )
+		}
+
+		WaitFrame()
+		player = GetLocalClientPlayer()
+
+		if ( !IsValid( player ) )
+			return
+	}
+
+	foreach ( index, inputHint in file.contextInputHintMap[ context ] )
+	{
+		if ( inputHint.rui != null )
+		{
+			RuiDestroy( inputHint.rui )
+			inputHint.rui = null
+		}
+	}
+}
+
+
+void function ServerCallback_ActionCountUpdated( int actionIndex, int actionCount )
+{
+	InputHint inputHint = file.inputHints[actionIndex]
+
+	if ( inputHint.rui != null )
+	{
+		if ( !inputHint._completed )
+		{
+			EmitSoundOnEntity( GetLocalClientPlayer(), "UI_SurvivalTutorial_CheckBox" )
+			inputHint._completed = true
+		}
+
+		RuiSetBool( inputHint.rui, "hintCompleted", true )
+	}
+
+	
+	
+
+	
+	
+	
+	
+}
+
+
+
+void function PingAltHintInit( entity player, InputHint inputHint )
+{
+
+		RuiTrackBool( inputHint.rui, "showAltHint", player, RUI_TRACK_SCRIPT_NETWORK_VAR_BOOL, GetNetworkedVariableIndex( "isJumpmaster" ) )
+
+}
+
+
+InputHint function GetInputHintForButtonEnum( int buttonEnum )
+{
+	foreach ( index, inputHint in file.inputHints )
+	{
+		if ( inputHint.triggerButtonEnum != buttonEnum )
+			continue
+
+		return inputHint
+	}
+
+	unreachable
+}
+
+
+int function GetHintIndexForButtonEnum( int buttonEnum )
+{
+	foreach ( index, inputHint in file.inputHints )
+	{
+		if ( inputHint.triggerButtonEnum != buttonEnum )
+			continue
+
+		return index
+	}
+
+	return -1
+}
+
+
+void function UpdateTutorialBindingIcons()
+{
+	array<InputHint> movementHints = file.contextInputHintMap[eTutorialContext.MOVEMENT]
+	for ( int i = 0; i < movemen

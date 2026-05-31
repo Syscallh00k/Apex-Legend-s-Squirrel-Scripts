@@ -1,0 +1,5739 @@
+
+global function Sh_Boosts_Init
+global function Boost_GetBoostType
+global function Boost_GetBoostEvent
+global function Boost_GetActiveBoostEvents
+global function Boost_GetUpcomingBoostEvents
+global function Boost_GetActiveBoosts
+global function Boost_GetPreviousActiveBoosts 
+global function Boost_GetPreviousAppliedBoosts 
+
+
+
+
+global function Boost_OnPlaylistsRegistered
+global function Boost_RefreshBoosts
+global function Boost_RefreshBoostEvents
+global function Boost_RefreshPlayerBoosts
+global function Boost_GetChallengeCategory
+global function Boost_GetBoostEventCategoryColor
+global function Boost_GetBoostEventCategoryColorFromCategory
+global function Boost_GetBoostEventCategoryIcon
+global function Boost_GetBoostEventCategoryIconFromCategory
+global function Boost_IsNew
+global function Boost_ConditionsMet
+global function Boost_IsPropertyModified
+global function Boost_GetBoostsAffectingXPType
+global function Boost_IsAccountXPPropertyModified
+global function Boost_IsBoostModifierTypeActive
+global function Boost_GetEventIdFromCalEvent
+
+
+
+
+
+global function Boost_GetPostGameChallengeBonus
+global function Boost_GetBonusPostGameAccountXP
+global function Boost_GetBonusPostGameTotalAccountXP
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#if DEV
+	global function DEV_Boost_PrintActiveBoosts
+	global function DEV_Boost_PrintPlaylistData
+	global function DEV_Boost_ResetPersistence
+	global function DEV_Boost_PrintPersistence
+#endif
+
+
+
+
+
+const bool DEBUG_PRINT_BOOSTS = true
+
+const int MAX_BOOSTS = 15 
+const string PERSISTENCE_PLAYLIST_VER = "progressionBoostPlaylistVer"
+const string PERSISTENCE_ACTIVE_BOOSTS = "seenProgressionBoosts"
+const string PERSISTENCE_APPLIED_BOOSTS = "appliedProgressionBoosts"
+const string PROG_MODIFIER_PLAYLIST_SOURCE = "defaults"
+
+
+const string BP_MODIFIER_PREFIX = "BP_"
+const string ACCXP_MODIFIER_PREFIX = "ACCXP_"
+const string MYTHIC_MODIFIER_PREFIX = "MYTHIC_"
+
+
+	const string CHALLENGE_MODIFIER_PREFIX = "CHALLENGE_"
+
+
+const string WEAPON_MODIFIER_PREFIX = "MASTERY_WEAPON_"
+
+const vector DEFAULT_COLOR = <0, 0, 0>
+const int DEFAULT_PLAYLIST_BOOST_VERSION = 1
+const int EXPECTED_MIN_BAKERY_GUID = 9999
+
+
+table< string, string > WeaponCategoryKeyToSAID = {
+	MASTERY_WEAPON_AR = "SAID00481026934",
+	MASTERY_WEAPON_LMG = "SAID00796940323",
+	MASTERY_WEAPON_MARKSMAN = "SAID00929188277",
+	MASTERY_WEAPON_PISTOL = "SAID01658891962",
+	MASTERY_WEAPON_SHOTGUN = "SAID01400639519",
+	MASTERY_WEAPON_SMG = "SAID00813223296",
+	MASTERY_WEAPON_SNIPER = "SAID00143499586"
+}
+
+
+
+
+
+global enum eBoolInheritable
+{
+	INHERIT = -1,
+	FALSE = 0,
+	TRUE = 1
+}
+
+
+global enum eBoostCategory
+{
+	ACCOUNT_XP,
+	BP_STARS,
+	MASTERY,
+	INHERIT 
+}
+
+
+
+
+global enum eBoostModifierType
+{
+	ACCOUNT_XP,
+	BP_STARS,
+	MYTHIC_PROGRESS,
+	MASTERY_WEAPON,
+
+
+	CHALLENGE_PROGRESS,
+
+}
+
+global enum eBoostCalculationType
+{
+	MULTIPLICATION,
+	ADDITION
+}
+
+
+
+global enum eModifierPropertyKeys
+{
+	ACCXP_GLOBAL,
+	ACCXP_PARTY,
+	BP_DAILY,
+	BP_WEEKLY,
+	BP_RECURRING,
+	MYTHIC_PROGRESS,
+
+	MASTERY_WEAPON_ALL,
+	MASTERY_WEAPON_AR,
+	MASTERY_WEAPON_LMG,
+	MASTERY_WEAPON_MARKSMAN,
+	MASTERY_WEAPON_PISTOL,
+	MASTERY_WEAPON_SHOTGUN,
+	MASTERY_WEAPON_SMG,
+	MASTERY_WEAPON_SNIPER,
+
+
+	CHALLENGE_PROGRESS,
+
+
+}
+
+global struct BoostModifier
+{
+	int type = eBoostModifierType.ACCOUNT_XP
+	string property = "" 
+	float amount = 1
+	int calculationType = eBoostCalculationType.MULTIPLICATION
+}
+
+global struct BoostConfig
+{
+	
+	string boostNameLong = ""
+	string boostNameShort = ""
+	string boostDescriptionLong = ""
+	string boostDescriptionShort = ""
+
+	int    boostCategory = eBoostCategory.INHERIT
+	string boostReqDescription = ""
+	int    isVisible = eBoolInheritable.INHERIT
+	asset  uiBadgeIconSmall = $""
+	vector uiColor = DEFAULT_COLOR
+	string uiModifierSummary = "" 
+	float  uiModifierSummaryAmount = 0
+
+	
+	array< string > gamemodeConditions = []
+	array< string > regionConditions = []
+	array< string > platformConditions = []
+	int partyCondition = eBoolInheritable.INHERIT
+}
+
+global struct BoostType
+{
+	string                 typeId = ""
+	array< BoostModifier > effects = []
+
+	
+	BoostConfig boostConunction GetRemainingBoostDuration( Boost boost )
+{
+	return GetRemainingDuration( boost.startDate, boost.endDate, boost.duration )
+}
+
+bool function BoostEventIsActive( BoostEvent boostEvent )
+{
+	return GetRemainingBoostEventDuration( boostEvent ) > 0
+}
+
+bool function BoostEventHasStarted( BoostEvent boostEvent )
+{
+	return boostEvent.startDate > 0 ? GetUnixTimestamp() >= boostEvent.startDate : true
+}
+
+bool function PlayerBoostsNeedRefresh( entity player )
+{
+	
+	if ( StoredPlaylistVersionMismatch( player ) )
+	{
+		return true
+	}
+
+	
+	table< string, BoostEvent > upcomingBoostEvents = Boost_GetUpcomingBoostEvents()
+	foreach ( BoostEvent boostEvent in upcomingBoostEvents )
+	{
+		bool boostEventWillStart = GetRemainingBoostEventDuration( boostEvent ) > 0
+		if ( boostEventWillStart )
+			return true
+	}
+
+	
+	BoostTable currentActiveBoosts = Boost_GetActiveBoosts( player )
+	foreach ( Boost boost in currentActiveBoosts )
+	{
+		bool boostWillExpire = GetRemainingBoostDuration( boost ) <= 0
+		if ( boostWillExpire )
+			return true
+	}
+
+	return false
+}
+
+string function GetModifierPropertyKey( int key )
+{
+	return GetEnumString( "eModifierPropertyKeys", key )
+}
+
+int function GetBoostCategoryFromModifierType( int boostModifierType )
+{
+	switch ( boostModifierType )
+	{
+		case eBoostModifierType.ACCOUNT_XP:
+			return eBoostCategory.ACCOUNT_XP
+		case eBoostModifierType.BP_STARS:
+			return eBoostCategory.BP_STARS
+	}
+	
+	return eBoostCategory.MASTERY
+}
+
+string function GetPlaylistOverrideTypeId( string eventId )
+{
+	return eventId + "_playlist_override"
+}
+
+
+int function GetPlaylistBoostVersion()
+{
+	return GetPlaylistVarInt( PROG_MODIFIER_PLAYLIST_SOURCE, "progboost_ver", DEFAULT_PLAYLIST_BOOST_VERSION )
+}
+
+int function GetStoredPlaylistBoostVersion()
+{
+	return file.activePlaylistBoostVersion
+}
+
+void function SetStoredPlaylistBoostVersion( int ver )
+{
+	file.activePlaylistBoostVersion = ver
+}
+
+BoostGuidTable function GetPlayerSeenBoosts( entity player )
+{
+	Assert( player in file.playerSeenBoosts, "file.playerSeenBoosts not initialized for player!" )
+	if ( player in file.playerSeenBoosts )
+	{
+		return file.playerSeenBoosts[ player ]
+	}
+	
+	BoostGuidTable blank
+	return blank
+}
+
+
+BoostGuidTable function GetPlayerAppliedBoosts( entity player )
+{
+	Assert( player in file.playerAppliedBoosts, "file.playerAppliedBoosts not initialized for player!" )
+	if ( player in file.playerAppliedBoosts )
+	{
+		return file.playerAppliedBoosts[ player ]
+	}
+	
+	BoostGuidTable blank
+	return blank
+}
+
+void function ClearSeenBoosts( entity player )
+{
+	GetPlayerSeenBoosts( player ).clear()
+
+
+
+
+
+
+
+
+}
+
+void function CheckAndNotifyBoostsStarted( entity player, BoostTable currentActiveBoostsState, BoostTable prevActiveBoostState )
+{
+	BoostGuidTable playerSeenBoosts = GetPlayerSeenBoosts( player )
+
+	foreach ( Boost boost in currentActiveBoostsState )
+	{
+		bool boostWasActive = boost.guid in prevActiveBoostState
+		bool boostWasSeen   = boost.guid in playerSeenBoosts
+		if ( !boostWasSeen )
+		{
+			OnNewBoostDetected( player, boost.guid )
+		}
+
+		if ( !boostWasSeen && !boostWasActive )
+		{
+			OnBoostStart( player, boost.guid )
+		}
+	}
+}
+
+void function CheckAndNotifyBoostsEnded( entity player, BoostTable currentActiveBoostsState, BoostTable prevActiveBoostsState )
+{
+	BoostTable currentActiveBoosts  = Boost_GetActiveBoosts( player )
+	BoostGuidTable playerSeenBoosts = GetPlayerSeenBoosts( player )
+
+	BoostGuidTable endedBoosts
+	foreach ( Boost boost in prevActiveBoostsState )
+	{
+		bool boostIsActive = boost.guid in currentActiveBoosts
+		bool boostWasSeen  = boost.guid in playerSeenBoosts
+		if ( !boostIsActive )
+		{
+			endedBoosts[ boost.guid ] <- true
+		}
+	}
+
+	foreach ( int guid, bool seen in playerSeenBoosts )
+	{
+		bool boostIsActive = guid in currentActiveBoosts
+		if ( !boostIsActive )
+		{
+			endedBoosts[ guid ] <- true
+		}
+	}
+
+	foreach ( int guid, bool b in endedBoosts )
+	{
+		OnBoostEnd( player, guid )
+	}
+}
+
+
+
+
+bool function BoostBuildingConditionsMet( entity player, Boost boost, bool currentMatch )
+{
+	return RegionConditionsMet( player, boost, currentMatch )
+		&& PlatformConditionsMet( player, boost, currentMatch )
+}
+
+
+bool function GamemodeConditionsMet( entity player, Boost boost, bool currentMatch )
+{
+	if ( boost.gamemodeConditions.len() == 0 )
+	{
+		return true
+	}
+
+	string playlistName = currentMatch ? GetCurrentPlaylistName() : string( player.GetPersistentVar( "lastPlaylist" ) )
+	string statsMatchType = GetPlaylistVarString( playlistName, "stats_match_type", "survival" )
+
+	return boost.gamemodeConditions.find( statsMatchType ) >= 0
+}
+
+bool function IsClientRegionInList( entity player, array< string > countryCodes )
+{
+
+
+
+
+
+
+	return false
+}
+
+bool function RegionConditionsMet( entity player, Boost boost, bool currentMatch )
+{
+	if ( boost.regionConditions.len() == 0 )
+	{
+		return true
+	}
+
+	bool playerInRegion = IsClientRegionInList( player, boost.regionConditions )
+#if DEV
+		string regions = ""
+		foreach ( string region in boost.regionConditions )
+		{
+			regions += format( "%s ", region )
+		}
+
+		printf( "%s: %s, [%s]: %s", FUNC_NAME(), boost.boostNameLong, regions, playerInRegion? "Yes" : "No" )
+#endif
+	return playerInRegion
+}
+
+int function PlayerPartySize( entity player )
+{
+
+
+
+		return GetPartySize()
+
+}
+
+bool function PartyConditionMet( entity player, Boost boost, bool currentMatch )
+{
+	
+	if ( !boost.partyCondition )
+	{
+		return true
+	}
+
+	int partySize = currentMatch ? PlayerPartySize( player ) : player.GetPersistentVarAsInt( "lastPartySize" )
+#if DEV
+		printf( "%s(): LastPartySize (%s): %i", FUNC_NAME(), currentMatch ? "cur" : "prev", partySize )
+#endif
+	return partySize > 1
+}
+
+int function ParseBoolInheritableString( string itemFlavVal )
+{
+	if ( itemFlavVal in eBoolInheritable )
+	{
+		return eBoolInheritable[itemFlavVal]
+	}
+
+	Assert( false, format( "Invalid value '%s' for eBoolInheritable" ) )
+	return eBoolInheritable.INHERIT
+}
+
+
+bool function PlatformConditionsMet( entity player, Boost boost, bool currentMatch )
+{
+	if ( boost.platformConditions.len() == 0 )
+	{
+		return true
+	}
+
+	
+
+
+
+		string playerHardware = GetPlayerHardware()
+
+	array< string > platformConditions = boost.platformConditions
+	if ( DEBUG_PRINT_BOOSTS )
+	{
+		string conditions = ""
+		foreach ( platform in platformConditions )
+		{
+			conditions += platform + " "
+		}
+
+		printf( "%s(): Player hardware: %s | conditions: %s", FUNC_NAME(), playerHardware, conditions )
+	}
+	return platformConditions.find( playerHardware ) >= 0
+}
+
+void function Debug_PrintPlaylist()
+{
+	if ( DEBUG_PRINT_BOOSTS )
+	{
+		printf( "---- sh_boosts PLAYLIST: %i ----\n", file.playlistData.len() )
+		foreach ( BoostPlaylistData playlistData in file.playlistData )
+		{
+			
+			string gamemodeConditions = ""
+			foreach ( string statsMatchType in playlistData.gamemodeConditions )
+			{
+				gamemodeConditions += format( "\t\t sh_boosts pb_pl: %s \n", statsMatchType )
+			}
+			string regionConditions = ""
+			foreach ( string statsMatchType in playlistData.regionConditions )
+			{
+				regionConditions += format( "\t\t sh_boosts pb_pl: %s \n", statsMatchType )
+			}
+			string partyCondition = GetEnumString( "eBoolInheritable", playlistData.partyCondition )
+
+			string modifiers = ""
+			foreach ( BoostModifier effect in playlistData.effects )
+			{
+				modifiers += format( "\t\t sh_boosts pb_pl: %s %s %f | %s ", GetEnumString( "eBoostModifierType", effect.type), effect.property, effect.amount, GetEnumString( "eBoostCalculationType", effect.calculationType) )
+			}
+			string platformConditions = ""
+			foreach ( string platform in playlistData.platformConditions )
+			{
+				platformConditions += format( "\t\t sh_boosts pb_pl: %s \n", platform )
+			}
+
+
+			string playlistDataString = format(
+				"%s: (sh_boosts pb_pl): PlaylistData:\n"
+				+ "\t sh_boosts pb_pl: guid: %i\n"
+				+ "\t sh_boosts pb_pl: typeId: %s\n"
+				+ "\t sh_boosts pb_pl: eventId: %s\n"
+				+ "\t sh_boosts pb_pl: startDate: %i \n"
+				+ "\t sh_boosts pb_pl: endDate: %i \n"
+				+ "\t sh_boosts pb_pl: gamemodeConditions:\n%s"
+				+ "\t sh_boosts pb_pl: regionConditions:\n%s"
+				+ "\t sh_boosts pb_pl: partyCondition:%s\n"
+				+ "\t sh_boosts pb_pl: platformConditions:\n%s"
+				+ "\t sh_boosts pb_pl: modifiers: \n%s\n",
+				FUNC_NAME(),
+				playlistData.guid,
+				playlistData.typeId,
+				playlistData.eventId,
+				playlistData.startDate,
+				playlistData.endDate,
+				gamemodeConditions,
+				regionConditions,
+				partyCondition,
+				platformConditions,
+				modifiers
+			)
+			print(playlistDataString)
+		}
+		printf( "---- sh_boosts pb /PLAYLIST: ----\n" )
+	}
+}id function Boost_RefreshBoosts()
+{
+	Boost_RefreshBoostEvents()
+
+
+
+
+
+
+
+
+
+
+	SetStoredPlaylistBoostVersion( GetPlaylistBoostVersion() )
+}
+
+
+void function Boost_RefreshBoostEvents()
+{
+	file.activeBoostEvents.clear()
+	file.upcomingBoostEvents.clear()
+
+	foreach ( BoostEvent boostEvent in file.boostEvents )
+	{
+		CategorizeBoostEvent( boostEvent )
+	}
+}
+
+
+void function Boost_RefreshPlayerBoosts( entity player )
+{
+
+		Assert( player == GetLocalClientPlayplayer] <- activeBoosts
+
+	ModifierCache cachedModifiers = BuildModifierCacheFromBoosts( player )
+	file.playerModifierCache[player] <- cachedModifiers
+
+	OnBoostsLoaded( player, preUpdateBoosts )
+}
+
+
+string function Boost_GetChallengeCategory( ItemFlavor challenge )
+{
+	if ( ItemFlavor_GetType( challenge ) != eItemType.challenge )
+	{
+		Assert( false, format( "Itemflavor '%s' is not a challenge!", challenge.guid ) )
+		return ""
+	}
+
+	switch ( Challenge_GetTimeSpanKindFromBakery( challenge ) )
+	{
+		case eChallengeTimeSpanKind.DAILY:
+			return GetModifierPropertyKey( eModifierPropertyKeys.BP_DAILY )
+		case eChallengeTimeSpanKind.SEASON_WEEKLY:
+			return GetModifierPropertyKey( eModifierPropertyKeys.BP_WEEKLY )
+		case eChallengeTimeSpanKind.SEASON_WEEKLY_RECURRING:
+			return GetModifierPropertyKey( eModifierPropertyKeys.BP_RECURRING )
+		case eChallengeTimeSpanKind.MYTHIC:
+			return GetModifierPropertyKey( eModifierPropertyKeys.MYTHIC_PROGRESS )
+	}
+	return ""
+}
+
+const vector ACCOUNT_XP_CATEGORY_COLOR = <0.9647, 0.6392, 0.13725>
+const vector ACCOUNT_BP_STARS_CATEGORY_COLOR = <0.03529, 0.70980, 0.71764>
+const vector ACCOUNT_MASTERY_CATEGORY_COLOR = <0.85882, 0.16078, 0.16862>
+
+vector function Boost_GetBoostEventCategoryColor( Boost boost )
+{
+	if ( boost.uiColor != DEFAULT_COLOR )
+		return boost.uiColor
+	return Boost_GetBoostEventCategoryColorFromCategory( boost.boostCategory )
+}
+
+vector function Boost_GetBoostEventCategoryColorFromCategory( int category )
+{
+	switch ( category )
+	{
+		case eBoostCategory.ACCOUNT_XP:
+			return ACCOUNT_XP_CATEGORY_COLOR
+		case eBoostCategory.BP_STARS:
+			return ACCOUNT_BP_STARS_CATEGORY_COLOR
+		case eBoostCategory.MASTERY:
+			return ACCOUNT_MASTERY_CATEGORY_COLOR
+		default:
+			return DEFAULT_COLOR
+	}
+	unreachable
+}
+
+asset function Boost_GetBoostEventCategoryIcon( Boost boost )
+{
+	if ( boost.uiBadgeIconSmall != $"" )
+		return boost.uiBadgeIconSmall
+	return Boost_GetBoostEventCategoryIconFromCategory( boost.boostCategory )
+}
+
+asset function Boost_GetBoostEventCategoryIconFromCategory( int category )
+{
+	switch ( category )
+	{
+		case eBoostCategory.ACCOUNT_XP:
+			return $"ui_image/rui/menu/xp_boost/BoostXP_sm.rpak"
+		case eBoostCategory.BP_STARS:
+			return $"ui_image/rui/menu/xp_boost/BoostBP_sm.rpak"
+		case eBoostCategory.MASTERY:
+			return $"ui_image/rui/menu/xp_boost/BoostMastery_sm.rpak"
+		default:
+			return $""
+	}
+	unreachable
+}
+
+bool function Boost_IsNew( entity player, int guid )
+{
+	BoostGuidTable playerSeenBoosts = GetPlayerSeenBoosts( player )
+	if ( guid in playerSeenBoosts )
+	{
+		return !playerSeenBoosts[ guid ]
+	}
+	return true
+}
+
+bool function Boost_ConditionsMet( entity player, Boost boost, bool currentMatch = true )
+{
+	
+	
+	bool allConditionsMet = RegionConditionsMet( player, boost, currentMatch )
+		&& GamemodeConditionsMet( player, boost, currentMatch )
+		&& PartyConditionMet( player, boost, currentMatch )
+		&& PlatformConditionsMet( player, boost, currentMatch )
+	return allConditionsMet
+}
+
+bool function Boost_IsPropertyModified( entity player, int boostModifierType, string property )
+{
+	
+	float multModifiers = SumCachedModifiers( GetModifiersForProperty( player, boostModifierType, property, eBoostCalculationType.MULTIPLICATION ) )
+	float addedModifiers = SumCachedModifiers( GetModifiersForProperty( player, boostModifierType, property, eBoostCalculationType.ADDITION ) )
+	return multModifiers != 0 || addedModifiers != 0
+}
+
+
+array< Boost > function Boost_GetBoostsAffectingXPType( entity player, int xpType )
+{
+	BoostTable boosts = Boost_GetPreviousAppliedBoosts( player )
+	array< Boost > affectingBoosts = []
+	foreach ( Boost boost in boosts )
+	{
+		foreach ( BoostModifier effect in boost.effects )
+		{
+			if ( effect.type == eBoostModifierType.ACCOUNT_XP && effect.property in eXPType && eXPType[effect.property] == xpType )
+			{
+				affectingBoosts.append( boost )
+				break
+			}
+		}
+	}
+
+#if DEV
+		printf( "%s: %i\n", FUNC_NAME(), xpType )
+		foreach ( Boost boost in affectingBoosts )
+		{
+			printf( "%s:\t%s (%i) \n", FUNC_NAME(), boost.boostNameLong, boost.guid )
+		}
+#endif
+	return affectingBoosts
+}
+
+bool function Boost_IsAccountXPPropertyModified( entity player, int xpType )
+{
+	return Boost_IsPropertyModified( player, eBoostModifierType.ACCOUNT_XP, GetEnumString( "eXPType", xpType ) )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+int function Boost_GetPostGameChallengeBonus( entity player, int pIdx )
+{
+	string pKey = format( "postGameChallengesProgress[%i].bonus", pIdx )
+	int bonus = player.GetPersistentVarAsInt( pKey )
+	return bonus
+}
+
+int function Boost_GetBonusPostGameAccountXP( entity player, int xpType )
+{
+	string pKey = format( "xp_bonus[%i]", xpType )
+	int bonus   = player.GetPersistentVarAsInt( pKey )
+
+	if ( DEBUG_PRINT_BOOSTS )
+		printf( "sh_boosts %s( %i ): %i", FUNC_NAME(), xpType, bonus )
+
+	return bonus
+}
+
+int function Boost_GetBonusPostGameTotalAccountXP( entity player, array<int> xpTypes )
+{
+	int bonus = 0
+	foreach( int xpType in xpTypes )
+	{
+		bonus += Boost_GetBonusPostGameAccountXP( player, xpType )
+	}
+	return bonus
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+bool function Boost_IsBoostModifierTypeActive( entity player, int type )
+{
+	BoostTable activeBoosts = Boost_GetActiveBoosts( player )
+	foreach ( Boost boost in activeBoosts )
+	{
+		foreach ( BoostModifier boostModifier in boost.effects )
+		{
+			if ( boostModifier.type == type )
+			{
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+
+
+
+
+
+
+
+
+
+[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/sh_pip_scene_templates.gnut.client
+[dump] scripts/vscripts/sh_pip_scene_templates.gnut.client (502 bytes)global function Sh_PIPSceneTemplates_Init
+
+
+void function Sh_PIPSceneTemplates_Init()
+{
+	AddCallback_RegisterRootItemFlavors( void function() {
+		foreach ( asset assetData in GetBaseItemFlavorsFromArray("pip_scene_templates") )
+		{
+			if ( assetData == $"" )
+			{
+				continue
+			}
+
+			ItemFlavor ornull itemFlavorData = RegisterItemFlavorFromSettingsAsset( assetData )
+			if ( itemFlavorData == null )
+			{
+				printt( "Failed to register ItemFlavor from Settings Asset ", assetData )
+			}
+		}
+	} )
+}
+[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/sh_reward_set_tracker.gnut.client
+[dump] scripts/vscripts/sh_reward_set_tracker.gnut.client (7193 bytes)global function ShRewardSetTracker_LevelInit
+
+global function RewardSetTracker_GetDisplayImageAsset
+global function RewardSetTracker_GetFilterType
+global function FilterRewardSetItemsFromPackList
+global function FilterRewardSetItemsFromPackListForRewardItems
+global function RewardSetTracker_GetDisplayType
+global function RewardSetTracker_Get3DModelDisplayFlav
+global function RewardSetTracker_IsStackable
+global function RewardSetTracker_GetDisplayQuantity
+global function RewardSetTracker_GetBrowseItemsTooltip
+global function RewardSetTracker_GetBrowseItemsTitle
+global function RewardSetTracker_GetBrowseItemsDisclaimer
+global function RewardSetTracker_IsLootPoolBrowsable
+
+#if DEV
+global function DEV_RewardSetTracker_GetTrackerFlavByGRXRef
+#endif
+
+
+
+
+
+
+
+
+void function ShRewardSetTracker_LevelInit()
+{
+	AddCallback_RegisterRootItemFlavors( RegisterAllRewardSetTrackersAsItemFlavors )
+}
+
+
+
+void function RegisterAllRewardSetTrackersAsItemFlavors()
+{
+	foreach ( asset rewardSetTrackerAsset in GetBaseItemFlavorsFromArray( "rewardSetTrackers" ) )
+	{
+		if ( rewardSetTrackerAsset == $"" )
+		{
+			continue
+		}
+
+		ItemFlavor ornull rewardSetTrackerOrNull = RegisterItemFlavorFromSettingsAsset( rewardSetTrackerAsset )
+		if ( rewardSetTrackerOrNull == null )
+		{
+			printt( "Failed to register Reward Set Tracker ItemFlavor from Settings Asset ", rewardSetTrackerAsset )
+			continue
+		}
+		ItemFlavor trackerFlav = expect ItemFlavor( rewardSetTrackerOrNull )
+		if ( !GetGlobalSettingsBool( ItemFlavor_GetAsset( trackerFlav ), "hideFromLootCeremony" ) )
+		{
+			RegisterItemFlavorFromSettingsAsset( GetGlobalSettingsAsset( ItemFlavor_GetAsset( trackerFlav ), "filterType" ) )
+		}
+
+		string displayType = GetGlobalSettingsString( ItemFlavor_GetAsset( trackerFlav ), "displayType" )
+		if ( displayType == "3DModel" )
+		{
+			asset displayAsset = GetGlobalSettingsAsset( ItemFlavor_GetAsset( trackerFlav ), "rewardCeremonyDisplayFlav" )
+			RegisterItemFlavorFromSettingsAsset( displayAsset )
+		}
+	}
+}
+
+
+
+
+
+
+
+
+
+asset function RewardSetTracker_GetDisplayImageAsset( ItemFlavor flavor )
+{
+	Assert( ItemFlavor_GetType( flavor ) == eItemType.reward_set_tracker )
+
+	return GetGlobalSettingsAsset( ItemFlavor_GetAsset( flavor ), "rewardCeremonyDisplayImage" )
+}
+
+ItemFlavor function RewardSetTracker_Get3DModelDisplayFlav( ItemFlavor tracker )
+{
+	Assert( ItemFlavor_GetType( tracker ) == eItemType.reward_set_tracker )
+
+	return GetItemFlavorByAsset( GetGlobalSettingsAsset( ItemFlavor_GetAsset( tracker ), "rewardCeremonyDisplayFlav" ) )
+}
+
+bool function RewardSetTracker_IsStackable( ItemFlavor tracker )
+{
+	Assert( ItemFlavor_GetType( tracker ) == eItemType.reward_set_tracker )
+
+	return GetGlobalSettingsBool( ItemFlavor_GetAsset( tracker ), "isStackable" )
+}
+
+int function RewardSetTracker_GetDisplayQuantity( ItemFlavor tracker )
+{
+	Assert( ItemFlavor_GetType( tracker ) == eItemType.reward_set_tracker )
+
+	return GetGlobalSettingsInt( ItemFlavor_GetAsset( tracker ), "quantity" )
+}
+
+string function RewardSetTracker_GetBrowseItemsTooltip( ItemFlavor tracker )
+{
+	Assert( ItemFlavor_GetType( tracker ) == eItemType.reward_set_tracker )
+
+	return GetGlobalSettingsString( ItemFlavor_GetAsset( tracker ), "browseItemsTooltip" )
+}
+
+string function RewardSetTracker_GetBrowseItemsTitle( ItemFlavor tracker )
+{
+	Assert( ItemFlavor_GetType( tracker ) == eItemType.reward_set_tracker )
+
+	return GetGlobalSettingsString( ItemFlavor_GetAsset( tracker ), "browseItemsTitle" )
+}
+
+string function RewardSetTracker_GetBrowseItemsDisclaimer( ItemFlavor tracker )
+{
+	Assert( ItemFlavor_GetType( tracker ) == eItemType.reward_set_tracker )
+
+	return GetGlobalSettingsString( ItemFlavor_GetAsset( tracker ), "browseItemsDisclaimer" )
+}
+
+bool function RewardSetTracker_IsHiddenFromLootCeremony( ItemFlavor tracker )
+{
+	Assert( ItemFlavor_GetType( tracker ) == eItemType.reward_set_tracker )
+
+	return GetGlobalSettingsBool( ItemFlavor_GetAsset( tracker ), "hideFromLootCeremony" )
+}
+
+bool function RewardSetTracker_IsLootPoolBrowsable( ItemFlavor tracker )
+{
+	Assert( ItemFlavor_GetType( tracker ) == eItemType.reward_set_tracker )
+
+	return GetGlobalSettingsBool( ItemFlavor_GetAsset( tracker ), "isLootPoolBrowsable" )
+}
+
+
+
+ItemFlavor function RewardSetTracker_GetFilterTypeFlav( ItemFlavor tracker )
+{
+	Assert( IsItemFlavorStructValid( tracker.guid, eValidation.ASSERT ) )
+	Assert( ItemFlavor_GetType( tracker ) == eItemType.reward_set_tracker )
+
+	return GetItemFlavorByAsset( GetGlobalSettingsAsset( ItemFlavor_GetAsset( tracker ), "filterType" ) )
+}
+
+
+int function RewardSetTracker_GetFilterType( ItemFlavor rewardSetTracker )
+{
+	Assert( IsItemFlavorStructValid( rewardSetTracker.guid, eValidation.ASSERT ) )
+	Assert( ItemFlavor_GetType( rewardSetTracker ) == eItemType.reward_set_tracker )
+
+	return ItemFlavor_GetType( RewardSetTracker_GetFilterTypeFlav( rewardSetTracker ) )
+}
+
+
+
+string function RewardSetTracker_GetDisplayType( ItemFlavor rewardSetTracker )
+{
+	Assert( IsItemFlavorStructValid( rewardSetTracker.guid, eValidation.ASSERT ) )
+	Assert( ItemFlavor_GetType( rewardSetTracker ) == eItemType.reward_set_tracker )
+	return GetGlobalSettingsString( ItemFlavor_GetAsset( rewardSetTracker ), "displayType" )
+}
+
+
+#if DEV
+ItemFlavor ornull function DEV_RewardSetTracker_GetTrackerFlavByGRXRef( string grxRef )
+{
+	array<ItemFlavor> trackers = GetAllItemFlavorsOfType( eItemType.reward_set_tracker )
+	foreach ( ItemFlavor tracker in trackers )
+	{
+		if ( GetGlobalSettingsString( ItemFlavor_GetAsset( tracker ), "grxRef" ) == grxRef )
+		{
+			return tracker
+		}
+	}
+	return null
+}
+#endif
+
+
+array<ItemFlavor> function FilterRewardSetItemsFromPackList( ItemFlavor trackerFlav, array<ItemFlavor> packList )
+{
+	Assert( IsItemFlavorStructValid( trackerFlav.guid, eValidation.ASSERT ) )
+	Assert( ItemFlavor_GetType( trackerFlav ) == eItemType.reward_set_tracker,
+		format("FilterRewardSetItemsFromPackList expects an ItemFlavor with type == eItemType.reward_set_tracker, but received type %d instead.", ItemFlavor_GetTypeName( trackerFlav ) ) )
+
+	int filterType = RewardSetTracker_GetFilterType( trackerFlav )
+	array<ItemFlavor> filteredPackList
+	foreach( ItemFlavor flav in packList )
+	{
+		if ( ItemFlavor_GetType( flav ) != filterType )
+		{
+			if ( ItemFlavor_GetType( flav) == eItemType.reward_set_tracker && RewardSetTracker_IsHiddenFromLootCeremony( flav ) )
+				continue
+
+			filteredPackList.append( flav )
+		}
+	}
+	return filteredPackList
+}
+
+array<RewardItemFlavor> function FilterRewardSetItemsFromPackListForRewardItems( ItemFlavor trackerFlav, array<RewardItemFlavor> packList )
+{
+	Assert( IsItemFlavorStructValid( trackerFlav.guid, eValidation.ASSERT ) )
+	Assert( ItemFlavor_GetType( trackerFlav ) == eItemType.reward_set_tracker,
+		format("FilterRewardSetItemsFromPackListForRewardItems expects an ItemFlavor with type == eItemType.reward_set_tracker, but received type %d instead.", ItemFlavor_GetTypeName( trackerFlav ) ) )
+
+	int filterType = RewardSetTracker_GetFilterType( trackerFlav )
+	array<RewardItemFlavor> filteredPackList
+	foreach( RewardItemFlavor flav in packList )
+	{
+		if ( ItemFlavor_GetType( flav.reward ) != filterType )
+		{
+			filteredPackList.append( flav )
+		}
+	}
+	return filteredPackList
+}
+
+
+[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/sh_player_pass.gnut.client
+[dump] scripts/vscripts/sh_player_pass.gnut.client (22809 bytes)global function ShPlayerPass_LevelInit
+
+global function PlayerPass_IsPassOfType
+global function PlayerPass_GetAllPassesOfType
+global function PlayerPass_GetLatestPassOfType
+global function PlayerPass_GetMaxLevelIndex
+global function PlayerPass_GetFallbackRewardDataTable
+global function PlayerPass_IsPassTypeActive
+global function PlayerPass_GetPassLevel
+global function PlayerPass_GetPassLevelForXP
+
+global function PlayerPass_GetProgress
+global function PlayerPass_GetLastSeenProgress
+
+global function PlayerPass_GetCurrentLevelProgress
+global function PlayerPass_GetDaysDuration
+global function PlayerPass_GetExpirationTime
+global function PlayerPass_GetAssignedPass
+global function PlayerPass_GetAssignedPassesOfType
+global function PlayerPass_GetCompleteAcknowledged
+global function PlayerPass_GetLinkedChallengeCollection
+global function PlayerPass_IsFeatureEnabled
+global function PlayerPass_IsFeatureAssignmentEnabled
+global function PlayerPass_IsActive
+
+global function PlayerPass_GetOwnershipState
+global function PlayerPass_IsAssigned
+global function PlayerPass_IsLegendPass
+
+
+global function NPP_IsNPPLegend
+global function NPP_ShouldDisableGRXForNPPLegend
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global struct PlayerPassData
+{
+	ItemFlavor& pass
+	int         maxPassLevel
+
+	table< int, table< int, array<ItemFlavor> > > challenges
+}
+
+struct FileStruct
+{
+	table<ItemFlavor, PlayerPassData> passDataMap
+
+	ItemFlavor ornull latestVersionNPP
+	int expirationTimestampNPP
+
+	ItemFlavor ornull latestVersionRPP
+	int expirationTimestampRPP
+
+
+
+
+}
+FileStruct file
+
+
+const string NPP_CARD_PVAR = "stats.npp_cards_earned"
+const string NPP_COMPLETE_ACK_PVAR = "nppCompleteAcknowledged"
+const string NPP_EXPIRATION_TIME_PVAR = "nppExpirationTime"
+const string NPP_IS_ACTIVE_PVAR = "activeNPP"
+
+const NPP_KILLSWITCH_VAR = "npp_enabled"
+const NPP_ASSIGNMENT_KILLSWITCH_VAR = "npp_assignment_enabled"
+
+global const string NPP_REWARDSEQ_NAME = "npp_grxFreeRewardSeq"
+
+const string	NPP_GRANDFATHER_REWARDSEQ_NAME	= "npp_grandfather_rewardseq"
+const int		NPP_GRANDFATHER_REWARDSEQ_START	= 0
+
+const int		NPP_GRANDFATHER_REWARDSEQ_DONE	= 2 
+const int		NPP_GRANDFATHER_S22_LAUNCH_TIME	= 1722963600	
+
+const asset ALL_LEGENDS_BOT_MODE = $"settings/itemflav/account_flag/account_flag_bot_mode_all_legends_playable.rpak"
+
+global const string BATTLE_PASS_PDEF_PREFIX = "battlePasses"
+global const string NEW_PLAYER_PASS_PDEF_PREFIX = "newPlayerPasses"
+global const string NEW_PLAYER_PASS_PDEF_PVAR_FORMAT_STRING = NEW_PLAYER_PASS_PDEF_PREFIX + "[%s].%s" 
+global const string PLAYER_PASSES_PDEF_LAST_SEEN_PVAR = "lastSeenEarnedXP"
+global const string PLAYER_PASSES_PDEF_LOBBY_LAST_SEEN_PVAR = "lobbyLastSeenEarnedXP"
+global const string PLAYER_PASSES_PDEF_PREFIX = "playerPasses"
+global const string PLAYER_PASSES_PDEF_XP_PVAR_NAME = "earnedXP"
+global const string PLAYER_PASSES_PDEF_COMPLETE_ACK_PVAR = "completeAcknowledged"
+global const string PLAYER_PASSES_PDEF_ASSIGN_TIME_PVAR = "timestampAssigned"
+global const string PLAYER_PASSES_PDEF_PVAR_FORMAT_STRING = PLAYER_PASSES_PDEF_PREFIX + "[%s].%s" 
+global const string PLAYER_PASSES_REWARD_SEQ_FORMAT_STRING = PLAYER_PASSES_PDEF_PREFIX + "_%s__grxRewardSeq"
+global const int PLAYER_PASSES_XP_PER_LEVEL = STARS_TO_COMPLETE_BP_LEVEL
+
+
+global enum ePassOwnershipState
+{
+	CAN_BUY_FIRST_TIME,
+	CAN_BUY_REPURCHASE, 
+	CANNOT_BUY_LOCKED, 
+}
+
+
+
+
+
+
+
+
+
+
+
+
+const string RPP_EXPIRATION_TIME_PVAR = "rppExpirationTime"
+const string RPP_IS_ACTIVE_PVAR = "activeRPP"
+
+global const int RPP_REQ_DAYS_LAPSED = 180
+const RPP_KILLSWITCH_VAR = "rpp_enabled"
+const RPP_ASSIGNMENT_KILLSWITCH_VAR = "rpp_assignment_enabled"
+
+global const string ACCOUNTPASS_KILLSWITCH_VAR = "accountpass_enabled"
+
+
+const string LEGENDPASS_KILLSWITCH_VAR = "legendpass_enabled"
+const string LEGENDPASS_ASSIGNMENT_KILLSWITCH_VAR = "legendpass_assignment_enabled"
+
+
+#if DEV
+	global bool g_blockSaveDateLoggedIn = false
+#endif
+
+void function ShPlayerPass_LevelInit()
+{
+	AddCallback_RegisterRootItemFlavors( OnRegisterRootItemFlavors )
+
+
+
+
+
+
+
+
+
+
+
+		Remote_RegisterServerFunction ( "ClientCallback_UpdatePlayerPassAssignment" )
+		Remote_RegisterServerFunction( "ClientCallback_rppAssignmentAcknowledged" )
+		Remote_RegisterServerFunction( "ClientCallback_UpdatePassLastInfo", "int", 0, ePassLastSeenType.COUNT - 1, "itemflavor", eItemType.battlepass ) 
+		Remote_RegisterServerFunction( "ClientCallback_UpdateAllPassLastInfo", "int", 0, ePassLastSeenType.COUNT - 1 )
+
+
+	AddCallback_OnItemFlavorRegistered( eItemType.battlepass, void function( ItemFlavor pass ) {
+		if ( PlayerPass_IsPassOfType( pass, ePassType.SEASONAL ) )
+		{
+			return 
+		}
+		if ( PlayerPass_IsPassOfType( pass, ePassType.ACCOUNT ) )
+		{
+			return 
+		}
+
+#if CHALLENGE_DEBUG
+			printt( FUNC_NAME() )
+#endif
+
+		PlayerPassData passData
+		passData.pass = pass
+
+		var passDataTable = BattlePass_GetScheduleDatatable( pass )
+		int numRows       = GetDataTableRowCount( passDataTable )
+		int maxLevels     = GetDataTableInt( passDataTable, numRows - 1, GetDataTableColumnByName( passDataTable, "levelIndex" ) ) + 1
+
+		passData.maxPassLevel = maxLevels - 1 
+
+
+		if ( BattlePass_GetType( pass ) == ePassType.LEGEND )
+			PlayerPass_GetLinkedChallengeCollection( pass ) 
+
+
+		file.passDataMap[pass] <- passData
+	} )
+}
+
+void function OnRegisterRootItemFlavors()
+{
+	foreach ( asset battlePassAsset in GetBaseItemFlavorsFromArray( "nonSeasonalPasses" ) )
+	{
+		if ( battlePassAsset == $"" )
+		{
+			continue
+		}
+
+		ItemFlavor ornull battlePass = RegisterItemFlavorFromSettingsAsset( battlePassAsset )
+		if ( battlePass == null )
+		{
+			continue
+		}
+
+		expect ItemFlavor( battlePass )
+		if ( PlayerPass_IsPassOfType( battlePass, ePassType.SEASONAL ) )
+		{
+			continue
+		}
+
+		if ( GetGlobalSettingsBool( ItemFlavor_GetAsset( battlePass ), "latestVersionPass" ) )
+		{
+			if ( PlayerPass_IsPassOfType( battlePass, ePassType.NEWPLAYER ) )
+			{
+				if ( PlayerPass_GetLatestPassOfType( ePassType.NEWPLAYER ) != null )
+				{
+					if ( ItemFlavor_GetGUID( battlePass ) != ItemFlavor_GetGUID( expect ItemFlavor( PlayerPass_GetLatestPassOfType( ePassType.NEWPLAYER ) ) ) )
+					{
+						Assert( false, "Multiple NPPs " + ItemFlavor_GetGUIDString( battlePass ) + " and " + ItemFlavor_GetGUIDString( expect ItemFlavor( PlayerPass_GetLatestPassOfType( ePassType.NEWPLAYER ) ) ) + " are marked as the current NPP. Correct in bakery." )
+					}
+				}
+				else
+				{
+					PlayerPass_SetLatestVersionPassOfType( ePassType.NEWPLAYER, battlePass )
+				}
+			}
+
+			if ( PlayerPass_IsPassOfType( battlePass, ePassType.RETURNING_PLAYER ) )
+			{
+				if ( PlayerPass_GetLatestPassOfType( ePassType.RETURNING_PLAYER ) != null )
+				{
+					if ( ItemFlavor_GetGUID( battlePass ) != ItemFlavor_GetGUID( expect ItemFlavor( PlayerPass_GetLatestPassOfType( ePassType.RETURNING_PLAYER ) ) ) )
+					{
+						Assert( false, "Multiple RPPs " + ItemFlavor_GetGUIDString( battlePass ) + " and " + ItemFlavor_GetGUIDString( expect ItemFlavor( PlayerPass_GetLatestPassOfType( ePassType.RETURNING_PLAYER ) ) ) + " are marked as the current RPP. Correct in bakery." )
+					}
+				}
+				else
+				{
+					PlayerPass_SetLatestVersionPassOfType( ePassType.RETURNING_PLAYER, battlePass )
+				}
+			}
+
+			foreach ( int index, var voucherBlock in IterateSettingsAssetArray( ItemFlavor_GetAsset( battlePass ), "nonStarVouchers" ) )
+			{
+				RegisterItemFlavorFromSettingsAsset( GetSettingsBlockAsset( voucherBlock, "voucherFlav" ) )
+			}
+		}
+	}
+}
+
+
+
+#if DEV
+
+
+
+
+
+
+#endif
+
+#if DEV
+
+
+
+
+
+
+
+
+
+
+#endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+bool function NPP_IsNPPLegend( ItemFlavor legendFlav )
+{
+	ItemFlavor legendA = GetItemFlavorByAsset( PATHFINDER_ITEMFLAV )
+	ItemFlavor legendB = GetItemFlavorByAsset( GIBRALTAR_ITEMFLAV )
+
+	if ( legendFlav.guid == legendA.guid || legendFlav.guid == legendB.guid )
+	{
+		return true
+	}
+
+	return false
+}
+
+bool function NPP_ShouldDisableGRXForNPPLegend( entity player, ItemFlavor character )
+{
+	if ( NPP_IsNPPLegend( character )
+			&& !Loadout_IsCharacterOwnedByPlayerIgnoringUnlockSources( player, character )
+			&& !Character_IsUnlockedForBattlePassV2( player, character )
+			&& !Character_IsCharacterUnlockedForCalevent( character ) )
+	{
+		return true
+	}
+	return false
+}
+
+
+
+
+
+#if DEV
+
+
+
+
+
+
+#endif
+
+#if DEV
+
+
+
+
+
+
+
+
+
+
+#endif
+
+#if DEV
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#endif
+
+
+
+void function PlayerPass_SetLatestVersionPassOfType( int passType, ItemFlavor ornull pass )
+{
+	switch ( passType )
+	{
+		case ePassType.NEWPLAYER:
+			file.latestVersionNPP = pass
+			break
+
+		case ePassType.RETURNING_PLAYER:
+			file.latestVersionRPP = pass
+			break
+	}
+}
+
+bool function PlayerPass_IsPassOfType( ItemFlavor pass, int passType )
+{
+	if ( pass.typeIndex != eItemType.battlepass )
+	{
+		Assert( false, "Called PlayerPass_IsPassOfType on non-Battlepass Item Flavor" )
+		return false
+	}
+
+	return ( BattlePass_GetType( pass ) == passType )
+}
+
+array< ItemFlavor > function PlayerPass_GetAllPassesOfType( int passType )
+{
+	array< ItemFlavor > passes
+	foreach ( ItemFlavor pass in GetAllItemFlavorsOfType( eItemType.battlepass ) )
+	{
+		if ( BattlePass_GetType( pass ) == passType )
+		{
+			passes.append( pass )
+		}
+	}
+
+	return passes
+}
+
+ItemFlavor ornull function PlayerPass_GetLatestPassOfType( int passType )
+{
+	ItemFlavor ornull passOrNull = null
+
+	switch ( passType )
+	{
+		case ePassType.NEWPLAYER:
+			passOrNull = file.latestVersionNPP
+			break
+
+		case ePassType.RETURNING_PLAYER:
+			passOrNull = file.latestVersionRPP
+			break
+	}
+
+	return passOrNull
+}
+
+int function PlayerPass_GetMaxLevelIndex( ItemFlavor pass )
+{
+	PlayerPassData passData = file.passDataMap[pass]
+	return passData.maxPassLevel
+}
+
+ItemFlavor ornull function PlayerPass_GetLinkedChallengeCollection( ItemFlavor pass )
+{
+	if ( pass.typeIndex != eItemType.battlepass )
+	{
+		Assert( false, "Called PlayerPass_IsPassOfType on non-Battlepass Item Flavor" )
+		return null
+	}
+
+	asset linkedChallengeCollectionAsset = GetGlobalSettingsAsset( ItemFlavor_GetAsset( pass ), "linkedChallengeCollection" )
+	if ( linkedChallengeCollectionAsset == $"" )
+	{
+		return null
+	}
+
+	if ( IsValidItemFlavorSettingsAsset( linkedChallengeCollectionAsset ) )
+		return GetItemFlavorByAsset( linkedChallengeCollectionAsset )
+
+	return RegisterItemFlavorFromSettingsAsset( linkedChallengeCollectionAsset )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var function PlayerPass_GetFallbackRewardDataTable( ItemFlavor pass )
+{
+	Assert( ItemFlavor_GetType( pass ) == eItemType.battlepass )
+
+	asset rewardScheduleAsset = GetGlobalSettingsAsset( ItemFlavor_GetAsset( pass ), "nonSeasonalFallbackRewardDatatable" )
+
+	if ( rewardScheduleAsset == $"" )
+	{
+		return rewardScheduleAsset
+	}
+
+	return GetDataTable( rewardScheduleAsset )
+}
+
+int function PlayerPass_GetDaysDuration( ItemFlavor pass )
+{
+	Assert( ItemFlavor_GetType( pass ) == eItemType.battlepass )
+
+	int daysDuration = GetGlobalSettingsInt( ItemFlavor_GetAsset( pass ), "bpv2DaysDuration" )
+
+	if ( PlayerPass_IsPassOfType( pass, ePassType.RETURNING_PLAYER ) )
+	{
+		daysDuration = GetPlaylistVarInt( GetCurrentPlaylistName(), "rpp_days_duration_override", daysDuration )
+	}
+
+	return daysDuration
+}
+
+bool function PlayerPass_IsPassTypeActive( entity player, int passType )
+{
+	bool isTypeEnabled
+
+	switch ( passType )
+	{
+		case ePassType.NEWPLAYER:
+			isTypeEnabled = PlayerPass_IsFeatureEnabled( ePassType.NEWPLAYER )
+			break
+
+		case ePassType.RETURNING_PLAYER:
+			isTypeEnabled = PlayerPass_IsFeatureEnabled( ePassType.RETURNING_PLAYER )
+			break
+
+		case ePassType.LEGEND:
+			isTypeEnabled = PlayerPass_IsFeatureEnabled( ePassType.LEGEND )
+			break
+
+		case ePassType.ACCOUNT:
+			isTypeEnabled = PlayerPass_IsFeatureEnabled( ePassType.ACCOUNT )
+			break
+	}
+
+	if ( !isTypeEnabled )
+	{
+		return false
+	}
+
+	if ( !IsValid( player ) )
+	{
+		return false
+	}
+
+
+
+
+
+
+
+
+
+	bool active
+
+	switch ( passType )
+	{
+		case ePassType.NEWPLAYER:
+			active = bool( player.GetPersistentVar( NPP_IS_ACTIVE_PVAR ) )
+			break
+
+		case ePassType.RETURNING_PLAYER:
+			active = bool( player.GetPersistentVar( RPP_IS_ACTIVE_PVAR ) )
+			break
+
+
+		case ePassType.LEGEND:
+			
+			for ( int passArrayIdx = 0 ; passArrayIdx < NUM_ACTIVE_PLAYER_PASSES ; passArrayIdx++ )
+			{
+				ItemFlavor ornull pass = PlayerPass_GetPassAtPersistenceSlot( player, passArrayIdx )
+				if ( pass != null )
+				{
+					int persistencePassType = BattlePass_GetType( expect ItemFlavor( pass ) )
+					if ( persistencePassType == ePassType.LEGEND )
+					{
+						active = true
+						break
+					}
+				}
+			}
+			break
+
+		case ePassType.ACCOUNT:
+			active = isTypeEnabled
+			break
+	}
+
+	return active
+}
+
+int function PlayerPass_GetPassLevel( entity player, ItemFlavor pass )
+{
+	int passLevel
+	switch ( BattlePass_GetType( pass ) )
+	{
+		case ePassType.NEWPLAYER:
+			passLevel = player.GetPersistentVarAsInt( NPP_CARD_PVAR ) / PLAYER_PASSES_XP_PER_LEVEL
+			break
+
+		case ePassType.ACCOUNT:
+			passLevel = GetPlayerAccountLevel( player )
+			break
+
+
+		default:
+			passLevel = player.GetPersistentVarAsInt( format( PLAYER_PASSES_PDEF_PVAR_FORMAT_STRING, ItemFlavor_GetGUIDString( pass ), PLAYER_PASSES_PDEF_XP_PVAR_NAME ) ) / PLAYER_PASSES_XP_PER_LEVEL
+			break
+
+	}
+
+	return passLevel
+}
+
+int function PlayerPass_GetPassLevelForXP( entity player, ItemFlavor pass, int xp )
+{
+	int passLevel
+	switch ( BattlePass_GetType( pass ) )
+	{
+		case ePassType.ACCOUNT:
+			passLevel = GetAccountLevelForXP( xp )
+			break
+
+		default:
+			passLevel = xp / PLAYER_PASSES_XP_PER_LEVEL
+			break
+	}
+
+	return passLevel
+}
+
+int function PlayerPass_GetCurrentLevelProgress( entity player, ItemFlavor pass )
+{
+	int levelProgress
+
+	switch ( BattlePass_GetType( pass ) )
+	{
+		case ePassType.NEWPLAYER:
+			levelProgress = player.GetPersistentVarAsInt( NPP_CARD_PVAR ) % PLAYER_PASSES_XP_PER_LEVEL
+			break
+
+
+		default:
+			levelProgress = PlayerPass_GetProgress( player, pass ) % PLAYER_PASSES_XP_PER_LEVEL
+			break
+
+	}
+
+	return levelProgress
+}
+
+int function PlayerPass_GetExpirationTime( entity player, int passType )
+{
+	int expirationTime
+
+	switch ( passType )
+	{
+		case ePassType.NEWPLAYER:
+			expirationTime = player.GetPersistentVarAsInt( NPP_EXPIRATION_TIME_PVAR )
+			break
+
+		case ePassType.RETURNING_PLAYER:
+			expirationTime = player.GetPersistentVarAsInt( RPP_EXPIRATION_TIME_PVAR)
+	}
+
+	return expirationTime
+}
+
+ItemFlavor ornull function PlayerPass_GetAssignedPass( entity player, int passType )
+{
+
+	Assert( passType != ePassType.LEGEND )
+
+
+	switch ( passType )
+	{
+		case ePassType.NEWPLAYER:
+			if ( PlayerPass_IsActive( player, ePassType.NEWPLAYER ) )
+			{
+				return GetItemFlavorOrNullByGUID( player.GetPersistentVarAsInt( "nppAssignedGUID" ) )
+			}
+			break
+
+		case ePassType.RETURNING_PLAYER:
+			if ( PlayerPass_IsActive( player, ePassType.RETURNING_PLAYER ) )
+			{
+				return GetItemFlavorOrNullByGUID( player.GetPersistentVarAsInt( "rppAssignedGUID" ) )
+			}
+			break
+
+		case ePassType.ACCOUNT:
+			if ( PlayerPass_IsActive( player, ePassType.ACCOUNT ) )
+			{
+
+
+
+
+				return GetAccountProgressionPass()
+
+			}
+			break
+	}
+
+	return null
+}
+
+array<ItemFlavor> function PlayerPass_GetAssignedPassesOfType( entity player, int passType )
+{
+	array<ItemFlavor> passes
+
+	switch ( passType )
+	{
+		case ePassType.NEWPLAYER:
+			if ( PlayerPass_IsActive( player, ePassType.NEWPLAYER ) )
+			{
+				ItemFlavor ornull npp = GetItemFlavorOrNullByGUID( player.GetPersistentVarAsInt( "nppAssignedGUID" ) )
+				if ( npp != null )
+				{
+					passes.append( expect ItemFlavor( npp ) )
+				}
+			}
+			break
+
+		case ePassType.RETURNING_PLAYER:
+			if ( PlayerPass_IsActive( player, ePassType.RETURNING_PLAYER ) )
+			{
+				ItemFlavor ornull rpp = GetItemFlavorOrNullByGUID( player.GetPersistentVarAsInt( "rppAssignedGUID" ) )
+				if ( rpp != null )
+				{
+					passes.append( expect ItemFlavor( rpp ) )
+				}
+			}
+			break
+
+		case ePassType.LEGEND:
+			if ( PlayerPass_IsActive( player, ePassType.LEGEND ) )
+			{
+				for ( int passArrayIdx = 0 ; passArrayIdx < NUM_ACTIVE_PLAYER_PASSES ; passArrayIdx++ )
+				{
+					ItemFlavor ornull pass = PlayerPass_GetPassAtPersistenceSlot( player, passArrayIdx )
+					if ( pass != null )
+					{
+						passes.append( expect ItemFlavor( pass ) )
+					}
+				}
+			}
+			break
+
+	}
+
+	return passes
+}
+
+bool function PlayerPass_GetCompleteAcknowledged( entity player, ItemFlavor pass )
+{
+	switch ( BattlePass_GetType( pass ) )
+	{
+		case ePassType.NEWPLAYER:
+			return bool( player.GetPersistentVar( NPP_COMPLETE_ACK_PVAR ) )
+
+
+		default:
+			return bool( player.GetPersistentVar( format( PLAYER_PASSES_PDEF_PVAR_FORMAT_STRING, ItemFlavor_GetGUIDString( pass ), PLAYER_PASSES_PDEF_COMPLETE_ACK_PVAR ) ) )
+
+	}
+
+	return false
+}
+
+bool function PlayerPass_IsFeatureEnabled( int passType )
+{
+	bool isEnabled = true
+
+
+	if ( !IsFullyConnected() )
+	{
+		return isEnabled
+	}
+
+
+	switch ( passType )
+	{
+		case ePassType.NEWPLAYER:
+			isEnabled = GetCurrentPlaylistVarBool( NPP_KILLSWITCH_VAR, true )
+			break
+
+		case ePassType.RETURNING_PLAYER:
+			isEnabled = GetCurrentPlaylistVarBool( RPP_KILLSWITCH_VAR, true )
+			break
+
+
+		case ePassType.LEGEND:
+			isEnabled = GetCurrentPlaylistVarBool( LEGENDPASS_KILLSWITCH_VAR, true )
+			break
+
+		case ePassType.ACCOUNT:
+			isEnabled = GetCurrentPlaylistVarBool( ACCOUNTPASS_KILLSWITCH_VAR, true )
+			break
+	}
+
+	return isEnabled
+}
+
+bool function PlayerPass_IsFeatureAssignmentEnabled( int passType )
+{
+	bool isEnabled = true
+
+	switch ( passType )
+	{
+		case ePassType.NEWPLAYER:
+#if DEV
+				if ( GetConVarBool( "ftue_npp_assignment_enabled" ) == false )
+				{
+					return false
+				}
+#endif
+
+			isEnabled = GetCurrentPlaylistVarBool( NPP_ASSIGNMENT_KILLSWITCH_VAR, true )
+			break
+
+		case ePassType.RETURNING_PLAYER:
+#if DEV
+				if ( GetConVarBool( "rpp_assignment_enabled" ) == false )
+				{
+					return false
+				}
+#endif
+
+			isEnabled = GetCurrentPlaylistVarBool( RPP_ASSIGNMENT_KILLSWITCH_VAR, true )
+			break
+
+
+			isEnabled = GetCurrentPlaylistVarBool( LEGENDPASS_ASSIGNMENT_KILLSWITCH_VAR, true )
+
+	}
+
+	return isEnabled
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+int function PlayerPass_GetOwnershipState( ItemFlavor pass, entity player = null )
+{
+	Assert( BattlePass_GetType( pass ) == ePassType.LEGEND ) 
+
+
+
+
+		Assert( player != null )
+		Assert( GRX_IsInventoryReady( player ) )
+
+
+	ItemFlavor ornull currentSeason = GetActiveSeason( GetUnixTimestamp() )
+	int purchaseTimestamp = player.GetPersistentVarAsInt( format( PLAYER_PASSES_PDEF_PVAR_FORMAT_STRING, ItemFlavor_GetGUIDString( pass ), PLAYER_PASSES_PDEF_ASSIGN_TIME_PVAR ) )
+	ItemFlavor ornull seasonOfPurchase = GetActiveSeason( purchaseTimestamp )
+	if ( purchaseTimestamp != 0 )
+	{
+		if ( seasonOfPurchase == currentSeason )
+			return ePassOwnershipState.CANNOT_BUY_LOCKED
+
+		return ePassOwnershipState.CAN_BUY_REPURCHASE
+	}
+
+	return ePassOwnershipState.CAN_BUY_FIRST_TIME
+}
+
+
+bool function PlayerPass_IsActive( entity player, int passType )
+{
+	bool active = false
+
+	if ( !PlayerPass_IsFeatureEnabled( passType ) )
+	{
+		return false
+	}
+
+	switch ( passType )
+	{
+		case ePassType.NEWPLAYER:
+			
+			if ( player.GetPersistentVarAsInt( "installUnixTime" ) == 0 )
+			{
+				active = true
+				break
+			}
+
+			if ( PlayerPass_IsPassTypeActive( player, ePassType.NEWPLAYER ) )
+			{
+				active = true
+				break
+			}
+			break
+
+		case ePassType.RETURNING_PLAYER:
+
+			if ( PlayerPass_IsPassTypeActive( player, ePassType.RETURNING_PLAYER ) )
+			{
+				active = true
+				break
+			}
+			break
+
+
+		case ePassType.LEGEND:
+			if ( PlayerPass_IsPassTypeActive( player, ePassType.LEGEND ) )
+			{
+				active = true
+				break
+			}
+			break
+
+
+		case ePassType.ACCOUNT:
+			if ( PlayerPass_IsPassTypeActive( player, ePassType.ACCOUNT ) )
+				return true 
+	}
+
+	return active
+}
+
+
+
+int function PlayerPass_GetPersistenceSlot( entity player, ItemFlavor passFlav )
+{
+	Assert( ItemFlavor_GetType( passFlav ) == eItemType.battlepass )
+	for ( int passArrayIdx = 0 ; passArrayIdx < NUM_ACTIVE_PLAYER_PASSES ; passArrayIdx++ )
+	{
+		SettingsAssetGUID passGuid = player.GetPersistentVarAsInt( format( PASSES_PVAR_KEY_FSTRING_GUID, passArrayIdx ) )
+		if ( passGuid == passFlav.guid )
+			return passArrayIdx
+	}
+
+	return -1
+}
+
+ItemFlavor ornull function PlayerPass_GetPassAtPersistenceSlot( entity player, int passArrayIdx )
+{
+	SettingsAssetGUID passGuid = player.GetPersistentVarAsInt( format( PASSES_PVAR_KEY_FSTRING_GUID, passArrayIdx ) )
+	if ( passGuid > 0 )
+		return GetItemFlavorOrNullByGUID( passGuid )
+
+	return null
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+bool function PlayerPass_IsAssigned( entity player, ItemFlavor passFlav )
+{
+	return PlayerPass_GetPersistenceSlot( player, passFlav ) >= 0
+}
+
+bool function PlayerPass_IsLegendPass( ItemFlavor flav )
+{
+	return ( ItemFlavor_GetType( flav ) == eItemType.battlepass && BattlePass_GetType( flav ) == ePassType.LEGEND )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+int function PlayerPass_GetProgress( entity player, ItemFlavor pass )
+{
+	Assert(  BattlePass_GetType( pass ) != ePassType.SEASONAL )
+	int passType = BattlePass_GetType( pass )
+	switch ( passType )
+	{
+ 		case ePassType.NEWPLAYER:
+			return player.GetPersistentVarAsInt( NPP_CARD_PVAR )
+
+		case ePassType.ACCOUNT:
+
+
+
+				return player.GetPersistentVarAsInt( "xp" )
+
+
+		default:
+			string pvarName = format( PLAYER_PASSES_PDEF_PVAR_FORMAT_STRING, ItemFlavor_GetGUIDString( pass ), PLAYER_PASSES_PDEF_XP_PVAR_NAME )
+			return player.GetPersistentVarAsInt( pvarName )
+	}
+	unreachable
+}
+
+int function PlayerPass_GetLastSeenProgress( entity player, ItemFlavor pass, int source )
+{
+	int passType = BattlePass_GetType( pass )
+	string baseString
+	switch ( passType )
+	{
+		case ePassType.SEASONAL:
+			baseString = format( BATTLE_PASS_PDEF_PREFIX + "[%s]", ItemFlavor_GetGUIDString( pass ) )
+			break
+
+		case ePassType.NEWPLAYER:
+			baseString = format( NEW_PLAYER_PASS_PDEF_PREFIX + "[%s]", ItemFlavor_GetGUIDString( pass ) )
+			break
+
+		case ePassType.ACCOUNT:
+		default:
+			baseString = format( PLAYER_PASSES_PDEF_PREFIX + "[%s]", ItemFlavor_GetGUIDString( pass ) )
+			break
+	}
+
+	switch ( source )
+	{
+		case ePassLastSeenType.LOBBY:
+
+
+
+			return player.GetPersistentVarAsInt( baseString + "." + PLAYER_PASSES_PDEF_LOBBY_LAST_SEEN_PVAR )
+
+			break
+
+		default:
+
+
+
+			return player.GetPersistentVarAsInt(  baseString + "." + PLAYER_PASSES_PDEF_LAST_SEEN_PVAR )
+
+			break
+	}
+	unreachable
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/sh_retropack.gnut.client
+[dump] scripts/vscripts/sh_retropack.gnut.client (861 bytes)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/sh_custom_match.nut.client
+[dump] scripts/vscripts/sh_custom_match.nut.client (1551 bytes)
+global function CustomMatch_LoadLegendBanData
+global function CustomMatch_GetBannedLegends
+global function CustomMatch_IsLegendBanned
+
+
+struct
+{
+	array<ItemFlavor> bannedCharacters 
+} file
+
+
+void function CustomMatch_LoadLegendBanData()
+{
+	if ( !GetConVarBool("customMatch_allowBanningLegends") )
+		return
+
+	string convar = GetConVarString( "customMatch_BannedLegends" )
+	printt("LEGENDBAN Loading Banned legends:", convar )
+	array<string> bannedLegends = split( convar, "," )
+	foreach( string shortCharacterName in bannedLegends )
+	{
+		string ref = ( "character_"+ shortCharacterName.tolower() )
+		if ( IsValidItemFlavorCharacterRef( ref ) )
+		{
+			ItemFlavor char = GetItemFlavorByCharacterRef( ref )
+			file.bannedCharacters.append( char )
+		}
+		else
+		{
+			Warning("LEGENDBAN: character '" + shortCharacterName + "' was not ban as it's not a valid character." )
+		}
+	}
+
+	printt("LEGENDBAN Banned legends loaded" )
+}
+
+array<ItemFlavor> function CustomMatch_GetBannedLegends()
+{
+	if ( !GetConVarBool("customMatch_allowBanningLegends") )
+		return []
+
+	printt("LEGENDBAN there are ", string(file.bannedCharacters), "banned legends")
+	return file.bannedCharacters
+}
+
+bool function CustomMatch_IsLegendBanned( ItemFlavor character, entity player )
+{
+	if ( !GetConVarBool("customMatch_allowBanningLegends") )
+		return false
+
+	bool retval = file.bannedCharacters.contains( character )
+
+
+
+		string name = ItemFlavor_GetCharacterRef( character )
+
+	printt("LEGENDBAN ", name, "is locked:", string(retval), "note player:", string(player) )
+	return retval
+}
+
+[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/sh_inbox.gnut.client
+[dump] scripts/vscripts/sh_inbox.gnut.client (2364 bytes)
+global function Inbox_LevelInit
+global function Inbox_LevelShutdown
+global function Inbox_IsUMInboxEnabled
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global const int INBOX_MAX_MESSAGE_COUNT = 30
+const string INBOX_MESSAGE_PERSISTENCE_STRUCT = "inboxMessages"
+const string PIN_MESSAGE_TYPE_INBOX = "inbox"
+const int SECONDS_PER_30_DAYS = 86400 * 30
+
+#if DEV
+const bool USE_DUMMY_MESSAGES = false
+#endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function Inbox_LevelInit()
+{
+
+		Remote_RegisterServerFunction( "ClientCallback_UpdateInboxMessageInPersistence", "int", 0, INBOX_MAX_MESSAGE_COUNT, "int", INT_MIN, INT_MAX, "int", 0, INT_MAX, "bool" )
+		Remote_RegisterServerFunction( "ClientCallback_MarkInboxMessageAsReadInPersistence", "int", 0, INBOX_MAX_MESSAGE_COUNT )
+		Remote_RegisterServerFunction( "ClientCallback_RemoveInboxMessageInPersistence", "int", 0, INBOX_MAX_MESSAGE_COUNT )
+
+
+
+
+
+
+
+
+
+
+}
+
+
+
+void function Inbox_LevelShutdown()
+{
+
+
+
+
+
+
+}
+
+
+
+bool function Inbox_IsUMInboxEnabled()
+{
+	return GetConVarBool( "EADP_um_inbox_message_enabled" )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function ClientCallback_UpdateInboxMessageInPersistence( entity player, int messageIndex, int messageId, int messageTimestamp, bool messageHasRead )
+{
+
+
+
+
+
+}
+
+
+
+void function ClientCallback_MarkInboxMessageAsReadInPersistence( entity player, int messageIndex )
+{
+
+
+
+}
+
+
+
+void function ClientCallback_RemoveInboxMessageInPersistence( entity player, int messageIndex )
+{
+
+
+
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/sh_perks.gnut.client
+[dump] scripts/vscripts/sh_perks.gnut.client (33668 bytes)global asset PERK_MINIMAP_OBJECT = $"ui/minimap_square_perk_icon.rpak"
+global asset PERK_FULL_MINIMAP_OBJECT = $"ui/in_world_minimap_square_perk_icon.rpak"
+global asset PERK_IN_WORLD_HUD_OBJECT = $"ui/in_world_perk_icon_marker.rpak"
+global asset PERK_IN_WORLD_WITH_TIMER_HUD_OBJECT = $"ui/in_world_perk_icon_marker_with_timer.rpak"
+
+
+global const float NON_INTERACTIBLE_PERK_MINIMAP_OPACITY = .5
+global const vector NON_INTERACTIBLE_PERK_MINIMAP_COLOR =  <.25, .25, .25>
+global const vector INTERACTIBLE_PERK_MINIMAP_COLOR = <1, 1, 1>
+global const float PERK_HIGHLIGHT_DEGREES = 3
+global const float PERK_ENT_MAX_PING_DISTANCE = 3000
+
+global function Perks_UpdateNonInteractiblePerkMinimapIcons
+
+
+global function Perks_Init
+global function Perks_RegisterClassPerk
+global function Perks_Enabled
+global function Perks_GetSettingsInfoForClassRole
+global function Perks_GetRefForClassRole
+global function Perks_GetSettingsInfoForPerk
+
+
+global function Perks_S22UpdateEnabled
+global function Perks_AllClassesCanScanBeacons
+
+
+global function Perks_S23UpdateEnabled
+
+
+global function Perks_SkirmisherUpdateEnabled
+
+
+
+global function  Perks_AssaultClassUpdateEnabled
+
+
+
+
+
+
+
+global function Perks_DoesPlayerHavePerk
+global function Perks_AddMinimapEntityForPerk
+global function Perks_GetIconForPerk
+global function Perks_GetRoleForPlayer
+global function Perks_AddPerk
+global function Perks_RemovePerk
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global function ServerToClient_UpdatePerkPropVisibility
+global function ServerToClient_HidePerkPropMinimapVisibility
+global function Perks_UpdateHighlightedPerkIcon
+global function Perks_GetPerkPingInfo
+global function Perks_GetActivePerksFromPlayerLoadout
+global function Perks_PerkPropPinged
+global function Perks_PingTypeToPingIcon
+global function Perks_SetHighlightedPerkIcon
+global function Perks_SetWorldspaceIconVisibility
+
+
+global function Perks_GetAllClassRoleRefs
+
+
+
+
+
+
+global enum ePerkIndex
+{
+	
+	INVALID = -1,
+	BEACON_SCAN,
+	EXTRA_BIN_LOOT,
+	EXTRA_FIREPOWER,
+	KILL_BOOST_ULT,
+	BEACON_ENEMY_SCAN,
+	CARE_PACKAGE_INSIGHT,
+	MUNITIONS_DROP,
+	WEAPON_INFUSION,
+	MUNITIONS_BOX,
+	BANNER_CRAFTING,
+
+
+
+
+
+
+
+	AMMUVISION,
+	RING_EXPERT,
+	SCOUT_EXPERT,
+
+	SPRINT_HEAL,
+	REVIVE_EXPERT,
+
+	MRB_DEATHBOX, 
+
+
+	SHIELD_BREAKER,
+	STOWED_RELOAD,
+
+
+	TRAILBLAZER,
+	SKIRMISHER_HEAL,
+	KNOCK_EXPERT,
+
+	CONTROLLER_ROTATION,
+
+	BREACH_GLASS_REINFORCE
+
+
+	COUNT	
+}
+
+global struct PerkInfo
+{
+	int perkId = ePerkIndex.INVALID
+
+
+	void functionref( entity, string ) activateCallback
+	void functionref( entity ) deactivateCallback
+	void functionref( var, entity) ruiThinkThread
+	array<entity> minimapEntities
+
+	array<entity> temporarilyHiddenMinimapEntities
+
+	table<entity, array<int> > teamsToHideMinimapEntitiesFrom
+	int minimapStateIndex = -1
+	int minimapPingType = -1
+	bool hideFromTeammates = false
+	bool trackEntityPosition = false
+	string mapFeatureTitle
+	string mapFeatureDescription
+
+
+	bool functionref( entity ) canPingEnt = null
+	bool functionref( entity, entity ) shouldHighlightEntForPlayer = null
+	vector functionref( entity ) getPingPosition = null
+	float functionref( entity ) getDynamicPingMaxDistance = null
+	float worldspaceIconUpOffset = 0
+	float staticPingDistance = PERK_ENT_MAX_PING_DISTANCE
+
+}
+
+global struct ClassRoleSettingsInfo
+{
+	array<int> perks
+	string ref
+
+	
+	
+	string name
+	string fullDescription
+	string shortDescription
+	vector uiColor
+	asset icon
+
+
+	string classUpgradeName
+	string classUpgradeDescription
+
+}
+
+global struct PerkSettingsInfo
+{
+	asset icon
+	asset mapIcon
+	asset smallMapIcon
+	string description
+	string shortDescription
+	string perkPropName
+}
+
+
+global struct PerkPingInfo
+{
+	entity ent
+	int pingType
+	float originUpOffset
+}
+
+
+struct
+{
+	table< int, ClassRoleSettingsInfo >  classRoleToSettingsTable
+	table< int, PerkSettingsInfo  >		 perkToPerkSettingsTable
+	table< int, PerkInfo > 				 perkInfoTable
+
+	table< int, PerkInfo > 				 perkInfoTableReserve
+
+	table< ItemFlavor, int > 		 	 characterToRoleTable
+
+	table< entity, bool > 			  	 worldspacePerkIconVisibility
+	table< entity, var >				 entityToWorldSpaceicon
+	array< entity >					     pingedPerkProps
+	PerkPingInfo 						 highlightedEnt
+	table<int, array<entity> > 			visiblePerkEntities
+
+} file
+
+void function Perks_Init()
+{
+	
+	AddCallback_RegisterRootItemFlavors( OnRegisterRootItemFlavors )
+	AddCallback_OnItemFlavorRegistered( eItemType.character_class, OnItemFlavorRegistered_Class )
+	AddCallback_OnItemFlavorRegistered( eItemType.character_perk, OnItemFlavorRegistered_Perk )
+
+	if ( !Perks_Enabled() )
+		return
+
+	RegisterSignal( "UpdatePerkMinimapVisibility" )
+	RegisterSignal( "UpdatePerkMinimapReady" )
+	RegisterSignal( "HidePerkMinimapVisibility" )
+
+
+		AddCallback_PlayerClassActuallyChanged( OnPlayerClassChanged )
+		Remote_RegisterClientFunction( "ServerToClient_HidePerkPropMinimapVisibility", "entity", "int", 0, ePerkIndex.COUNT )
+		Remote_RegisterClientFunction( "ServerToClient_UpdatePerkPropVisibility", "bool" )
+		Remote_RegisterServerFunction( "Perks_ClientToServer_MinimapIconPinged", "typed_entity", "prop_script" )
+
+
+
+
+
+		RegisterSignal( "PerkPropPinged" )
+		RegisterSignal( "PerkPropPingDestroyed" )
+
+		if( Perks_NotifyClassChangeOnSpawn() )
+		{
+			AddCreateCallback( "player", Perks_PlayerSpawnedOnClient )
+		}
+		AddCallback_OnFindFullMapAimEntity( GetPerkPropUnderAim, PingPerkPropUnderAim )
+
+
+	AddCallbackOrMaybeCallNow_OnAllItemFlavorsRegistered( InitializePerkTables )
+
+
+
+
+}
+
+void function OnRegisterRootItemFlavors()
+{
+	foreach ( asset characterClass in GetBaseItemFlavorsFromArray( "classes" ) )
+	{
+		if ( characterClass == $"" )
+			continue
+
+		ItemFlavor ornull classOrNull = RegisterItemFlavorFromSettingsAsset( characterClass )
+	}
+}
+
+void function OnItemFlavorRegistered_Class( ItemFlavor characterClass )
+{
+	array<int> perks = []
+	asset classAsset = ItemFlavor_GetAsset( characterClass )
+
+
+	string name = GetGlobalSettingsString( classAsset, "localizationKey_NAME" )
+	string fullDescription = "`1" + Localize( name ) + "`0:"
+
+
+
+	foreach ( var perkBlock in IterateSettingsAssetArray( classAsset, "perks" ) )
+	{
+		asset settingsAsset = GetSettingsBlockAsset( perkBlock, "flavor" )
+		if ( settingsAsset != $"" )
+		{
+			ItemFlavor ornull perk = RegisterItemFlavorFromSettingsAsset( settingsAsset )
+			if ( perk != null )
+			{
+				expect ItemFlavor( perk )
+				int perkIndex = Perks_GetPerkIndex( perk )
+				Assert( perkIndex != ePassives.INVALID )  
+				perks.append( perkIndex )
+
+
+				string shortDesc = GetGlobalSettingsString( ItemFlavor_GetAsset( perk ), "localizationKey_DESCRIPTION_SHORT" )
+				fullDescription += " "
+				fullDescription += Localize( shortDesc )
+
+			}
+		}
+	}
+
+
+	if( Perks_AllClassesCanScanBeacons() && !perks.contains( ePerkIndex.BEACON_SCAN ) )
+	{
+		perks.append( ePerkIndex.BEACON_SCAN )
+	}
+
+
+	ClassRoleSettingsInfo settingsInfo
+	settingsInfo.ref = ItemFlavor_GetGUIDString( characterClass )
+	settingsInfo.perks = perks
+
+
+	string shortDescription = GetGlobalSettingsString( classAsset, "localizationKey_DESCRIPTION_SHORT" )
+	asset icon = GetGlobalSettingsAsset( classAsset, "icon" )
+	vector color = GetGlobalSettingsVector( classAsset, "uiColor" )
+	settingsInfo.fullDescription = fullDescription
+	settingsInfo.shortDescription = shortDescription
+	settingsInfo.icon = icon
+	settingsInfo.name = name
+	settingsInfo.uiColor = color
+
+
+	settingsInfo.classUpgradeDescription = GetGlobalSettingsString( classAsset, "localizationKey_DESCRIPTION_LONG" )
+	settingsInfo.classUpgradeName = GetGlobalSettingsString( classAsset, "localizationKey_NAME_SHORT" )
+
+
+
+	int role = eCharacterClassRole[GetGlobalSettingsString( classAsset, "role" )]
+	file.classRoleToSettingsTable[role] <- settingsInfo
+}
+
+void function OnItemFlavorRegistered_Perk( ItemFlavor characterPerk )
+{
+	asset perkAsset = ItemFlavor_GetAsset( characterPerk )
+	string description = GetGlobalSettingsString( perkAsset, "localizationKey_DESCRIPTION_LONG" )
+	string shortDescription = GetGlobalSettingsString( perkAsset, "localizationKey_DESCRIPTION_SHORT" )
+	string perkPropName = GetGlobalSettingsString( perkAsset, "localizationKey_PropName" )
+	asset icon = GetGlobalSettingsAsset( perkAsset, "icon" )
+	asset mapIcon = GetGlobalSettingsAsset( perkAsset, "tagIcon" )
+	asset smallMapIcon = GetGlobalSettingsAsset( perkAsset, "fullmapSmallIcon" )
+
+
+	PerkSettingsInfo settingsInfo
+	settingsInfo.icon = icon
+	settingsInfo.description = description
+	settingsInfo.shortDescription = shortDescription
+	settingsInfo.mapIcon = mapIcon
+	settingsInfo.smallMapIcon = smallMapIcon
+	settingsInfo.perkPropName = perkPropName
+
+	int perkIndex = Perks_GetPerkIndex( characterPerk )
+	file.perkToPerkSettingsTable[perkIndex] <- settingsInfo
+}
+
+
+ClassRoleSettingsInfo function Perks_GetSettingsInfoForClassRole( int role )
+{
+	if ( Perks_Enabled() || CharacterSelect_AlwaysShowClassRoles() )
+	{
+		if ( role in file.classRoleToSettingsTable )
+			return file.classRoleToSettingsTable[role]
+	}
+	ClassRoleSettingsInfo emptyResult
+	return emptyResult
+}
+
+string function Perks_GetRefForClassRole( int role )
+{
+	if ( role in file.classRoleToSettingsTable )
+		return file.classRoleToSettingsTable[ role ].ref
+
+	return ""
+}
+
+PerkSettingsInfo function Perks_GetSettingsInfoForPerk( int perk )
+{
+	return file.perkToPerkSettingsTable[perk]
+}
+
+
+bool function Perks_S22UpdateEnabled()
+{
+	return GetCurrentPlaylistVarBool( "perks_s22_update_enabled", true )
+}
+
+bool function Perks_AllClassesCanScanBeacons()
+{
+	return GetCurrentPlaylistVarBool( "perks_all_classes_can_scan_beacons", false )
+}
+
+
+bool function Perks_S23UpdateEnabled()
+{
+	return GetCurrentPlaylistVarBool( "perks_s23_update_enabled", true )
+}
+
+
+bool function Perks_SkirmisherUpdateEnabled()
+{
+	return GetCurrentPlaylistVarBool( "perks_skirmisher_update_enabled", true )
+}
+
+
+
+bool function Perks_AssaultClassUpdateEnabled()
+{
+	return GetCurrentPlaylistVarBool( "perks_assault_update_enabled", true )
+}
+
+
+
+
+
+
+
+
+
+int function Perks_GetPerkIndex( ItemFlavor flavor )
+{
+	Assert( ItemFlavor_GetType( flavor ) == eItemType.character_perk )
+
+	string perkRef = GetGlobalSettingsString( ItemFlavor_GetAsset( flavor ), "perkScriptRef" )
+	if ( perkRef == "" )
+		return ePerkIndex.INVALID
+
+	Assert( perkRef in ePerkIndex, "Unknown passive script ref: " + perkRef )
+	return ePerkIndex[perkRef]
+}
+
+bool function Perks_Enabled()
+{
+	return !GetCurrentPlaylistVarBool( "disable_all_perks", false )
+}
+
+bool function Perks_NotifyClassChangeOnSpawn()
+{
+	return GetCurrentPlaylistVarBool( "perks_notify_class_change_on_spawn", true )
+}
+
+void function InitializePerkTables()
+{
+	
+
+
+
+
+	array<ItemFlavor> characterArray = GetAllCharacters()
+	
+	foreach( character in characterArray )
+	{
+		int characterRole = CharacterClass_GetRole( character )
+		
+		file.characterToRoleTable[character] <- characterRole
+	}
+}
+
+void function Perks_RegisterClassPerk( PerkInfo perkToRegister )
+{
+	Assert( perkToRegister.perkId > ePerkIndex.INVALID && perkToRegister.perkId < ePerkIndex.COUNT, "Registering perk with invalid ID" )
+	file.perkInfoTable[ perkToRegister.perkId ] <- perkToRegister
+
+
+
+	if( !IsLobby() && perkToRegister.minimapStateIndex >= 0 && Perks_Enabled() )
+	{
+		int perkId = perkToRegister.perkId
+		void functionref( entity, var ) registerFunc = void function( entity ent, var rui ) : ( perkId ) {
+			PerkInfo perkInfo = file.perkInfoTable[perkId]
+			PerkSettingsInfo settingsInfo =  Perks_GetSettingsInfoForPerk( perkId )
+			asset perkImage = settingsInfo.mapIcon
+			asset smallIcon = settingsInfo.smallMapIcon
+			if( smallIcon != "" )
+			{
+				RuiSetImage( rui, "smallIcon", smallIcon )
+				RuiSetBool( rui, "hasSmallIcon", true )
+			}
+			RuiSetImage( rui, "defaultIcon", perkImage )
+			RuiSetImage( rui, "clampedDefaultIcon", $"" )
+			RuiSetBool( rui, "useTeamColor", false )
+			RuiSetInt( rui, "lootTier", 0 )
+			thread Perks_MinimapPackage_ListenToClassChanges( ent, rui, perkId )
+		}
+
+		RegisterMinimapPackage( "prop_script", perkToRegister.minimapStateIndex, PERK_MINIMAP_OBJECT, registerFunc, PERK_FULL_MINIMAP_OBJECT, registerFunc )
+	}
+
+}
+
+
+
+asset function Perks_GetIconForPerk( int perk )
+{
+	PerkSettingsInfo info = Perks_GetSettingsInfoForPerk( perk )
+	return info.icon
+}
+
+asset function Perks_GetMapIconForPerk( int perk )
+{
+	PerkSettingsInfo info = Perks_GetSettingsInfoForPerk( perk )
+	return info.mapIcon
+}
+
+void function Perks_PlayerSpawnedOnClient( entity player )
+{
+	OnPlayerClassChanged( player )
+}
+
+void function OnPlayerClassChanged( entity player )
+{
+	
+	
+
+	
+	
+	if ( player.GetPlayerSettings() == SPECTATOR_SETTINGS )
+		return
+
+	array<int> perksToClear = player.p.activePerks
+	player.p.activePerks = []
+	foreach( int activePerkIndex in perksToClear )
+	{
+		if ( activePerkIndex > ePerkIndex.INVALID && activePerkIndex < ePerkIndex.COUNT )
+		{
+			if ( activePerkIndex in file.perkInfoTable )
+			{
+				if ( file.perkInfoTable[ activePerkIndex ].deactivateCallback != null )
+					file.perkInfoTable[ activePerkIndex ].deactivateCallback( player )
+			}
+		}
+	}
+
+	
+	
+	EHI playerEHI = ToEHI( player )
+	LoadoutEntry loadoutCharacter = Loadout_Character()
+
+	thread ApplyPerkWhenCharacterFlavorIsKnown( player, playerEHI, loadoutCharacter )
+}
+
+void function ApplyPerkWhenCharacterFlavorIsKnown( entity player, EHI playerEHI, LoadoutEntry entry )
+{
+	
+	ItemFlavor characterItemFlavor = LoadoutSlot_WaitForItemFlavor( playerEHI, entry, true )
+	if ( !IsValid( player ) )
+		return
+
+
+
+
+
+
+	Assert( characterItemFlavor in file.characterToRoleTable, "Trying to activate perks but character " + ItemFlavor_GetCharacterRef( characterItemFlavor ) + " wasn't in perk table\nNeed to run pdef_autogen" )
+
+	string characterName = ItemFlavor_GetCharacterRef( characterItemFlavor )
+	array<string> nameSplit = split( characterName, "_" )
+	if ( nameSplit.len() >= 2 )
+		characterName = nameSplit[ 1 ]
+
+
+	int roleIndex = file.characterToRoleTable[ characterItemFlavor ]
+	if( roleIndex in file.classRoleToSettingsTable )
+	{
+		array<int> perks = file.classRoleToSettingsTable[roleIndex].perks
+		player.p.activePerks = clone( perks )
+		foreach ( int perkIndex in perks )
+		{
+			if ( perkIndex in file.perkInfoTable )
+			{
+				PerkInfo perk = file.perkInfoTable[perkIndex]
+				if ( perk.activateCallback != null )
+					perk.activateCallback( player, characterName )
+			}
+			else
+			{
+				
+
+
+
+
+
+
+			}
+		}
+	}
+
+	if( !IsLobby() )
+	{
+
+
+
+
+
+			entity localPlayer = GetLocalViewPlayer()
+			if ( localPlayer.GetTeam() == player.GetTeam() )
+			{
+				Perks_UpdatePerkPropMinimapVisibility( localPlayer )
+				Perks_UpdatePerkPropMapFeatureVisibility( localPlayer )
+			}
+
+	}
+}
+
+void function Perks_AddPerk( entity player, int perkIndex )
+{
+	if( !Perks_Enabled() )
+		return
+
+	if( player.p.activePerks.contains( perkIndex ) )
+		return
+
+	
+	if( !( perkIndex in file.perkInfoTable ) )
+		return
+
+	EHI playerEHI = ToEHI( player )
+	LoadoutEntry loadoutCharacter = Loadout_Character()
+	ItemFlavor characterItemFlavor = LoadoutSlot_GetItemFlavor( playerEHI, loadoutCharacter )
+	if ( !IsValid( player ) )
+		return
+	Assert( characterItemFlavor in file.characterToRoleTable, "Trying to activate perks but character " + ItemFlavor_GetCharacterRef( characterItemFlavor ) + " wasn't in perk table\nNeed to run pdef_autogen" )
+
+	string characterName = ItemFlavor_GetCharacterRef( characterItemFlavor )
+	array<string> nameSplit = split( characterName, "_" )
+	if ( nameSplit.len() >= 2 )
+		characterName = nameSplit[ 1 ]
+
+
+	player.p.activePerks.append( perkIndex )
+	PerkInfo perk = file.perkInfoTable[perkIndex]
+	if ( perk.activateCallback != null )
+		perk.activateCallback( player, characterName )
+
+
+
+
+
+
+		entity localPlayer = GetLocalViewPlayer()
+		if( localPlayer.GetTeam() == player.GetTeam() )
+		{
+			Perks_UpdatePerkPropMinimapVisibility( localPlayer )
+			Perks_UpdatePerkPropMapFeatureVisibility( localPlayer )
+		}
+
+}
+
+void function Perks_RemovePerk( entity player, int perkIndex )
+{
+	if( !Perks_Enabled() )
+		return
+
+	if( !player.p.activePerks.contains( perkIndex ) )
+		return
+
+	PerkInfo perk = file.perkInfoTable[perkIndex]
+	if ( perk.deactivateCallback != null )
+		perk.deactivateCallback( play

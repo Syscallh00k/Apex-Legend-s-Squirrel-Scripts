@@ -1,0 +1,8194 @@
+global function HoverVehicle_Init
+
+global function HoverVehicle_IsHostileToTeam
+global function HoverVehicle_GetVehicleOccupiedByPlayer
+global function HoverVehicle_IsPlayerInAnyVehicle
+global function HoverVehicle_PlayerIsDriving
+global function EntIsHoverVehicle
+global function HoverVehicle_AttachEntToNearestAbilityAttachment
+global function HoverVehicle_IsVehicleEmpty
+
+global function CodeCallback_OnVehicleJumpPadLaunch
+global function CodeCallback_GetVehiclePhysicsModel
+
+global function HoverVehicle_GetTurretOperator
+global function HoverVehicle_GetExtendedPlayerArray
+
+
+global function CodeCallback_VehicleJump
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global function SCB_EjectedFromHoverVehicleForSeldDestruct
+global function ServerCallback_VehicleOccupancyChange
+global function HoverVehicle_ServerToClient_SetVehicleNotAtPlatformTracking
+
+
+global function HoverVehicle_SV2CL_DamageIndicator
+
+
+global function HoverVehicle_SV2CL_ParkedIcon_Create
+global function HoverVehicle_SV2CL_ParkedIcon_Destroy
+
+
+
+
+
+
+#if DEV
+
+
+
+
+
+
+
+
+
+
+
+
+
+global function DEV_HoverVehicle_DamageStates_Print
+
+
+
+
+#endif
+
+
+
+global enum eHoverVehicleTypes
+{
+
+		TRIDENT_OLDMODEL,
+
+	TRIDENT,
+	COUNT_
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+enum eDamageStates
+{
+	DAMAGESTATE_0,
+	DAMAGESTATE_1,
+	DAMAGESTATE_2,
+	DAMAGESTATE_3,
+	DESTROYED,
+	COUNT_
+}
+
+
+	const asset HOVER_VEHICLE_MODEL_OLD = $"mdl/vehicle/olympus_hovercraft/olympus_hovercraft_v2.rmdl"
+	const asset HOVER_VEHICLE_MODEL 	= $"mdl/vehicle/olympus_hovercraft/olympus_hovercraft_trident.rmdl"
+
+
+
+const asset TWO_PASSENGER_MODEL = $"mdl/vehicle/olympus_hovercraft/olympus_hovercraft_v2_two_passengers.rmdl"
+
+global const string HOVER_VEHICLE_SCRIPTNAME = "hover_vehicle"
+
+const asset HOVER_VEHICLE_HUD_DRIVER_OLD = $"ui/hover_vehicle_ui.rpak"
+const asset HOVER_VEHICLE_HUD_PASSENGER_OLD = $"ui/hover_vehicle_passenger_ui.rpak"
+
+	const asset HOVER_VEHICLE_HUD_DRIVER =  $"ui/hover_vehicle_rework_ui.rpak"
+	const asset HOVER_VEHICLE_HUD_PASSENGER =  $"ui/hover_vehicle_passenger_rework_ui.rpak"
+
+
+
+
+
+
+const asset FX_VEHICLE_DAMAGE_BODY_LIGHT = $"P_veh_hv1_dmg_body_lgt"
+const asset FX_VEHICLE_DAMAGE_BODY_MEDIUM = $"P_veh_hv1_dmg_body_med"
+const asset FX_VEHICLE_DAMAGE_BODY_HEAVY = $"P_veh_hv1_dmg_body_hvy"
+
+const asset FX_VEHICLE_DAMAGE_EXHAUST_LIGHT = $"P_veh_hv1_dmg_exh_lgt"
+const asset FX_VEHICLE_DAMAGE_EXHAUST_MEDIUM = $"P_veh_hv1_dmg_exh_med"
+const asset FX_VEHICLE_DAMAGE_EXHAUST_HEAVY = $"P_veh_hv1_dmg_exh_hvy"
+const asset FX_VEHICLE_DAMAGE_EXHAUST_HEAVY_BACK = $"P_veh_hv1_dmg_exh_back_hvy"
+
+const asset FX_VEHICLE_DAMAGE_REAR_LIGHT = $"P_veh_hv1_dmg_rear_lgt"
+const asset FX_VEHICLE_DAMAGE_REAR_MEDIUM = $"P_veh_hv1_dmg_rear_med"
+const asset FX_VEHICLE_DAMAGE_REAR_HEAVY = $"P_veh_hv1_dmg_rear_hvy"
+
+const asset FX_VEHICLE_DAMAGE_HOOD_LIGHT = $"P_veh_hv1_dmg_hood_lgt"
+const asset FX_VEHICLE_DAMAGE_HOOD_MEDIUM = $"P_veh_hv1_dmg_hood_med"
+const asset FX_VEHICLE_DAMAGE_HOOD_HEAVY = $"P_veh_hv1_dmg_hood_hvy"
+
+const asset FX_VEHICLE_DAMAGE_TOP_LIGHT = $"P_veh_hv1_dmg_top_lgt"
+const asset FX_VEHICLE_DAMAGE_TOP_MEDIUM = $"P_veh_hv1_dmg_top_med"
+const asset FX_VEHICLE_DAMAGE_TOP_HEAVY = $"P_veh_hv1_dmg_top_hvy"
+
+global const asset FX_VEHICLE_DEATH_FX_OLD = $"P_deathfx_hover_hv1"
+
+	global const asset FX_VEHICLE_DEATH_FX = $"P_hv1_dmg_explode"
+	const asset FX_VEHICLE_SPAWN = $"P_veh_hv1_spawnpoint_flash"
+	const asset FX_VEHICLE_HEALSHINE = $"P_veh_hv1_dmg_heal"
+
+
+
+
+
+const asset FX_VEHICLE_DAMAGE_SMOKE_WHITE = $"xo_health_smoke_white"
+const asset FX_VEHICLE_DAMAGE_SMOKE_BLACK = $"xo_health_smoke_black"
+const asset FX_VEHICLE_DAMAGE_FIRE_SMALL = $"P_fire_small_FULL"
+const asset FX_VEHICLE_DAMAGE_FIRE_LARGE = $"fire_LG_base_alt"
+const asset FX_VEHICLE_DAMAGE_EXP_SMALL = $"P_veh_crow_exp_sml"
+
+
+const asset FX_VEHICLE_JET_REAR = $"P_veh_hv1_jet1_full_CP1"
+const asset FX_VEHICLE_JET_SIDE = $"P_veh_hv1_jet_sm_CP1"
+const asset FX_VEHICLE_JET_BASE = $"P_veh_hv1_jet_base"
+const asset FX_VEHICLE_TRAILS = $"P_veh_contrails_01_CP1"
+const asset FX_VEHICLE_TRAILS_BOOST = $"P_veh_contrails_boost"
+const asset FX_VEHICLE_BOOST = $"P_veh_hv1_afterburn"
+const asset FX_VEHICLE_BOOST_SML = $"P_veh_hv1_afterburn_sml"
+const asset FX_VEHICLE_AIR_BRAKE = $"P_veh_airbrake_SM"
+const string FX_VEHICLE_JETWASH = "jetwash_hv1"
+const asset FX_VEHICLE_JUMP = $"P_veh_hv1_jump"
+
+
+const asset FX_VEHICLE_IDLE = $"P_hv1_idle_refract"
+const asset FX_VEHICLE_IDLE_REAR = $"P_hv1_idle_refract_rear"
+const asset FX_LIGHT_HEAD = $"P_veh_hv1_headlight"
+const asset FX_LIGHT_HEAD_TOP = $"P_veh_hv1_headlight_top"
+const asset FX_LIGHT_BRAKE = $"P_veh_light_hv1_brake"
+const asset FX_LIGHT_BRAKE_IDLE = $"P_veh_light_hv1_brake_idle"
+
+
+const asset FX_VEHICLE_SPAWN_POINT = $"P_veh_hv1_spawnpoint"		
+const asset FX_VEHICLE_LAUNCHPAD_LAUNCH = $"P_launchpad_launch_vehicle"
+const asset FX_VEHICLE_EJECT_PILOT_TRAILS = $"P_veh_hover_pilot_eject_trail"
+const asset FX_VEHICLE_EJECT_PILOT_SCREEN = $"P_screen_pilot_eject"
+
+global const string HOVER_VEHICLE_DESTROY_EXPLOSION_SOUND = "HoverVehicle_Explo"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global const asset HOVER_VEHICLE_SPAWNPOINT_ICON = $"rui/hud/gametype_icons/survival/sur_hovercar_spawnpoint"
+
+const string SIG_DRIVER_EMBARK_FINISHED = "VEHICLE_DRIVER_EMBARK_FINISHED"
+global const string SIG_VEHICLE_EMBARK_BEGIN	= "VEHICLE_EMBARK_BEGIN"
+
+const string SIG_HOVERVEHICLE_ALARM_OFF = "HOVERVEHICLE_ALARM_OFF"
+const string SIG_HOVERVEHICLE_HEALTHREGEN = "HOVERVEHICLE_HEALTHREGEN"
+const string SIG_HOVERVEHICLE_HEALTHREGEN_OFF = "HOVERVEHICLE_HEALTHREGEN_OFF"
+const string SIG_HOVERVEHICLE_PLATFORM_SPAWNEDFX = "HOVERVEHICLE_PLATFORM_SPAWNEDFX"
+
+const string SIG_HOVERVEHICLE_PARKEDICON = "HOVERVEHICLE_PARKEDICON"
+const string SIG_HOVERVEHICLE_EMBARK_DISRUPTED = "HOVERVEHICLE_EMBARK_DISRUPTED"
+
+const float VEHICLE_DIALOGUE_DEBOUNCE_TIME = 7.0
+
+const string FUNCNAME_PingVehicleFromMap = "HoverVehicle_ClientToServer_PingVehicleFromMap"
+const string FUNCNAME_SetVehiclePresenceAtPlatform = "HoverVehicle_ServerToClient_SetVehicleNotAtPlatformTracking"
+
+
+
+global const float HOVER_VEHICLE_DEFAULT_MAX_SPEED_OLD 			= 1000.0
+global const float HOVER_VEHICLE_DEFAULT_MAXSPEED_FORWARD_OLD 	= 1000.0
+global const float HOVER_VEHICLE_DEFAULT_ACCEL_FORWARD_OLD 		= 750.0
+global const float HOVER_VEHICLE_DEFAULT_DECEL_FORWARD_OLD 		= 550.0
+global const float HOVER_VEHICLE_DEFAULT_MAXSPEED_STRAFE_OLD 	= 1000.0
+global const float HOVER_VEHICLE_DEFAULT_ACCEL_STRAFE_OLD 		= 750.0
+global const float HOVER_VEHICLE_DEFAULT_DECEL_STRAFE_OLD 		= 550.0
+global const float HOVER_VEHICLE_DEFAULT_MAXSPEED_REVERSE_OLD 	= 1000.0
+global const float HOVER_VEHICLE_DEFAULT_ACCEL_REVERSE_OLD 		= 750.0
+global const float HOVER_VEHICLE_DEFAULT_DECEL_REVERSE_OLD 		= 500.0
+global const vector HOVER_VEHICLE_DEFAULT_ACCEL_OLD = < HOVER_VEHICLE_DEFAULT_ACCEL_STRAFE_OLD, HOVER_VEHICLE_DEFAULT_ACCEL_FORWARD_OLD, HOVER_VEHICLE_DEFAULT_ACCEL_REVERSE_OLD >
+global const vector HOVER_VEHICLE_DEFAULT_DECEL_OLD = < HOVER_VEHICLE_DEFAULT_DECEL_STRAFE_OLD, HOVER_VEHICLE_DEFAULT_DECEL_FORWARD_OLD, HOVER_VEHICLE_DEFAULT_DECEL_REVERSE_OLD >
+
+global const float HOVER_VEHICLE_DEFAULT_DECEL_POWERBRAKE_OLD 	= 1000.0
+global const float HOVER_VEHICLE_DEFAULT_ACCEL_AIR_OLD 			= 250.0
+
+global const bool HOVER_VEHICLE_DEFAULT_BOOST_ON_HOLD_OLD		= false
+global const int HOVER_VEHICLE_AIR_BRAKE_STYLE_OLD 				= 0
+global const float HOVER_VEHICLE_DEFAULT_BOOST_MIN_OLD 			= 2000.0
+global const float HOVER_VEHICLE_DEFAULT_BOOST_MAX_OLD 			= 2000.0
+global const float HOVER_VEHICLE_DEFAULT_BOOST_COOLDOWN_OLD 	= 25.0
+global const float HOVER_VEHICLE_DEFAULT_BOOST_DURATION_OLD 	= 2.0
+
+global const float HOVER_VEHICLE_DEFAULT_BOOST_PARTIAL_COOLDOWN_OLD = 5.0
+global const float HOVER_VEHICLE_DEFAULT_BOOST_REGEN_RATE_OLD		= 0.3
+
+global const float HOVER_VEHICLE_DEFAULT_BOOST_JUMP_SPEED_OLD		= 0.0
+global const float HOVER_VEHICLE_DEFAULT_BOOST_JUMP_DEBOUNCE_OLD	= 2.0
+global const float HOVER_VEHICLE_DEFAULT_BOOST_JUMP_COST_OLD		= 1.0
+
+global const float HOVER_VEHICLE_COLLISION_DAMAGE_OLD				= 0.0
+global const float HOVER_VEHICLE_COLLISION_PUSHAWAY_SPEED_THRESHOLD_OLD	= 400.0
+global const bool	HOVER_VEHICLE_COLLISION_REQUIRES_BOOST_OLD	= true
+global const bool	HOVER_VEHICLE_SPEEDRAM_ENABLED_OLD			= false	
+global const float	HOVER_VEHICLE_SPEEDRAM_SPEED_MIN_OLD		= 280
+global const float	HOVER_VEHICLE_SPEEDRAM_SPEED_MAX_OLD		= 1400
+global const float 	HOVER_VEHICLE_SPEEDRAM_DAMAGE_MIN_OLD		= 10
+global const float 	HOVER_VEHICLE_SPEEDRAM_DAMAGE_MAX_OLD		= 100
+
+global const float HOVER_VEHICLE_STUN_DURATION_OLD = 5.0
+global const float HOVER_VEHICLE_STUN_DEBOUNCE_OLD = 2.0
+
+global const bool HOVER_VEHICLE_START_HEALTH_ON_OLD = false
+global const int HOVER_VEHICLE_DEFAULT_SHIELDS_OLD 	= 500
+global const int HOVER_VEHICLE_DEFAULT_HEALTH_OLD 	= 500
+
+global const bool HOVER_VEHICLE_CAMERA_YAW_SPRING_ENABLED_OLD 		= true
+global const float HOVER_VEHICLE_CAMERA_YAW_NOSPRING_SMOOTHTIME_OLD = 0.3
+global const float HOVER_VEHICLE_CAMERA_OFFSET_HEIGHT_BASE_OLD		= 30.0
+global const float HOVER_VEHICLE_CAMERA_OFFSET_HEIGHT_SPEEDDELTA_OLD= 20.0
+global const float HOVER_VEHICLE_CAMERA_SMOOTHRATE_OLD				= 4
+
+global const bool HOVER_VEHICLE_REGENHEALTH_ENABLED_DEFAULT_OLD 	= false
+global const bool HOVER_VEHICLE_AUTORESPAWN_ENABLED_DEFAULT_OLD		= false
+
+const bool HOVER_VEHICLE_RESET_CAMERA_WHILE_EMBARKING_OLD = false
+
+const int HOVER_VEHICLE_GLIDE_TYPE_OLD = 0
+const bool HOVER_VEHICLE_FULL_RECHARGE_OLD = true
+
+
+
+
+	global const float HOVER_VEHICLE_DEFAULT_MAX_SPEED = 800.0
+	global const float HOVER_VEHICLE_DEFAULT_MAXSPEED_FORWARD 	= 800.0
+	global const float HOVER_VEHICLE_DEFAULT_ACCEL_FORWARD 		= 850.0
+	global const float HOVER_VEHICLE_DEFAULT_DECEL_FORWARD 		= 750.0
+	global const float HOVER_VEHICLE_DEFAULT_MAXSPEED_STRAFE 	= 800.0
+	global const float HOVER_VEHICLE_DEFAULT_ACCEL_STRAFE 		= 1000.0
+	global const float HOVER_VEHICLE_DEFAULT_DECEL_STRAFE 		= 750.0
+	global const float HOVER_VEHICLE_DEFAULT_MAXSPEED_REVERSE 	= 600.0
+	global const float HOVER_VEHICLE_DEFAULT_ACCEL_REVERSE 		= 750.0
+	global const float HOVER_VEHICLE_DEFAULT_DECEL_REVERSE 		= 750.0
+	global const vector HOVER_VEHICLE_DEFAULT_ACCEL = < HOVER_VEHICLE_DEFAULT_ACCEL_STRAFE, HOVER_VEHICLE_DEFAULT_ACCEL_FORWARD, HOVER_VEHICLE_DEFAULT_ACCEL_REVERSE  >
+	global const vector HOVER_VEHICLE_DEFAULT_DECEL = < HOVER_VEHICLE_DEFAULT_DECEL_STRAFE, HOVER_VEHICLE_DEFAULT_DECEL_FORWARD, HOVER_VEHICLE_DEFAULT_DECEL_REVERSE >
+
+	global const float HOVER_VEHICLE_DEFAULT_DECEL_POWERBRAKE 	= 1000.0
+	global const float HOVER_VEHICLE_DEFAULT_ACCEL_AIR 			= 500.0
+
+	global const bool HOVER_VEHICLE_DEFAULT_BOOST_ON_HOLD		= true
+	global const int HOVER_VEHICLE_AIR_BRAKE_STYLE 				= 1
+	global const float HOVER_VEHICLE_DEFAULT_BOOST_MIN 			= 1000.0
+	global const float HOVER_VEHICLE_DEFAULT_BOOST_MAX 			= 1600.0
+	global const float HOVER_VEHICLE_DEFAULT_BOOST_COOLDOWN 	= 10.0
+	global const float HOVER_VEHICLE_DEFAULT_BOOST_DURATION 	= 5.0		
+	
+	global const float HOVER_VEHICLE_DEFAULT_BOOST_PARTIAL_COOLDOWN = 5.0
+	global const float HOVER_VEHICLE_DEFAULT_BOOST_REGEN_RATE 		= 0.5		
+	
+	global const float HOVER_VEHICLE_DEFAULT_BOOST_JUMP_SPEED		= 600		
+	global const float HOVER_VEHICLE_DEFAULT_BOOST_JUMP_DEBOUNCE	= 1.00		
+	global const float HOVER_VEHICLE_DEFAULT_BOOST_JUMP_COST		= 0.0		
+	
+	global const float HOVER_VEHICLE_COLLISION_DAMAGE			= 10.0
+	global const float HOVER_VEHICLE_COLLISION_PUSHAWAY_SPEED_THRESHOLD	= 400.0
+	global const bool	HOVER_VEHICLE_COLLISION_REQUIRES_BOOST	= false
+	global const bool	HOVER_VEHICLE_SPEEDRAM_ENABLED			= true	
+	global const float	HOVER_VEHICLE_SPEEDRAM_SPEED_MIN		= 720 	
+	global const float	HOVER_VEHICLE_SPEEDRAM_SPEED_MAX		= 1000
+	global const float 	HOVER_VEHICLE_SPEEDRAM_DAMAGE_MIN		= 10
+	global const float 	HOVER_VEHICLE_SPEEDRAM_DAMAGE_MAX		= 20	
+	
+	global const float HOVER_VEHICLE_STUN_DURATION = 5.0
+	global const float HOVER_VEHICLE_STUN_DEBOUNCE = 2.0
+
+	global const bool HOVER_VEHICLE_START_HEALTH_ON = true 
+	global const int HOVER_VEHICLE_DEFAULT_SHIELDS 	= 500
+	global const int HOVER_VEHICLE_DEFAULT_HEALTH 	= 800
+
+	global const bool HOVER_VEHICLE_CAMERA_YAW_SPRING_ENABLED 		= false
+	global const float HOVER_VEHICLE_CAMERA_YAW_NOSPRING_SMOOTHTIME = 0.15
+	global const float HOVER_VEHICLE_CAMERA_OFFSET_HEIGHT_BASE		= 25.0 
+	global const float HOVER_VEHICLE_CAMERA_OFFSET_HEIGHT_SPEEDDELTA	= 20.0
+	global const float HOVER_VEHICLE_CAMERA_SMOOTHRATE				= 4
+
+	global const bool HOVER_VEHICLE_REGENHEALTH_ENABLED_DEFAULT 	= true
+	global const bool HOVER_VEHICLE_AUTORESPAWN_ENABLED_DEFAULT		= true
+
+	const bool HOVER_VEHICLE_RESET_CAMERA_WHILE_EMBARKING = true
+	const int HOVER_VEHICLE_GLIDE_TYPE = 3
+	const bool HOVER_VEHICLE_FULL_RECHARGE = false
+
+	global const int HOVER_VEHICLE_RAMS_TO_BREAK_DOOR_INVALID = -1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const asset FX_VEHICLE_RESPAWN_ARROW = $"P_veh_hv1_spawnpoint_ar_arrow"
+const asset FX_VEHICLE_RESPAWN_BEAM	= $"P_veh_hv1_spawnpoint_ar_beam"
+
+
+const float	HOVER_VEHICLE_DISEMBARK_DURATION = 1.19
+
+
+
+
+global const float HOVER_VEHICLE_CAMERA_YAW_NOSPRING_SMOOTHTIME_BOOSTING = 0.5
+global const int HOVER_VEHICLE_BOOST_DIRECTION_STYLE = 2
+
+struct sTunings_Shared
+{
+	
+	bool 	cvar_Camera_Yaw_Spring_Enabled 		= HOVER_VEHICLE_CAMERA_YAW_SPRING_ENABLED
+	float 	cvar_Camera_Yaw_NoSpring_SmoothTime = HOVER_VEHICLE_CAMERA_YAW_NOSPRING_SMOOTHTIME
+	float 	cvar_Camera_Yaw_NoSpring_SmoothTime_Boosting = HOVER_VEHICLE_CAMERA_YAW_NOSPRING_SMOOTHTIME_BOOSTING
+
+	
+	float	cvar_camera_offset_height_base 			= HOVER_VEHICLE_CAMERA_OFFSET_HEIGHT_BASE
+	float	cvar_camera_offset_height_speedDelta 	= HOVER_VEHICLE_CAMERA_OFFSET_HEIGHT_SPEEDDELTA
+	float 	cvar_camera_smooth_rate					= HOVER_VEHICLE_CAMERA_SMOOTHRATE
+	bool 	cvar_reset_camera_while_embarking		= HOVER_VEHICLE_RESET_CAMERA_WHILE_EMBARKING
+
+	
+	bool cvar_Boost_On_Hold	= HOVER_VEHICLE_DEFAULT_BOOST_ON_HOLD
+	int	 cvar_hover_vehicle_boost_style = 0
+
+	
+	int cvar_Air_Brake_Style = HOVER_VEHICLE_AIR_BRAKE_STYLE
+
+	
+	bool cvar_Health_Start_On 	= HOVER_VEHICLE_START_HEALTH_ON
+
+	
+	bool cvar_Eject_Enabled 	= false
+	bool cvar_Smoke_Enabled 	= false
+
+	
+	bool autoRespawn_Enabled	= HOVER_VEHICLE_AUTORESPAWN_ENABLED_DEFAULT
+	float autoRespawn_Delay 	= 60.0 
+
+	
+	bool damagePropagation_Enabled = false 
+
+	
+	bool vo_VehicleDamaged_Enabled = true
+
+	
+	
+
+
+
+
+
+
+
+
+
+
+
+
+	int cvar_hover_vehicle_glide_type 					= HOVER_VEHICLE_GLIDE_TYPE
+	bool cvar_hover_vehicle_full_recharge				= HOVER_VEHICLE_FULL_RECHARGE
+
+		float cvar_hover_vehicle_glide_debounce 		= 1.0
+		float cvar_hover_vehicle_glide_thrust_speed 	= 8.0
+		float cvar_hover_vehicle_glide_descent_speed 	= 240.0 
+		bool cvar_hover_vehicle_glide_when_ascending	= true
+		float cvar_hover_vehicle_glide_max_thrust		= 0.9
+		float cvar_hover_vehicle_glide_min_thrust		= 0.4
+		float cvar_hover_vehicle_glide_to_min_thrust_duration = 2.5
+		float cvar_hover_vehicle_glide_air_accel 		= 250.0
+		float cvar_hover_vehicle_glide_tightness_up		= 0.1
+		float cvar_hover_vehicle_glide_tightness_down	= 0.25
+		float cvar_hover_vehicle_glide_max_duration		= 5.0
+
+	float cvar_hover_vehicle_hover_height			= 38.0 
+}
+sTunings_Shared tunings_Shared
+sTunings_Shared tunings_Shared_Default
+
+struct sTunings_HoverVehicle
+{
+	int vehicleType = eHoverVehicleTypes.TRIDENT
+
+	
+	float maxSpeed_Forward 	= HOVER_VEHICLE_DEFAULT_MAXSPEED_FORWARD
+	float accel_Forward		= HOVER_VEHICLE_DEFAULT_ACCEL_FORWARD
+	float decel_Forward		= HOVER_VEHICLE_DEFAULT_DECEL_FORWARD
+	float maxSpeed_Strafe  	= HOVER_VEHICLE_DEFAULT_MAXSPEED_STRAFE
+	float accel_Strafe		= HOVER_VEHICLE_DEFAULT_ACCEL_STRAFE
+	float decel_Strafe 		= HOVER_VEHICLE_DEFAULT_DECEL_STRAFE
+	float maxSpeed_Reverse  = HOVER_VEHICLE_DEFAULT_MAXSPEED_REVERSE
+	float accel_Reverse		= HOVER_VEHICLE_DEFAULT_ACCEL_REVERSE
+	float decel_Reverse 	= HOVER_VEHICLE_DEFAULT_DECEL_REVERSE
+
+	float accel_air			= HOVER_VEHICLE_DEFAULT_ACCEL_AIR
+	float decel_PowerBrake 	= HOVER_VEHICLE_DEFAULT_DECEL_POWERBRAKE
+
+	
+	float boostMinSpeed 	= HOVER_VEHICLE_DEFAULT_BOOST_MIN
+	float boostMaxSpeed 	= HOVER_VEHICLE_DEFAULT_BOOST_MAX
+	float boostCooldown 	= HOVER_VEHICLE_DEFAULT_BOOST_COOLDOWN
+	float boostDuration 	= HOVER_VEHICLE_DEFAULT_BOOST_DURATION
+	float boostCooldown_Partial = HOVER_VEHICLE_DEFAULT_BOOST_PARTIAL_COOLDOWN
+	float boostRegenRate 		= HOVER_VEHICLE_DEFAULT_BOOST_REGEN_RATE
+
+	
+	float jumpSpeed 		= HOVER_VEHICLE_DEFAULT_BOOST_JUMP_SPEED
+	float jumpDebounce 		= HOVER_VEHICLE_DEFAULT_BOOST_JUMP_DEBOUNCE
+	float jumpBoostCost		= HOVER_VEHICLE_DEFAULT_BOOST_JUMP_COST
+
+	
+	float stunDuration		= HOVER_VEHICLE_STUN_DURATION
+	float stunDebounce		= HOVER_VEHICLE_STUN_DEBOUNCE
+
+	
+	bool	collision_Requires_Boost 					= HOVER_VEHICLE_COLLISION_REQUIRES_BOOST			
+	float 	collision_Player_Damage 					= HOVER_VEHICLE_COLLISION_DAMAGE				
+	float 	collision_Player_PushAway_Speed_Threshold 	= HOVER_VEHICLE_COLLISION_PUSHAWAY_SPEED_THRESHOLD
+
+
+		bool 	doorRams_SpecialDamage_Enabled			= true
+		int 	doorRams_Needed							= 2
+		int		doorRams_Needed_Enforced				= 6
+		float	doorRams_Debounce						= 0.5
+
+
+	bool	speedBasedCollisionDamage_Enabled			= HOVER_VEHICLE_SPEEDRAM_ENABLED	
+	float 	speedBasedCollisionDamage_Speed_Min			= HOVER_VEHICLE_SPEEDRAM_SPEED_MIN	
+	float 	speedBasedCollisionDamage_Speed_Max			= HOVER_VEHICLE_SPEEDRAM_SPEED_MAX	
+	float 	speedBasedCollisionDamage_Damage_Min		= HOVER_VEHICLE_SPEEDRAM_DAMAGE_MIN 
+	float 	speedBasedCollisionDamage_Damage_Max		= HOVER_VEHICLE_SPEEDRAM_DAMAGE_MAX 
+	
+	float	collisionDamage_Factor_vsDestructibles = 1.0
+	float	collisionDamage_Factor_vsLegendObjects = 1.0
+	float	collisionDamage_Factor_vsOtherVehicles = 1.0
+	float	collisionDamage_Factor_vsNPCs = 1.0
+
+	
+	int defaultHealth 			= HOVER_VEHICLE_DEFAULT_HEALTH
+	int defaultShields 			= HOVER_VEHICLE_DEFAULT_SHIELDS 
+
+	
+	bool hasTurret	= false
+
+	
+	bool showSpawnBeam = true
+	bool showSpawnMinimapIcon = true
+
+	
+	asset 	vehDestruction_VFX	= FX_VEHICLE_DEATH_FX
+	string 	vehDestruction_SFX 	= HOVER_VEHICLE_DESTROY_EXPLOSION_SOUND
+
+	
+	bool 	healthRegen_Enabled 			= HOVER_VEHICLE_REGENHEALTH_ENABLED_DEFAULT
+	float 	healthRegen_NoDamageDuration 	= 8.0	
+	float 	healthRegen_TimePeriod			= 0.2	
+	int 	healthRegen_Amount				= 5 	
+	table< entity, float >	lastDamagedTime_ByVehicle
+
+	
+
+
+		asset	vehSpawn_VFX	 	= FX_VEHICLE_SPAWN
+		string	vehRespawnHoloSkin	= "holo"
+
+
+	
+	int 	vehCollisionGroup 	= TRACE_COLLISION_GROUP_HOVER_VEHICLE
+	asset 	vehModel 			= HOVER_VEHICLE_MODEL
+	string 	vehScriptName 		= HOVER_VEHICLE_SCRIPTNAME
+	string	skinVariantName			= ""
+}
+
+const string AUTORESPAWN_HOLO_SCRIPTNAME = "hover_vehicle_respawn_wait_holo"
+
+sTunings_HoverVehicle tunings_Trident_Default
+
+
+
+global const float HOVERVEHICLE_DAMAGE_THRESHOLD_1 = 0.75
+global const float HOVERVEHICLE_DAMAGE_THRESHOLD_2 = 0.5
+global const float HOVERVEHICLE_DAMAGE_THRESHOLD_3 = 0.25
+
+
+
+
+	const string FUNC_VO_TRIDENTDAMAGED	= "HoverVehicle_CL2SV_VO_TridentDamaged"
+	const string FUNC_HOVERVEH_DAMAGEINDICATOR = "HoverVehicle_SV2CL_DamageIndicator"
+
+
+
+
+const string FUNC_HOVERVEH_PARKEDICON_CREATE 	= "HoverVehicle_SV2CL_ParkedIcon_Create"
+const string FUNC_HOVERVEH_PARKEDICON_DESTROY = "HoverVehicle_SV2CL_ParkedIcon_Destroy"
+
+
+
+struct
+{
+	array<void functionref( entity, entity )> callbacks_OnVehicleDisembarkEnd
+	array<void functionref( entity, entity )> callbacks_OnVehicleDisembarkStart
+	array<void functionref( entity, entity )> callbacks_OnVehicleEmbarkEnd
+	array<void functionref( entity, entity )> callbacks_OnVehicleEmbarkStart
+	table< entity, table< string, float > > playerLastSaidVehicleLineTime
+
+	array<entity> vehicleArray
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	table< int, sTunings_HoverVehicle > hoverVehTunings_ByType
+
+	table< int, string > hoverVehicleNames_ByType
+
+
+		
+		table< entity, int > vehicleDamageState
+		table< entity, bool > vehicleAtSpawnPlatform
+
+		
+		table< int, var > autoRespawnTopos_BySpawnspawnPtHandles
+		table< int, var > autoRespawnRuis_BySpawnspawnPtHandles
+
+		
+		array< EHI > vehicleEHIs_WithParkedIcons
+
+
+#if DEV
+		
+		bool devOut = false
+		bool devDmg	= false
+		float devDmg_Debounce = 1.0
+		float devDmg_LastTime = 0.0
+#endif
+
+	bool hovervehicle_rework_enabled
+
+} file
+
+bool function HoverVehiclesAreEnabled()
+{
+	return GetCurrentPlaylistVarBool( "hover_vehicles_enabled", true )
+}
+
+bool function HoverVehicles_PingFromMap_Enabled()
+{
+	return GetCurrentPlaylistVarBool( "hover_vehicles_pingfrommap_enabled", true )
+}
+
+void function HoverVehicle_Init()
+{
+	file.hovervehicle_rework_enabled = GetCurrentPlaylistVarBool( "hovervehicle_rework_enabled", true )
+
+	HoverVehicle_Names_Init()
+
+	Tunings_Init()
+
+	ConVars_And_TweakVars_Set()
+
+	RegisterSignal( SIG_VEHICLE_EMBARK_BEGIN )
+	RegisterSignal( SIG_HOVERVEHICLE_ALARM_OFF )
+	RegisterSignal( SIG_HOVERVEHICLE_HEALTHREGEN )
+	RegisterSignal( SIG_HOVERVEHICLE_HEALTHREGEN_OFF )
+	RegisterSignal( SIG_HOVERVEHICLE_PLATFORM_SPAWNEDFX )
+
+	RegisterSignal( SIG_HOVERVEHICLE_PARKEDICON )
+	RegisterSignal( SIG_HOVERVEHICLE_EMBARK_DISRUPTED )
+
+	AddCallback_EntitiesDidLoad( EntitiesDidLoad )
+
+
+
+
+
+
+
+
+
+
+	PrecacheModel( TWO_PASSENGER_MODEL )
+
+	if ( !HoverVehiclesAreEnabled() )
+		return
+
+	PrecacheScriptString( HOVER_VEHICLE_SCRIPTNAME )
+
+		PrecacheModel( HOVER_VEHICLE_MODEL_OLD )
+
+	PrecacheModel( HOVER_VEHICLE_MODEL )
+
+	PrecacheParticleSystem( FX_VEHICLE_BOOST )
+	PrecacheParticleSystem( FX_VEHICLE_BOOST_SML )
+	PrecacheParticleSystem( FX_VEHICLE_AIR_BRAKE )
+	PrecacheParticleSystem( FX_VEHICLE_JET_REAR )
+	PrecacheParticleSystem( FX_VEHICLE_JET_SIDE )
+	PrecacheParticleSystem( FX_VEHICLE_JET_BASE )
+	PrecacheParticleSystem( FX_VEHICLE_TRAILS )
+	PrecacheParticleSystem( FX_VEHICLE_TRAILS_BOOST )
+	PrecacheParticleSystem( FX_VEHICLE_JUMP )
+	PrecacheImpactEffectTable( FX_VEHICLE_JETWASH )
+
+	PrecacheParticleSystem( FX_VEHICLE_DAMAGE_BODY_LIGHT )
+	PrecacheParticleSystem( FX_VEHICLE_DAMAGE_BODY_MEDIUM )
+	PrecacheParticleSystem( FX_VEHICLE_DAMAGE_BODY_HEAVY )
+	PrecacheParticleSystem( FX_VEHICLE_DAMAGE_EXHAUST_LIGHT )
+	PrecacheParticleSystem( FX_VEHICLE_DAMAGE_EXHAUST_MEDIUM )
+	PrecacheParticleSystem( FX_VEHICLE_DAMAGE_EXHAUST_HEAVY )
+	PrecacheParticleSystem( FX_VEHICLE_DAMAGE_EXHAUST_HEAVY_BACK )
+	PrecacheParticleSystem( FX_VEHICLE_DAMAGE_REAR_LIGHT )
+	PrecacheParticleSystem( FX_VEHICLE_DAMAGE_REAR_MEDIUM )
+	PrecacheParticleSystem( FX_VEHICLE_DAMAGE_REAR_HEAVY )
+	PrecacheParticleSystem( FX_VEHICLE_DAMAGE_HOOD_LIGHT )
+	PrecacheParticleSystem( FX_VEHICLE_DAMAGE_HOOD_MEDIUM )
+	PrecacheParticleSystem( FX_VEHICLE_DAMAGE_HOOD_HEAVY )
+	PrecacheParticleSystem( FX_VEHICLE_DAMAGE_TOP_LIGHT )
+	PrecacheParticleSystem( FX_VEHICLE_DAMAGE_TOP_MEDIUM )
+	PrecacheParticleSystem( FX_VEHICLE_DAMAGE_TOP_HEAVY )
+	PrecacheParticleSystem( FX_VEHICLE_DEATH_FX )
+
+		PrecacheParticleSystem( FX_VEHICLE_DEATH_FX_OLD )
+		PrecacheParticleSystem( FX_VEHICLE_SPAWN )
+		PrecacheParticleSystem( FX_VEHICLE_HEALSHINE )
+
+		PrecacheParticleSystem( FX_VEHICLE_RESPAWN_ARROW )
+		PrecacheParticleSystem( FX_VEHICLE_RESPAWN_BEAM )
+
+
+	
+	PrecacheParticleSystem( FX_VEHICLE_DAMAGE_SMOKE_WHITE )
+	PrecacheParticleSystem( FX_VEHICLE_DAMAGE_SMOKE_BLACK )
+	PrecacheParticleSystem( FX_VEHICLE_DAMAGE_FIRE_SMALL )
+	PrecacheParticleSystem( FX_VEHICLE_DAMAGE_FIRE_LARGE )
+	PrecacheParticleSystem( FX_VEHICLE_DAMAGE_EXP_SMALL )
+
+	PrecacheParticleSystem( FX_VEHICLE_IDLE )
+	PrecacheParticleSystem( FX_VEHICLE_IDLE_REAR )
+	PrecacheParticleSystem( FX_LIGHT_HEAD )
+	PrecacheParticleSystem( FX_LIGHT_HEAD_TOP )
+	PrecacheParticleSystem( FX_LIGHT_BRAKE )
+	PrecacheParticleSystem( FX_LIGHT_BRAKE_IDLE )
+
+	PrecacheParticleSystem( FX_VEHICLE_LAUNCHPAD_LAUNCH )
+	PrecacheParticleSystem( FX_VEHICLE_EJECT_PILOT_TRAILS )
+	PrecacheParticleSystem( FX_VEHICLE_EJECT_PILOT_SCREEN )
+	PrecacheParticleSystem( FX_VEHICLE_SPAWN_POINT )
+
+	HoverVehicle_InitFX()
+
+
+
+
+
+
+
+
+
+
+
+
+
+	AddCreateCallback( "player_vehicle", CL_OnVehicleCreated )
+	RegisterMinimapPackages()
+	AddCallback_OnClientScriptInit( LaunchVehicleHudManagement )
+	AddCallback_FullUpdate( OnFullUpdate )
+	AddCallback_GameStateEnter( eGameState.Playing, HoverVehicle_OnGameStartPlaying )
+
+	RegisterSignal( "OnVehicleRuiEnd" )
+
+	if( HoverVehicles_PingFromMap_Enabled() )
+		AddCallback_OnFindFullMapAimEntity( GetVehicleUnderAim, PingVehicleUnderAim )
+
+
+		AddCreateCallback( "prop_script", CL_OnPropCreated )
+
+
+
+
+	AddCallback_CanStartCustomWeaponActivity( ACT_VM_WEAPON_INSPECT, CanWeaponInspect )
+
+	Remote_RegisterClientFunction( "ServerCallback_VehicleOccupancyChange", "entity" )
+
+	Remote_RegisterClientFunction( "SCB_EjectedFromHoverVehicleForSeldDestruct" )
+
+	if( HoverVehicles_PingFromMap_Enabled() )
+	{
+		Remote_RegisterServerFunction( FUNCNAME_PingVehicleFromMap, "typed_entity", "player_vehicle" )
+
+		Remote_RegisterClientFunction( FUNCNAME_SetVehiclePresenceAtPlatform, "entity" )
+	}
+
+	InitVehicleHorn()
+
+
+	Remote_RegisterClientFunction( FUNC_HOVERVEH_DAMAGEINDICATOR, "entity", "entity", "float", 0.0, 10000.0, 32, "vector", -MAX_WORLD_COORD, MAX_WORLD_COORD, 32, "int", 0, INT_MAX, "int", eDamageSourceId.invalid, eDamageSourceId._count )
+
+	Remote_RegisterServerFunction( FUNC_VO_TRIDENTDAMAGED, "typed_entity", "player_vehicle" )
+
+	InitVehicleEject()
+
+	
+	
+
+
+	Remote_RegisterClientFunction( FUNC_HOVERVEH_PARKEDICON_CREATE, 	"entity" )
+	Remote_RegisterClientFunction( FUNC_HOVERVEH_PARKEDICON_DESTROY, "entity" )
+}
+
+void function HoverVehicle_Names_Init()
+{
+	file.hoverVehicleNames_ByType[ eHoverVehicleTypes.TRIDENT ] <- "trident"
+
+		file.hoverVehicleNames_ByType[ eHoverVehicleTypes.TRIDENT_OLDMODEL ] <- "tridentoldmdl"
+
+
+	
+}
+
+
+void function ConVars_And_TweakVars_Set()
+{
+	
+	SetConVarBool( "hover_vehicle_yaw_spring_enabled", 					tunings_Shared.cvar_Camera_Yaw_Spring_Enabled )
+	SetConVarFloat( "hover_vehicle_yaw_nospring_smoothtime", 			tunings_Shared.cvar_Camera_Yaw_NoSpring_SmoothTime )
+	SetConVarFloat( "hover_vehicle_yaw_nospring_smoothtime_boosting",	tunings_Shared.cvar_Camera_Yaw_NoSpring_SmoothTime_Boosting )
+
+	
+
+		SetConVarFloat( "hover_vehicle_camera_offset_height_base", 			tunings_Shared.cvar_camera_offset_height_base )
+		SetConVarFloat( "hover_vehicle_camera_offset_height_speedDelta", 	tunings_Shared.cvar_camera_offset_height_speedDelta )
+		SetConVarFloat( "hover_vehicle_camera_smooth_rate", 				tunings_Shared.cvar_camera_smooth_rate )
+
+
+	
+	SetConVarBool	( "hover_vehicle_boost_on_hold",	tunings_Shared.cvar_Boost_On_Hold )
+	SetConVarInt	( "hover_vehicle_boost_style",		tunings_Shared.cvar_hover_vehicle_boost_style )
+	
+
+	
+	SetConVarInt( "hover_vehicle_air_brake_style", tunings_Shared.cvar_Air_Brake_Style )
+
+	
+	SetConVarBool( "hover_vehicle_health_start_on",	tunings_Shared.cvar_Health_Start_On )
+
+	
+	SetConVarBool( "hover_vehicle_eject_enabled",	tunings_Shared.cvar_Eject_Enabled  )
+
+
+		SetConVarBool( "hover_vehicle_reset_camera_while_embarking", tunings_Shared.cvar_reset_camera_while_embarking  )
+		SetConVarBool( "hover_vehicle_full_recharge_on_zero_boost", tunings_Shared.cvar_hover_vehicle_full_recharge )	
+
+		
+		SetConVarInt	( "hover_vehicle_glide_type", 			tunings_Shared.cvar_hover_vehicle_glide_type )
+		SetConVarFloat	( "hover_vehicle_glide_debounce", 		tunings_Shared.cvar_hover_vehicle_glide_debounce )
+		SetConVarFloat	( "hover_vehicle_glide_thrust_speed", 	tunings_Shared.cvar_hover_vehicle_glide_thrust_speed )
+		SetConVarFloat	( "hover_vehicle_glide_descent_speed",	tunings_Shared.cvar_hover_vehicle_glide_descent_speed )
+		SetConVarBool	( "hover_vehicle_glide_when_ascending", tunings_Shared.cvar_hover_vehicle_glide_when_ascending )
+		SetConVarFloat	( "hover_vehicle_glide_max_thrust",		tunings_Shared.cvar_hover_vehicle_glide_max_thrust )
+		SetConVarFloat	( "hover_vehicle_glide_min_thrust",		tunings_Shared.cvar_hover_vehicle_glide_min_thrust )
+		SetConVarFloat	( "hover_vehicle_glide_to_min_thrust_duration",		tunings_Shared.cvar_hover_vehicle_glide_to_min_thrust_duration )
+		SetConVarFloat	( "hover_vehicle_glide_air_accel",		tunings_Shared.cvar_hover_vehicle_glide_air_accel )
+		SetConVarFloat	( "hover_vehicle_glide_tightness_up",	tunings_Shared.cvar_hover_vehicle_glide_tightness_up )
+		SetConVarFloat	( "hover_vehicle_glide_tightness_down",	tunings_Shared.cvar_hover_vehicle_glide_tightness_down )
+		SetConVarFloat	( "hover_vehicle_glide_max_duration", 	tunings_Shared.cvar_hover_vehicle_glide_max_duration )
+
+
+	SetConVarFloat( "hover_vehicle_hover_height", tunings_Shared.cvar_hover_vehicle_hover_height )
+}
+
+
+
+bool function HoverVehicle_Rework_Enabled()
+{
+	return( file.hovervehicle_rework_enabled )
+}
+
+void function Tunings_Init()
+{
+#if DEV
+
+			DevOut( FUNC_NAME() + "(): VEHICLE REWORK ON" )
+
+
+
+#endif
+
+
+	
+		if( !HoverVehicle_Rework_Enabled() )
+		{
+			Tunings_Use_Old()
+		}
+
+
+
+	Tunings_Shared_PLV_Set()
+
+	
+	sTunings_HoverVehicle tunings_Trident
+	Tunings_Vehicle_Setup_From_PLV_And_Defaults( tunings_Trident, tunings_Trident_Default, eHoverVehicleTypes.TRIDENT )
+	VehicleTunings_ByType_Set( eHoverVehicleTypes.TRIDENT, tunings_Trident )
+
+	
+	sTunings_HoverVehicle tunings_Trident_OldModel_Default
+
+		
+		tunings_Trident_OldModel_Default.vehModel = HOVER_VEHICLE_MODEL_OLD
+		tunings_Trident_OldModel_Default.vehDestruction_VFX = FX_VEHICLE_DEATH_FX_OLD
+		sTunings_HoverVehicle tunings_Trident_OldModel
+		Tunings_Vehicle_Setup_From_PLV_And_Defaults( tunings_Trident_OldModel, tunings_Trident_OldModel_Default, eHoverVehicleTypes.TRIDENT_OLDMODEL )
+		VehicleTunings_ByType_Set( eHoverVehicleTypes.TRIDENT_OLDMODEL, tunings_Trident_OldModel )
+
+
+	
+}
+
+
+
+void function Tunings_Use_Old()
+{
+	Tunings_Shared_Use_Old()
+	Tunings_Trident_Use_Old()
+}
+
+void function Tunings_Shared_Use_Old()
+{
+	
+	tunings_Shared_Default.cvar_Camera_Yaw_Spring_Enabled 			= HOVER_VEHICLE_CAMERA_YAW_SPRING_ENABLED_OLD
+	tunings_Shared_Default.cvar_Camera_Yaw_NoSpring_SmoothTime 		= HOVER_VEHICLE_CAMERA_YAW_NOSPRING_SMOOTHTIME_OLD
+
+	
+	tunings_Shared_Default.cvar_camera_offset_height_base 			= HOVER_VEHICLE_CAMERA_OFFSET_HEIGHT_BASE_OLD
+	tunings_Shared_Default.cvar_camera_offset_height_speedDelta 	= HOVER_VEHICLE_CAMERA_OFFSET_HEIGHT_SPEEDDELTA_OLD
+	tunings_Shared_Default.cvar_camera_smooth_rate					= HOVER_VEHICLE_CAMERA_SMOOTHRATE_OLD
+	tunings_Shared_Default.cvar_reset_camera_while_embarking		= HOVER_VEHICLE_RESET_CAMERA_WHILE_EMBARKING_OLD
+
+	
+	tunings_Shared_Default.cvar_Boost_On_Hold	= HOVER_VEHICLE_DEFAULT_BOOST_ON_HOLD_OLD
+
+	
+	tunings_Shared_Default.cvar_Air_Brake_Style = HOVER_VEHICLE_AIR_BRAKE_STYLE_OLD
+
+	
+	tunings_Shared_Default.cvar_Health_Start_On 	= HOVER_VEHICLE_START_HEALTH_ON_OLD
+
+	
+	tunings_Shared_Default.autoRespawn_Enabled	= HOVER_VEHICLE_AUTORESPAWN_ENABLED_DEFAULT_OLD
+	tunings_Shared_Default.autoRespawn_Delay 	= 60.0 
+
+	
+	tunings_Shared_Default.damagePropagation_Enabled = false 
+
+	
+	tunings_Shared_Default.vo_VehicleDamaged_Enabled = false
+
+	
+	tunings_Shared_Default.cvar_hover_vehicle_glide_type = HOVER_VEHICLE_GLIDE_TYPE_OLD
+	tunings_Shared_Default.cvar_hover_vehicle_full_recharge = HOVER_VEHICLE_FULL_RECHARGE_OLD
+}
+
+void function Tunings_Trident_Use_Old()
+{
+	tunings_Trident_Default.vehicleType = eHoverVehicleTypes.TRIDENT_OLDMODEL
+
+	
+	tunings_Trident_Default.maxSpeed_Forward 	= HOVER_VEHICLE_DEFAULT_MAXSPEED_FORWARD_OLD
+	tunings_Trident_Default.accel_Forward		= HOVER_VEHICLE_DEFAULT_ACCEL_FORWARD_OLD
+	tunings_Trident_Default.decel_Forward		= HOVER_VEHICLE_DEFAULT_DECEL_FORWARD_OLD
+	tunings_Trident_Default.maxSpeed_Strafe  	= HOVER_VEHICLE_DEFAULT_MAXSPEED_STRAFE_OLD
+	tunings_Trident_Default.accel_Strafe		= HOVER_VEHICLE_DEFAULT_ACCEL_STRAFE_OLD
+	tunings_Trident_Default.decel_Strafe 		= HOVER_VEHICLE_DEFAULT_DECEL_STRAFE_OLD
+	tunings_Trident_Default.maxSpeed_Reverse  = HOVER_VEHICLE_DEFAULT_MAXSPEED_REVERSE_OLD
+	tunings_Trident_Default.accel_Reverse		= HOVER_VEHICLE_DEFAULT_ACCEL_REVERSE_OLD
+	tunings_Trident_Default.decel_Reverse 	= HOVER_VEHICLE_DEFAULT_DECEL_REVERSE_OLD
+
+	tunings_Trident_Default.accel_air			= HOVER_VEHICLE_DEFAULT_ACCEL_AIR_OLD
+	tunings_Trident_Default.decel_PowerBrake 	= HOVER_VEHICLE_DEFAULT_DECEL_POWERBRAKE_OLD
+
+	
+	tunings_Trident_Default.boostMinSpeed 	= HOVER_VEHICLE_DEFAULT_BOOST_MIN_OLD
+	tunings_Trident_Default.boostMaxSpeed 	= HOVER_VEHICLE_DEFAULT_BOOST_MAX_OLD
+	tunings_Trident_Default.boostCooldown 	= HOVER_VEHICLE_DEFAULT_BOOST_COOLDOWN_OLD
+	tunings_Trident_Default.boostDuration 	= HOVER_VEHICLE_DEFAULT_BOOST_DURATION_OLD
+	tunings_Trident_Default.boostCooldown_Partial = HOVER_VEHICLE_DEFAULT_BOOST_PARTIAL_COOLDOWN_OLD
+	tunings_Trident_Default.boostRegenRate 		= HOVER_VEHICLE_DEFAULT_BOOST_REGEN_RATE_OLD
+
+	
+	tunings_Trident_Default.jumpSpeed 		= HOVER_VEHICLE_DEFAULT_BOOST_JUMP_SPEED_OLD
+	tunings_Trident_Default.jumpDebounce 		= HOVER_VEHICLE_DEFAULT_BOOST_JUMP_DEBOUNCE_OLD
+	tunings_Trident_Default.jumpBoostCost		= HOVER_VEHICLE_DEFAULT_BOOST_JUMP_COST_OLD
+
+	
+	tunings_Trident_Default.stunDuration		= HOVER_VEHICLE_STUN_DURATION_OLD
+	tunings_Trident_Default.stunDebounce		= HOVER_VEHICLE_STUN_DEBOUNCE_OLD
+
+	
+	tunings_Trident_Default.collision_Requires_Boost 					= HOVER_VEHICLE_COLLISION_REQUIRES_BOOST_OLD			
+	tunings_Trident_Default.collision_Player_Damage 					= HOVER_VEHICLE_COLLISION_DAMAGE_OLD
+	tunings_Trident_Default.collision_Player_PushAway_Speed_Threshold 	= HOVER_VEHICLE_COLLISION_PUSHAWAY_SPEED_THRESHOLD_OLD
+
+	tunings_Trident_Default.speedBasedCollisionDamage_Enabled			= HOVER_VEHICLE_SPEEDRAM_ENABLED_OLD	
+	tunings_Trident_Default.speedBasedCollisionDamage_Speed_Min			= HOVER_VEHICLE_SPEEDRAM_SPEED_MIN_OLD	
+	tunings_Trident_Default.speedBasedCollisionDamage_Speed_Max			= HOVER_VEHICLE_SPEEDRAM_SPEED_MAX_OLD	
+	tunings_Trident_Default.speedBasedCollisionDamage_Damage_Min		= HOVER_VEHICLE_SPEEDRAM_DAMAGE_MIN_OLD 
+	tunings_Trident_Default.speedBasedCollisionDamage_Damage_Max		= HOVER_VEHICLE_SPEEDRAM_DAMAGE_MAX_OLD 
+	
+	tunings_Trident_Default.collisionDamage_Factor_vsDestructibles = 1.0
+	tunings_Trident_Default.collisionDamage_Factor_vsLegendObjects = 1.0
+	tunings_Trident_Default.collisionDamage_Factor_vsOtherVehicles = 1.0
+	tunings_Trident_Default.collisionDamage_Factor_vsNPCs = 1.0
+
+	
+	tunings_Trident_Default.defaultHealth 			= HOVER_VEHICLE_DEFAULT_HEALTH_OLD
+	tunings_Trident_Default.defaultShields 			= HOVER_VEHICLE_DEFAULT_SHIELDS_OLD 
+
+	
+	tunings_Trident_Default.hasTurret	= false
+
+	
+	tunings_Trident_Default.showSpawnBeam = true
+	tunings_Trident_Default.showSpawnMinimapIcon = true
+
+	
+	tunings_Trident_Default.vehDestruction_VFX	= FX_VEHICLE_DEATH_FX_OLD
+	tunings_Trident_Default.vehDestruction_SFX 	= HOVER_VEHICLE_DESTROY_EXPLOSION_SOUND
+
+	
+	tunings_Trident_Default.healthRegen_Enabled 			= HOVER_VEHICLE_REGENHEALTH_ENABLED_DEFAULT_OLD
+	tunings_Trident_Default.healthRegen_NoDamageDuration 	= 8.0	
+	tunings_Trident_Default.healthRegen_TimePeriod			= 0.2	
+	tunings_Trident_Default.healthRegen_Amount				= 5 	
+
+	
+	tunings_Trident_Default.vehSpawn_VFX	 	= FX_VEHICLE_SPAWN
+	tunings_Trident_Default.vehRespawnHoloSkin	= "holo"
+
+	
+	tunings_Trident_Default.vehCollisionGroup 	= TRACE_COLLISION_GROUP_HOVER_VEHICLE
+	tunings_Trident_Default.vehModel 			= HOVER_VEHICLE_MODEL_OLD
+	tunings_Trident_Default.vehScriptName 		= HOVER_VEHICLE_SCRIPTNAME
+	tunings_Trident_Default.skinVariantName			= ""
+}
+
+
+
+void function Tunings_Shared_PLV_Set()
+{
+	
+	tunings_Shared.cvar_Camera_Yaw_Spring_Enabled			= GetCurrentPlaylistVarBool( "hoverveh_camera_yaw_spring_enabled", 			tunings_Shared_Default.cvar_Camera_Yaw_Spring_Enabled )
+	tunings_Shared.cvar_Camera_Yaw_NoSpring_SmoothTime		= GetCurrentPlaylistVarFloat( "hoverveh_camera_yaw_nospring_smoothtime", 	tunings_Shared_Default.cvar_Camera_Yaw_NoSpring_SmoothTime )
+	tunings_Shared.cvar_Camera_Yaw_NoSpring_SmoothTime_Boosting		= GetCurrentPlaylistVarFloat( "hoverveh_camera_yaw_nospring_smoothtime_boosting", 	tunings_Shared_Default.cvar_Camera_Yaw_NoSpring_SmoothTime_Boosting )
+
+	
+	tunings_Shared.cvar_camera_offset_height_base		= GetCurrentPlaylistVarFloat( "hoverveh_camera_offset_height_base", 		tunings_Shared_Default.cvar_camera_offset_height_base )
+	tunings_Shared.cvar_camera_offset_height_speedDelta = GetCurrentPlaylistVarFloat( "hoverveh_camera_offset_height_speeddelta", 	tunings_Shared_Default.cvar_camera_offset_height_speedDelta )
+	tunings_Shared.cvar_camera_smooth_rate				= GetCurrentPlaylistVarFloat( "hoverveh_camera_smooth_rate", 				tunings_Shared_Default.cvar_camera_smooth_rate )
+	tunings_Shared.cvar_reset_camera_while_embarking	= GetCurrentPlaylistVarBool( "hover_vehicle_reset_camera_while_embarking", 	tunings_Shared_Default.cvar_reset_camera_while_embarking )
+
+	
+	tunings_Shared.cvar_Boost_On_Hold					= GetCurrentPlaylistVarBool	( "hoverveh_boost_on_hold", 	tunings_Shared_Default.cvar_Boost_On_Hold )
+	tunings_Shared.cvar_hover_vehicle_boost_style 		= GetCurrentPlaylistVarInt	( "hover_vehicle_boost_style", 	tunings_Shared_Default.cvar_hover_vehicle_boost_style )
+
+	
+	tunings_Shared.cvar_Air_Brake_Style = GetCurrentPlaylistVarInt( "hoverveh_air_brake_style",	tunings_Shared_Default.cvar_Air_Brake_Style )
+
+	
+	tunings_Shared.cvar_Health_Start_On	= GetCurrentPlaylistVarBool( "hoverveh_health_start_on", 	tunings_Shared_Default.cvar_Health_Start_On )
+
+	
+	tunings_Shared.cvar_Eject_Enabled	= GetCurrentPlaylistVarBool( "hoverveh_eject_enabled", tunings_Shared_Default.cvar_Eject_Enabled )
+	tunings_Shared.cvar_Smoke_Enabled	= GetCurrentPlaylistVarBool( "hoverveh_smoke_enabled", tunings_Shared_Default.cvar_Smoke_Enabled )
+
+	
+	tunings_Shared.autoRespawn_Enabled 	= GetCurrentPlaylistVarBool( "hoverveh_autorespawn_enabled", tunings_Shared_Default.autoRespawn_Enabled )
+	tunings_Shared.autoRespawn_Delay	= GetCurrentPlaylistVarFloat( "hoverveh_autorespawn_delay",  tunings_Shared_Default.autoRespawn_Delay )
+
+	
+	tunings_Shared.damagePropagation_Enabled = GetCurrentPlaylistVarBool( "hoverveh_damagepropagation_enabled", tunings_Shared_Default.damagePropagation_Enabled )
+
+	
+	tunings_Shared.vo_VehicleDamaged_Enabled = GetCurrentPlaylistVarBool( "hoverveh_vo_vehicledamaged_enabled", tunings_Shared_Default.vo_VehicleDamaged_Enabled )
+
+
+		if( HoverVehicle_Rework_Enabled() )
+		{
+			tunings_Shared.cvar_hover_vehicle_glide_type 			= GetCurrentPlaylistVarInt( "hover_vehicle_glide_type", 			tunings_Shared_Default.cvar_hover_vehicle_glide_type )
+			tunings_Shared.cvar_hover_vehicle_glide_debounce 		= GetCurrentPlaylistVarFloat( "hover_vehicle_glide_debounce", 		tunings_Shared_Default.cvar_hover_vehicle_glide_debounce )
+			tunings_Shared.cvar_hover_vehicle_glide_thrust_speed	= GetCurrentPlaylistVarFloat( "hover_vehicle_glide_thrust_speed", 	tunings_Shared_Default.cvar_hover_vehicle_glide_thrust_speed )
+			tunings_Shared.cvar_hover_vehicle_glide_descent_speed 	= GetCurrentPlaylistVarFloat( "hover_vehicle_glide_descent_speed", 	tunings_Shared_Default.cvar_hover_vehicle_glide_descent_speed )
+			tunings_Shared.cvar_hover_vehicle_glide_when_ascending 	= GetCurrentPlaylistVarBool( "hover_vehicle_glide_when_ascending", 	tunings_Shared_Default.cvar_hover_vehicle_glide_when_ascending )
+			tunings_Shared.cvar_hover_vehicle_glide_max_thrust		= GetCurrentPlaylistVarFloat( "hover_vehicle_glide_max_thrust", 	tunings_Shared_Default.cvar_hover_vehicle_glide_max_thrust )
+			tunings_Shared.cvar_hover_vehicle_glide_min_thrust		= GetCurrentPlaylistVarFloat( "hover_vehicle_glide_min_thrust", 	tunings_Shared_Default.cvar_hover_vehicle_glide_min_thrust )
+			tunings_Shared.cvar_hover_vehicle_glide_to_min_thrust_duration	= GetCurrentPlaylistVarFloat( "hover_vehicle_glide_to_min_thrust_duration", tunings_Shared_Default.cvar_hover_vehicle_glide_to_min_thrust_duration )
+			tunings_Shared.cvar_hover_vehicle_glide_air_accel		= GetCurrentPlaylistVarFloat( "hover_vehicle_glide_air_accel", 		tunings_Shared_Default.cvar_hover_vehicle_glide_air_accel )
+			tunings_Shared.cvar_hover_vehicle_glide_tightness_up	= GetCurrentPlaylistVarFloat( "hover_vehicle_glide_tightness_up", 	tunings_Shared_Default.cvar_hover_vehicle_glide_tightness_up )
+			tunings_Shared.cvar_hover_vehicle_glide_tightness_down	= GetCurrentPlaylistVarFloat( "hover_vehicle_glide_tightness_down", tunings_Shared_Default.cvar_hover_vehicle_glide_tightness_down )
+			tunings_Shared.cvar_hover_vehicle_glide_max_duration	= GetCurrentPlaylistVarFloat( "hover_vehicle_hold_to_glide", 		tunings_Shared_Default.cvar_hover_vehicle_glide_max_duration )
+		}
+
+	tunings_Shared.cvar_hover_vehicle_hover_height = GetCurrentPlaylistVarFloat( "hover_vehicle_hover_height", tunings_Shared_Default.cvar_hover_vehicle_hover_height )
+}
+
+void function Tunings_Vehicle_Setup_From_PLV_And_Defaults( sTunings_HoverVehicle tunings, sTunings_HoverVehicle defaults, int vehicleType )
+{
+	
+
+
+
+	string vehName = file.hoverVehicleNames_ByType[ vehicleType ]
+
+	tunings.vehicleType = vehicleType
+
+	
+	tunings.maxSpeed_Strafe 	= GetCurrentPlaylistVarFloat( "hoverveh_" + vehName + "_maxspeed_strafe", 	defaults.maxSpeed_Strafe )
+	tunings.maxSpeed_Forward 	= GetCurrentPlaylistVarFloat( "hoverveh_" + vehName + "_maxspeed_forward", 	defaults.maxSpeed_Forward )
+	tunings.maxSpeed_Reverse 	= GetCurrentPlaylistVarFloat( "hoverveh_" + vehName + "_maxspeed_reverse", 	defaults.maxSpeed_Reverse )
+
+	tunings.accel_Strafe			= GetCurrentPlaylistVarFloat( "hoverveh_" + vehName + "_accel_strafe", 	defaults.accel_Strafe )
+	tunings.accel_Forward		= GetCurrentPlaylistVarFloat( "hoverveh_" + vehName + "_accel_forward", 	defaults.maxSpeed_Forward )
+	tunings.accel_Reverse		= GetCurrentPlaylistVarFloat( "hoverveh_" + vehName + "_accel_Reverse", 	defaults.accel_Reverse )
+
+	tunings.decel_Strafe			= GetCurrentPlaylistVarFloat( "hoverveh_" + vehName + "_decel_strafe", 	defaults.decel_Strafe )
+	tunings.decel_Forward		= GetCurrentPlaylistVarFloat( "hoverveh_" + vehName + "_decel_forward", 	defaults.decel_Forward )
+	tunings.decel_Reverse		= GetCurrentPlaylistVarFloat( "hoverveh_" + vehName + "_decel_Reverse", 	defaults.decel_Reverse )
+
+	tunings.accel_air			= GetCurrentPlaylistVarFloat( "hoverveh_" + vehName + "_acceleration_air", 	defaults.accel_air )
+	tunings.decel_PowerBrake		= GetCurrentPlaylistVarFloat( "hoverveh_" + vehName + "_decel_powerbrake", defaults.decel_PowerBrake )
+
+	
+	tunings.boostMinSpeed 		= GetCurrentPlaylistVarFloat( "hoverveh_" + vehName + "_boost_min_speed", 	defaults.boostMinSpeed )
+	tunings.boostMaxSpeed 		= GetCurrentPlaylistVarFloat( "hoverveh_" + vehName + "_boost_max_speed", 	defaults.boostMaxSpeed )
+	tunings.boostCooldown 		= GetCurrentPlaylistVarFloat( "hoverveh_" + vehName + "_boost_cooldown", 	defaults.boostCooldown )
+	tunings.boostDuration		= GetCurrentPlaylistVarFloat( "hoverveh_" + vehName + "_boost_duration", 	defaults.boostDuration )
+	tunings.defaultHealth 		= GetCurrentPlaylistVarInt( "hoverveh_" + vehName + "_health", 				defaults.defaultHealth )
+
+	
+	tunings.jumpSpeed			= GetCurrent{
+	if( !( spawnPtHandle in file.autoRespawnRuis_BySpawnspawnPtHandles ) )
+	{
+		
+		var rui = RuiCreate( $"ui/hover_vehicle_respawn_timer.rpak", topo, RUI_DRAW_WORLD, 0 )
+		file.autoRespawnRuis_BySpawnspawnPtHandles[ spawnPtHandle ] <- rui
+	}
+	return file.autoRespawnRuis_BySpawnspawnPtHandles[ spawnPtHandle ]
+}
+
+void function CL_HoverVehicle_AutoRespawn_CountdownTimer_Rui_Destroy( int spawnPtHandle, var topo )
+{
+	var rui = CL_HoverVehicle_AutoRespawn_CountdownTimer_Rui_Get( spawnPtHandle, topo )
+
+	RuiDestroyIfAlive( rui )
+	delete file.autoRespawnRuis_BySpawnspawnPtHandles[ spawnPtHandle ]
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function HoverVehicle_SV2CL_ParkedIcon_Create( entity vehicle )
+{
+	if( !IsValid( vehicle ) )
+		return
+
+	EHI vehicleEHI = ToEHI( vehicle )
+	if( file.vehicleEHIs_WithParkedIcons.contains( vehicleEHI ) )
+		return
+
+	thread CL_ParkedIcon_Think_Thread( vehicle )
+	file.vehicleEHIs_WithParkedIcons.append( vehicleEHI )
+}
+
+void function HoverVehicle_SV2CL_ParkedIcon_Destroy( entity vehicle )
+{
+	EHI vehicleEHI = ToEHI( vehicle )
+	if( !file.vehicleEHIs_WithParkedIcons.contains( vehicleEHI ) )
+		return
+
+	vehicle.Signal( SIG_HOVERVEHICLE_PARKEDICON ) 
+}
+
+void function CL_ParkedIcon_Think_Thread( entity vehicle )
+{
+	if( !IsValid( vehicle ) )
+		return
+
+	if( !EntIsHoverVehicle( vehicle ) )
+		return
+
+	vehicle.Signal( SIG_HOVERVEHICLE_PARKEDICON )
+	vehicle.EndSignal( SIG_HOVERVEHICLE_PARKEDICON )
+	vehicle.EndSignal( "OnDestroy" )
+
+	vector loc = vehicle.GetOrigin()
+	vector ang = FlattenVec( vehicle.GetAngles() )
+	vector iconColor = COLOR_DARK_GRAY
+
+	const float SCALE_MINIMAP = 1.2
+	const float SCALE_FULLMAP = 12
+
+	var minimapRui = Minimap_AddIconAtPosition	( loc, ang, HOVER_VEHICLE_SPAWNPOINT_ICON, 	SCALE_MINIMAP, iconColor )
+	var fullmapRui = FullMap_AddIconAtPos		( loc, ang + < 0, -90, 0 >, HOVER_VEHICLE_SPAWNPOINT_ICON,	SCALE_FULLMAP, iconColor )
+
+	OnThreadEnd(
+		function(): ( vehicle, minimapRui, fullmapRui )
+		{
+			Minimap_CommonCleanup( minimapRui )
+			Fullmap_RemoveRui( fullmapRui )
+			RuiDestroy( fullmapRui )
+
+			EHI vehicleEHI = ToEHI( vehicle )
+			file.vehicleEHIs_WithParkedIcons.fastremovebyvalue( vehicleEHI )
+		}
+	)
+
+	
+	
+	
+	
+
+	WaitForever()
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#if DEV
+void function DevOut( string printMe )
+{
+	if( !file.devOut )
+		return
+
+	printt( ":>>" + printMe )
+}
+
+void function DevOut_DamageSourceId( int damageSrc )
+{
+	if( !file.devDmg )
+		return
+
+	string damageSource = GetEnumStringSlow( eDamageSourceId, damageSrc )
+
+	float timeDelta = Time() - file.devDmg_LastTime
+	if( timeDelta < file.devDmg_Debounce )
+		return
+
+	DevOut( "Damage Source == " + damageSource )
+	file.devDmg_LastTime = Time()
+}
+
+#endif
+[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/sh_apex_screens.nut.client
+[dump] scripts/vscripts/sh_apex_screens.nut.client (34196 bytes)global function ShApexScreens_Init
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global function ClApexScreens_DisableAllScreens
+global function ClApexScreens_EnableAllScreens
+global function ClApexScreens_IsDisabled
+global function ServerToClient_ApexScreenKillDataChanged
+global function ServerToClient_ApexScreenRefreshAll
+
+
+global function ClApexScreens_OnStaticPropRuiVisibilityChange
+global function ClApexScreens_AddScreenOverride
+global function ClApexScreens_GetCustomBannerScreen
+global function ClApexScreens_PosInStaticBanner
+
+global function ClApexScreens_SetCustomApexScreenBGAsset
+global function ClApexScreens_SetCustomLogoTint
+global function ClApexScreens_SetCustomLogoImage
+global function ClApexScreens_SetCustomLogoSize
+global function ClApexScreens_SetAnimatedLogoAsset
+global function ClApexScreens_SetEventScreenOverride
+
+
+global function GetCurrentPlaylistVarAsset
+
+#if DEV
+global function DEV_CreatePerfectApexScreen
+global function DEV_ToggleActiveApexScreenDebug
+#endif
+
+global const string CUSTOM_BANNER_LEFT_SCRIPTNAME = "leftScreen_custom"
+global const string CUSTOM_BANNER_CENTER_SCRIPTNAME = "centerScreen_custom"
+global const string CUSTOM_BANNER_RIGHT_SCRIPTNAME = "rightScreen_custom"
+
+const int EHI_LOCALSELF 				= -1
+const int EHI_LOCALTEAMMATE_RANDOM 	= -2
+
+const float APEX_SCREEN_TRANSITION_IN_DURATION = 0.7 
+
+const float APEX_SCREEN_RANDOM_TINT_INTENSITY_MIN = 0.4
+const float APEX_SCREEN_RANDOM_TINT_INTENSITY_MAX = 0.6
+const vector[3] APEX_SCREEN_RANDOM_TINT_PALETTE = [
+	<1.0, 1.0, 1.0> - <0.85, 0.87, 0.88>,
+	<1.0, 1.0, 1.0> - <0.80, 0.95, 1.00>,
+	<1.0, 1.0, 1.0> - <0.98, 1.00, 1.00>,
+]
+
+
+
+
+
+global enum eApexScreenPosition
+{
+	
+	L = 0,
+	C = 1,
+	R = 2,
+	_COUNT_BANNERTYPES,
+
+	TV_LIKE = 3,
+
+	DISABLED = -1,
+}
+
+global enum eApexScreenMode
+{
+	
+	OFF = 0,
+	LOGO = 1,
+	PLAYER_NAME_CHAMPION = 2,
+	PLAYER_NAME_KILLLEADER = 3,
+	GCARD_FRONT_CLEAN = 4,
+	GCARD_FRONT_DETAILS = 5,
+	GCARD_BACK = 6,
+	UNUSED = 7,
+	CIRCLE_STATE = 8,
+	PLAYERS_REMAINING = 9,
+	SQUADS_REMAINING = 10,
+	ZONE_NAME = 11,
+	ZONE_LOOT = 12,
+	CAMERA_VIEW = 13,
+	BG_NO_LOGO = 14,
+
+	_COUNT,
+	INVALID = -1,
+}
+
+global enum eApexScreenTransitionStyle
+{
+	
+	NONE = 0,
+	SLIDE = 1,
+	FADE_TO_BLACK = 2,
+}
+
+
+global enum eApexScreenMods
+{
+	RED = (1 << 0),
+}
+
+global enum eApexScreenDisplayGroup
+{
+	DISPLAY_PLAYER,
+	DISPLAY_PLAYER_SQUAD,
+	DISPLAY_LOGOS,
+	DISPLAY_CENTER_LOGO_ONLY,
+	DISPLAY_RANDOM_PLAYERS,
+	DISPLAY_PLAYER_SQUAD_CENTERED,
+	DISPLAY_LOCALPLAYER,
+	DISPLAY_RANDOM_LOCALTEAMMATE
+}
+
+
+global struct ScreenOverrideInfo
+{
+	asset  ruiAsset
+	string scriptNameRequired = ""
+	bool   skipStandardVars
+
+	
+	bool bindStartTimeVarToEventTimeA
+	bool bindStartTimeVarToEventTimeB
+	bool bindEventIntA
+
+	struct
+	{
+		table<string, int>    ints
+		table<string, float>  floats
+		table<string, bool>   bools
+		table<string, asset>  images
+		table<string, string> strings
+		table<string, vector> float3s
+		table<string, vector> float2s
+		table<string, float>  gametimes
+	} vars
+}
+table<string, ScreenOverrideInfo> s_screenOverrides
+
+global struct ApexScreenState
+{
+	var    rui
+
+	var 	nestedRui
+
+	int    magicId
+	string mockup
+	asset  ruiToCreate
+	asset  ruiToCreateOrig
+	asset  ruiLastCreated
+
+	bool                overrideInfoIsValid = false
+	ScreenOverrideInfo& overrideInfo
+
+	vector uvMin = <0.0, 0.0, 0.0>
+	vector uvMax = <1.0, 1.0, 0.0>
+	bool   sharesPropWithEnvironmentalRUI = false
+
+	bool  visibleInPVS = false
+	bool  isOutsideCircle = false
+	float commenceTime
+
+	int    position = -1
+	vector spawnOrigin
+	vector spawnForward
+	vector spawnRight
+	vector spawnUp
+	float  spawnScale
+	vector spawnMins
+	vector spawnMaxs
+	float  diagonalSize
+	int    modBits = 0x00000000
+
+	float                      currDistToSizeRatio = -1.0
+	NestedGladiatorCardHandle& nestedGladiatorCard0Handle
+
+	vector tint
+
+	var    floatingTopo = null
+	var    floatingRui = null
+	var[3] floatingNestedBadgeRuiList = [null, null, null]
+
+	int updateSerialNum = 0
+}
+
+
+
+
+struct ApexScreenPositionMasterState
+{
+	float commenceTime = -1
+	int   modeIndex = eApexScreenMode.LOGO
+	int   transitionStyle = -1
+	EHI   playerEHI
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+struct {
+
+
+
+
+
+
+
+
+
+
+
+
+		ApexScreenPositionMasterState[eApexScreenPosition._COUNT_BANNERTYPES] screenPositionMasterStates
+
+		bool                        forceDisableScreens = false
+		array<ApexScreenState>      staticScreenList
+		bool                        allScreenUpdateQueued = false
+		table<int, ApexScreenState> magicIdScreenStateMap
+		table<int, array<var> >     environmentalRUIListMapByMagicId
+		int                         killScreenDamageSourceID = -1
+		float                       killScreenDistance
+		int                         killedPlayerGrade
+		string                      killedPlayerName
+		table                       signalDummy
+
+		table<string, ApexScreenState> customBannerList
+
+		bool DEV_activeScreenDebug = false
+
+		asset bannerBGAssert = $"rui/rui_screens/banner_c"
+		vector logoOverlayTint = < 1.0 , 1.0, 1.0 >
+		vector logoSize = <562,407,0>
+		asset logoImage = $"rui/rui_screens/apex_logo"
+		asset animatedLogoAsset = $""
+
+		table< int, ScreenOverrideInfo > eventScreenOverrideByScreenPosTable
+
+		float gladcards_update_delay_range
+
+} file
+
+
+
+const string NV_ApexScreensEventTimeA = "NV_ApexScreensEventTimeA"
+const string NV_ApexScreensEventTimeB = "NV_ApexScreensEventTimeB"
+const string NV_ApexScreensEventIntA = "NV_ApexScreensEventIntA"
+void function ShApexScreens_Init()
+{
+
+
+
+		AddCallback_OnEnumStaticPropRui( OnEnumStaticPropRui )
+
+
+	if ( !GetCurrentPlaylistVarBool( "enable_apex_screens", true ) )
+		return
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	Remote_RegisterClientFunction( "ServerToClient_ApexScreenKillDataChanged", "int", 0, 512, "float", 0.0, 10000.0, 32, "int", 0, 32, "entity" )
+	Remote_RegisterClientFunction( "ServerToClient_ApexScreenRefreshAll" )
+
+	for ( int screenPosition = eApexScreenPosition.L; screenPosition <= eApexScreenPosition.R; screenPosition++ )
+	{
+		RegisterNetworkedVariable( format( "ApexScreensMasterState_Pos%d_CommenceTime", screenPosition ), SNDC_GLOBAL, SNVT_TIME, -1 )
+		RegisterNetworkedVariable( format( "ApexScreensMasterState_Pos%d_ModeIndex", screenPosition ), SNDC_GLOBAL, SNVT_INT, -1 )
+		RegisterNetworkedVariable( format( "ApexScreensMasterState_Pos%d_TransitionStyle", screenPosition ), SNDC_GLOBAL, SNVT_INT, -1 )
+		RegisterNetworkedVariable( format( "ApexScreensMasterState_Pos%d_Player", screenPosition ), SNDC_GLOBAL, SNVT_BIG_INT, -1 )
+
+
+			RegisterNetVarTimeChangeCallback( format( "ApexScreensMasterState_Pos%d_CommenceTime", screenPosition ), void function( entity unused, float new ) : (screenPosition) {
+				file.screenPositionMasterStates[screenPosition].commenceTime = new
+				UpdateAllScreensContent()
+			} )
+			RegisterNetVarIntChangeCallback( format( "ApexScreensMasterState_Pos%d_ModeIndex", screenPosition ), void function( entity unused, int new ) : (screenPosition) {
+				file.screenPositionMasterStates[screenPosition].modeIndex = new
+				UpdateAllScreensContent()
+			} )
+			RegisterNetVarIntChangeCallback( format( "ApexScreensMasterState_Pos%d_TransitionStyle", screenPosition ), void function( entity unused, int new ) : (screenPosition) {
+				file.screenPositionMasterStates[screenPosition].transitionStyle = new
+				UpdateAllScreensContent()
+			} )
+			RegisterNetVarIntChangeCallback( format( "ApexScreensMasterState_Pos%d_Player", screenPosition ), void function( entity unused, int new ) : (screenPosition) {
+				file.screenPositionMasterStates[screenPosition].playerEHI = new
+				UpdateAllScreensContent()
+			} )
+
+	}
+
+	RegisterNetworkedVariable( NV_ApexScreensEventTimeA, SNDC_GLOBAL, SNVT_TIME, -1 )
+
+		RegisterNetVarTimeChangeCallback( NV_ApexScreensEventTimeA, void function( entity unused, float newTime )
+		{
+			OnUpdateApexScreensEventTime( newTime )
+		} )
+
+	RegisterNetworkedVariable( NV_ApexScreensEventTimeB, SNDC_GLOBAL, SNVT_TIME, -1 )
+	RegisterNetworkedVariable( NV_ApexScreensEventIntA, SNDC_GLOBAL, SNVT_INT, -1 )
+
+
+
+
+
+
+
+
+
+		RegisterSignal( "UpdateScreenCards" )
+		RegisterSignal( "ScreenOff" )
+
+		AddCallback_OnStaticPropRUICreated( ClientStaticPropRUICreated )
+
+
+
+		file.gladcards_update_delay_range = GetConVarFloat("gladcards_update_delay_range")
+
+
+	
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+asset function GetCurrentPlaylistVarAsset( string varName, asset defaultAsset = $"" )
+{
+	string assetRaw = GetCurrentPlaylistVarString( varName, "" )
+	if ( assetRaw.len() == 0 )
+		return defaultAsset
+
+	return CastStringToAsset( assetRaw )
+}
+
+
+vector function CastStringToFloat3( string val )
+{
+	array<string> fields = split( val, ", " )
+	float xx             = ((fields.len() > 0) ? float( fields[0] ) : 0.0)
+	float yy             = ((fields.len() > 1) ? float( fields[1] ) : 0.0)
+	float zz             = ((fields.len() > 2) ? float( fields[2] ) : 0.0)
+	return <xx, yy, zz>
+}
+
+void function SetupScreenOverridesFromPlaylist_S3Tease()
+{
+	for ( int overrideIdx = 0; overrideIdx < 5; ++overrideIdx )
+	{
+		
+		string keyName = format( "apexscreen_tv_override_%d", overrideIdeChangeTime, int transitionStyle, int gcardPresentation, EHI playerEHI, int lifestateOverride )
+{
+	EndSignal( screen, "ScreenOff" )
+	wait APEX_SCREEN_TRANSITION_IN_DURATION
+
+	string playerName = ""
+	int playerEHI_ToUse = playerEHI
+
+	if( playerEHI_ToUse == EHI_LOCALSELF )
+	{
+		playerEHI_ToUse = GetLocalViewPlayer().GetEncodedEHandle()
+	}
+	else if( playerEHI_ToUse == EHI_LOCALTEAMMATE_RANDOM )
+	{
+		array< entity > teammates = GetPlayerArrayOfTeam( GetLocalViewPlayer().GetTeam() )
+		teammates.randomize()
+
+		foreach( player in teammates )
+		{
+			if( IsValid( player ) )
+			{
+				playerEHI_ToUse = player.GetEncodedEHandle()
+				break
+			}
+		}
+	}
+
+	if ( EHIHasValidScriptStruct( playerEHI_ToUse ) )
+		playerName = GetPlayerNameUnlessAnonymized( playerEHI_ToUse ) 
+	RuiSetString( screen.rui, "playerName", playerName )
+
+	entity player = FromEHI( playerEHI_ToUse )
+	if ( IsValid( player ) )
+		RuiTInt( rui, "intA", null, RUI_TRACK_SCRIPT_NETWORK_VAR_GLOBAL_INT, GetNetworkedVariableIndex( NV_ApexScreensEventIntA ) )
+	}
+
+	return rui
+}
+
+void function ClApexScreens_SetCustomApexScreenBGAsset( asset bg )
+{
+	file.bannerBGAssert = bg
+}
+
+void function ClApexScreens_SetCustomLogoTint( vector tint )
+{
+	file.logoOverlayTint = tint
+}
+
+void function ClApexScreens_SetCustomLogoImage( asset logo )
+{
+	file.logoImage = logo
+}
+
+void function ClApexScreens[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/sh_survival_deathfield_enforcedringlethality.gnut.client
+[dump] scripts/vscripts/sh_survival_deathfield_enforcedringlethality.gnut.client (8620 bytes)global function Sh_DeathField_EnforcedRingLethality_Init
+
+global function Deathfield_EnforcedRingLethality_Enabled
+global function Deathfield_EnforcedRingLethality_FirstTimeThreshold
+global function Deathfield_EnforcedRingLethality_SecondTimeThreshold
+global function Deathfield_EnforcedRingLethality_LethalityEffectDuration
+global function Deathfield_EnforcedRingLethality_LowerIconEnabled
+
+global function SimplifiedRingLethality_Enabled
+global function SimplifiedRingLethality_RingoutTime
+global function SimplifiedRingLethality_Ringout_WarningTime
+global function SimplifiedRingLethality_ResetTime
+global function SimplifiedRingLethality_ShouldShowWarning
+
+global function RingLethality_Is_Player_InDeathfield
+global function RingLethality_Is_Player_InRingOutWarning
+
+
+
+
+
+
+
+
+
+const string DEATHFIELD_RING_LETHALITY_1P_ACTIVATION_SOUND 	= "ui_revshellseeker_aggressor_targetlock_1p"
+const string SIMPLIFIEDRINGLETHALITY_SOUND_RINGOUT_LOOP 	= "Boundary_Warning_Loop"
+const string SIMPLIFIEDRINGLETHALITY_SOUND_RINGOUT_WARNING 	= "Survival_Circle_Ringout_Warning_Stinger"
+
+global const float DEATHFIELD_RING_LETHALITY_STATUS_DURATION = 45 
+global const float DEATHFIELD_RING_LETHALITY_WARNING_DURATION = 90 
+
+const int ID_INVALID = -1
+
+struct PlayerDeathfieldTracker
+{
+	bool playerInDeathField
+	float timeInDeathField_All
+	float timeInDeathfield_Continuous
+	float lastTimeInField
+	float timeExitedField
+	int damageSustainedFromRing
+
+	
+	float timeInRing_Continuous
+	table< int, bool > soundIsPlaying 
+}
+
+enum eRingLethality_StatusEffectType
+{
+	WARNING,
+	LETHAL,
+	COUNT_
+}
+
+enum eRingLethality_SoundTypes
+{
+	RINGOUT_WARNING,
+	LETHAL,
+	COUNT_
+}
+
+struct sRingLethality_StatusIDs
+{
+	int statusID_Warning = ID_INVALID
+	int statusID_Lethal = ID_INVALID
+}
+
+struct
+{
+
+
+
+
+
+
+
+
+
+
+
+
+
+		bool snd_RingWarnLoopPlaying = false
+
+} file
+
+void function Sh_DeathField_EnforcedRingLethality_Init()
+{
+#if DEV
+		printt( FUNC_NAME() + "(): Enforced Ring Lethality Enabled: " + Deathfield_EnforcedRingLethality_Enabled() )
+		printt( FUNC_NAME() + "(): Enforced Ring Lethality- Simplified Enabled: " + SimplifiedRingLethality_Enabled() )
+#endif
+
+
+
+
+
+
+
+
+
+		RegisterSignal( "RingoutLoop_Sound_Stop" )
+		AddCreateCallback( "player", CL_Manage_RingOutLoopSound )
+
+}
+
+bool function Deathfield_EnforcedRingLethality_Enabled()
+{
+	return GetCurrentPlaylistVarBool( "deathfield_enforced_ring_lethality_enabled", true )
+}
+
+bool function Deathfield_EnforcedRingLethality_TrackByTotalRingDamage()
+{
+	return GetCurrentPlaylistVarBool( "deathfield_enforced_ring_lethality_trackby_totalringdamage", false )
+}
+
+int function Deathfield_EnforcedRingLethality_First_DamageThreshold()
+{
+	return GetCurrentPlaylistVarInt( "deathfield_enforced_ring_lethality_first_damage_threshold", 200 )
+}
+
+int function Deathfield_EnforcedRingLethality_Second_DamageThreshold()
+{
+	return GetCurrentPlaylistVarInt( "deathfield_enforced_ring_lethality_second_damage_threshold", 500 )
+}
+
+float function Deathfield_EnforcedRingLethality_DamagePercent()
+{
+	return GetCurrentPlaylistVarFloat( "deathfield_enforced_ring_lethality_damage_percent", 0.5 )
+}
+
+float function Deathfield_EnforcedRingLethality_FirstTimeThreshold()
+{
+	return SimplifiedRingLethality_Enabled() ? 0.0 : GetCurrentPlaylistVarFloat( "deathfield_enforced_ring_lethality_first_threshold", 120.0 )
+}
+
+float function Deathfield_EnforcedRingLethality_SecondTimeThreshold()
+{
+	float secondThreshold = SimplifiedRingLethality_Enabled() ? SimplifiedRingLethality_RingoutTime() : GetCurrentPlaylistVarFloat( "deathfield_enforced_ring_lethality_second_threshold", 90.0 )
+	return secondThreshold
+}
+
+float function Deathfield_EnforcedRingLethality_LethalityEffectDuration()
+{
+	return GetCurrentPlaylistVarFloat( "deathfield_enforced_ring_lethality_effect_duration", 45.0 )
+}
+
+bool function Deathfield_EnforcedRingLethality_LowerIconEnabled()
+{
+	return GetCurrentPlaylistVarBool( "deathfield_enforcedringlethality_lowericon_enabled", false )
+}
+
+
+
+bool function SimplifiedRingLethality_Enabled()
+{
+	
+	return GetCurrentPlaylistVarBool( "simplifiedringlethality_enabled", true )
+}
+
+float function SimplifiedRingLethality_RingoutTime()
+{
+	
+	float ringOutTime = GetCurrentPlaylistVarFloat( "simplifiedringlethality_ringouttime", 240 ) 
+	return ringOutTime 
+}
+
+float function SimplifiedRingLethality_Ringout_WarningTime()
+{
+	
+	float warningTime = GetCurrentPlaylistVarFloat( "simplifiedringlethality_warningtime", 180.0 ) 
+	return warningTime 
+}
+
+float function SimplifiedRingLethality_ResetTime()
+{
+	
+	float resetTime = GetCurrentPlaylistVarFloat( "simplifiedringlethality_resettime", 45.0 )
+	return resetTime
+}
+
+bool function SimplifiedRingLethality_ShouldSkipRound1()
+{
+	
+	return GetCurrentPlaylistVarBool( "simplifiedringlethality_shouldskipround1", false ) 
+}
+
+
+bool function SimplifiedRingLethality_Respawn_Continues_RingOutTimer()
+{
+	return GetCurrentPlaylistVarBool( "simplifiedringlethality_respawn_continues_ringouttimer", true )
+}
+
+
+float function SimplifiedRingLethality_Respawn_RingOutAllowanceTime_Given()
+{
+	return GetCurrentPlaylistVarFloat( "simplifiedringlethality_respawn_ringoutallowancetime_given", 20.0 )
+}
+
+bool function SimplifiedRingLethality_ShouldShowWarning( entity player )
+{
+	if ( !IsValid( player ) )
+		return false
+
+	bool simplifiedLethality = SimplifiedRingLethality_Enabled()
+	bool shouldWarn = false
+	if ( simplifiedLethality )
+	{
+		if( !StatusEffect_HasSeverity( player, eStatusEffect.ring_lethality_warning ) )
+			return false
+
+		float ringOutTime = SimplifiedRingLethality_RingoutTime()
+		float warningTime = SimplifiedRingLethality_Ringout_WarningTime()
+		float threshold = ringOutTime - warningTime
+		float timeRemaining = StatusEffect_GetTimeRemaining( player, eStatusEffect.ring_lethality_warning )
+		shouldWarn = timeRemaining <= threshold
+	}
+	else
+	{
+		shouldWarn = true
+	}
+
+	return shouldWarn
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+bool function RingLethality_Is_Player_InDeathfield( entity player )
+{
+	if( !IsValid( player ) )
+		return false
+
+	if( !IsAlive( player ) )
+		return false
+
+
+
+
+
+
+	float distanceFromDeathfieldFrontier = DeathField_PointDistanceFromFrontier( player.GetOrigin(), player.DeathFieldIndex() )
+	return( distanceFromDeathfieldFrontier <= 0 )
+}
+
+bool function RingLethality_Is_Player_InRingOutWarning( entity player )
+{
+	if ( !RingLethality_Is_Player_InDeathfield( player ) )
+		return false
+
+	return SimplifiedRingLethality_ShouldShowWarning( player )
+}
+
+
+void function CL_Manage_RingOutLoopSound( entity player )
+{
+	if ( player.IsBot() )
+		return
+
+	thread CL_Manage_RingOutLoopSound_Thread()
+}
+
+
+void function CL_Manage_RingOutLoopSound_Thread()
+{
+	entity player = GetLocalViewPlayer()
+
+	if( !IsValid( player ) )
+		return
+
+	player.Signal( "RingoutLoop_Sound_Stop" )
+	EndSignal( player, "RingoutLoop_Sound_Stop" )
+
+	bool simplifiedLethality = SimplifiedRingLethality_Enabled()
+	if( !simplifiedLethality )
+		return
+
+#if DEV
+		string playerName = player.GetPlayerName()
+		string debugStr_Play = format( "%s(): RingOut Loop Playing for Player: %s", FUNC_NAME(), playerName )
+		string debugStr_Stop = format( "%s(): RingOut Loop Stopping for Player: %s", FUNC_NAME(), playerName )
+#endif
+
+	while ( GetGameState() <= eGameState.Playing && IsValid( player )  )
+	{
+		if ( GetGameState() != eGameState.Playing )
+		{
+			WaitFrame()
+			continue
+		}
+
+		
+		bool shouldWarn = RingLethality_Is_Player_InRingOutWarning( player )
+		if ( shouldWarn && !file.snd_RingWarnLoopPlaying )
+		{
+			file.snd_RingWarnLoopPlaying = true
+			wait 0.5 
+			if( IsValid( player ) )
+				EmitSoundOnEntity( player, SIMPLIFIEDRINGLETHALITY_SOUND_RINGOUT_LOOP )
+
+			
+			
+			
+			
+		}
+		else if ( !shouldWarn && file.snd_RingWarnLoopPlaying )
+		{
+			file.snd_RingWarnLoopPlaying = false
+
+			if( IsValid( player ) )
+				StopSoundOnEntity( player, SIMPLIFIEDRINGLETHALITY_SOUND_RINGOUT_LOOP )
+
+			
+			
+			
+			
+		}
+		wait 0.1
+	}
+}
+
+
+[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/sh_survival_deathfield.gnut.client
+[dump] scripts/vscripts/sh_survival_deathfield.gnut.client (54206 bytes)global function Sh_ArenaDeathField_Init
+
+
+
+
+
+
+global function TeamShouldSeeBeaconMarker
+
+global function GetRingTuningOverrideVar
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global function Cl_Deathfield_GetRadiusScale
+global function Cl_Deathfield_GetFXIDForRadius
+global function Cl_Deathfield_GetFXIDForOuterRadius
+#if DEV
+global function Cl_Deathfield_SetOpacityOverride
+#endif
+global function Cl_GetDeathFieldStage
+global function Cl_SURVIVAL_GetDeathField
+global function Cl_SURVIVAL_GetDeathFieldCurrentRadius
+global function Cl_SURVIVAL_GetDeathFieldCenter
+global function Cl_SURVIVAL_GetSafeZoneCenter
+global function Cl_SURVIVAL_PosInsideDeathField
+global function Cl_SURVIVAL_PosInSafeZone
+global function ServerCallback_UpdateSurveyBeaconHUDVisibility
+global function ServerCallback_SurveyBeaconNotifications
+global function SURVIVAL_Deathfield_GetStartRadius
+global function SURVIVAL_AddCallback_OnDeathFieldStartShrink
+global function SURVIVAL_AddCallback_OnDeathFieldStopShrink
+global function UpdateSurveyBeaconHint
+global function SurveyBeacon_ShowSquadInfo
+
+
+
+
+
+
+
+
+
+
+
+
+
+global function HasDeathFieldImmunity
+global function Deathfield_GetDoesDeathfieldStartEnabled
+global function SURVIVAL_GetCurrentDeathFieldStage
+global function SURVIVAL_GetCurrentRoundString
+global function SURVIVAL_IsFinalDeathFieldStage
+global function Survival_GetNumDeathfieldStages
+
+global function AddCallback_OnSurvivalDeathFieldStageChanged
+global function ContainsCallback_OnSurvivalDeathFieldStageChanged
+global function RemoveCallback_OnSurvivalDeathFieldStageChanged
+
+
+
+
+
+global function HasActiveSurveyZone
+global function GetActiveSurveyZone
+global function TeamHasActiveSurveyZone
+
+
+
+
+
+
+
+
+
+
+
+
+global function SurvivalDeathfield_SetDeathfieldFXSettings
+
+
+
+table < float, string > distanceToSound =
+{
+	[ 17000.0 ] = "Survival_Circle_Edge_Large",
+	[ 4000.0 ] = "Survival_Circle_Edge_Medium",
+	[ 0.0 ] = "Survival_Circle_Edge_Small",
+}
+
+
+const asset DEATHFIELD_EFFECT = $"P_ring_FP_hit_01"
+const string COLOR_CORRECTION = "materials/correction/outside_ring.raw_hdr"
+const asset OBSERVER_DEATHFIELD_EFFECT = $"P_Observer_outside_heat_1p"
+
+const string DESIGNER_PLACED_CIRCLE_END_SCRIPT_NAME = "circle_end_location_override"
+const string DESIGNER_PLACED_CIRCLE_END_RADIUS_NAME = "selection_radius"
+
+const string DESIGNER_PLACED_CIRCLE_END_PLAYLIST_VAR = "sur_circle_end_on_designer_placed_node"
+const string DESIGNER_PLACED_TARGET_END_PLAYLIST_VAR = "sur_circle_end_on_target_name"
+const string CIRCLE_END_OVERRIDE_PLAYLIST_VAR = "sur_circle_end_override"
+
+global const float REALBIG_CIRCLE_END_RADIUS = 85000
+global const float REALBIG_CIRCLE_END_RADIUS_SQ = REALBIG_CIRCLE_END_RADIUS * REALBIG_CIRCLE_END_RADIUS
+
+global const float REALBIG_CIRCLE_END_RADIUS_SMALL_INNER = 30000
+global const float REALBIG_CIRCLE_END_RADIUS_SMALL_OUTER = 40000
+
+global const float DEATHFIELD_DAMAGE_CHECK_STEP_TIME = 1.5
+global const string FINAL_ROUND_ALIAS_SUFFIX = "Final"
+
+global const float PERSIST_TIME_OUTSIDE_CIRCLE_DEFAULT = 30.0
+global const float PERSIST_TIME_OUTSIDE_CIRCLE_LONG = 9999.0
+global const float LOOT_CLEANUP_BUFFER_RADIUS = 6000 
+
+global const string NV_OBSERVER_SURVERY_RING_ENABLED = "PrivateMatch_Observer_SurveyRingEnabled"
+
+global enum ePathfinderNotifications
+{
+	TEAM_SUCCESS
+	NOT_PATHFINDER
+	ALREADY_USED
+	ALREADY_ACTIVE
+}
+
+
+
+
+
+
+
+
+
+
+const int ID_INVALID = -1
+global const float RING_START_WAIT_TIME = 5.0
+global const float MARGIN_WAIT_TIME = 5.0
+global const float END_MARGIN_WAIT_TIME = 4.0
+const asset SURVEY_BEACON_MODEL = $"mdl/props/pathfinder_beacon_radar/pathfinder_beacon_radar_animated.rmdl"
+const asset NEXT_ZONE_SURVEY_BEACON_MODEL = $"mdl/communication/terminal_usable_imc_01.rmdl"
+
+#if DEV
+const string DUMMY_ZONE_WP_NAME = "dev_dummy_circle"
+#endif
+
+global struct DeathFieldStageData
+{
+	float  endRadius
+	float  shrinkDuration
+	float  preShrinkDuration
+	float  percentDamagePerTick = 0.2
+	float  circleDeviation = 1.0
+	float  minimapZoomScale = -1.0
+
+
+
+
+
+
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global struct SurvivalDeathfieldFXSettings
+{
+	string colorCorrection														= ""
+	asset deathfieldEffect														= $""
+	asset observerDeathfieldEffect												= $""
+	array<int> deathfieldInnerOpacityFxIdx										= []
+	array<int> deathfieldOuterOpacityFxIdx										= []
+	array<int> deathfieldInnerPreciseFxIdx										= []
+	array<int> deathfieldOuterPreciseFxIdx										= []
+	array<int> deathfieldInnerFxIdx												= []
+	array<int> deathfieldOuterFxIdx												= []
+	float fxTransitionTime														= 0.0
+}
+
+struct
+{
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	array<DeathFieldStageData> deathFieldStageData
+
+	float					   	overrideStartRadius = -1
+	array<float>			   	deathFieldStagesOverrideRadius
+	array<float>			   	deathFieldStagesOverrideMinimapZoom
+	int                        	deathFieldStartStage
+	array<entity>               surveyMinimapEnts
+	entity                      observerSurveyMinimapEnt
+	array<entity>               surveyBeacons
+
+
+		entity deathField
+		entity safeZone
+		array< void functionref ( DeathFieldStageData ) > ClientCallbacks_OnDeathFieldStartShrink
+		array< void functionref ( DeathFieldStageData ) > ClientCallbacks_OnDeathFieldStopShrink
+		int                                               colorCorrection
+		float                                             nextHolsterHintTime
+		bool											  trackingObserverDeathfield
+		int												  fieldEffectHandle
+		float 											  ringOpacityOverrideValue
+		array< int > 									  deathFieldFxIdx
+		array< int > 									  deathFieldFxOuterIdx
+
+		float 											  observer_1p_deathFieldTintStrength
+		float											  observer_3p_deathFieldTintStrength
+
+
+	array<void functionref( int stage, float nextCircleStartTime )> onSurvivalDeathFieldStageChangedCallbacks
+
+	bool usePreciseRingFx
+	bool ringOpacityOverrideEnabled
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	SurvivalDeathfieldFXSettings customDeathfieldFXSettings
+
+} file
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function Sh_ArenaDeathField_Init()
+{
+	PrecacheScriptString( "deathField" )
+
+
+	PrecacheScriptString( ENEMY_SURVEY_BEACON_SCRIPTNAME )
+	PrecacheScriptString( NEXT_ZONE_SURVEY_BEACON_SCRIPTNAME )
+
+
+
+
+	PrecacheParticleSystem( $"P_sort_survival_radius_CP_1x1" )
+	PrecacheParticleSystem( $"P_sort_survival_radius_CP_1x5" )
+	PrecacheParticleSystem( $"P_sort_survival_radius_CP_1x100" )
+
+	PrecacheParticleSystem( $"P_sort_survival_radius_CP_1k_x_1k" )
+	PrecacheParticleSystem( $"P_sort_survival_radius_CP_1k_x_5k" )
+	PrecacheParticleSystem( $"P_sort_survival_radius_CP_1k_x_100k" )
+
+	PrecacheParticleSystem( $"P_sort_ring_radCP1_opaCP2_1k_x_1k" )
+	PrecacheParticleSystem( $"P_sort_ring_radCP1_opaCP2_1k_x_5k" )
+	PrecacheParticleSystem( $"P_sort_ring_radCP1_opaCP2_1k_x_100k" )
+
+	PrecacheParticleSystem( $"outside_survival_radius_CP_1x1" )
+	PrecacheParticleSystem( $"outside_survival_radius_CP_1x5" )
+	PrecacheParticleSystem( $"outside_survival_radius_CP_1x100" )
+
+	PrecacheParticleSystem( $"outside_survival_radius_CP_1k_x_1k" )
+	PrecacheParticleSystem( $"outside_survival_radius_CP_1k_x_5k" )
+	PrecacheParticleSystem( $"outside_survival_radius_CP_1k_x_100k" )
+
+	PrecacheParticleSystem( $"outside_ring_radCP1_opaCP2_1k_x_1k" )
+	PrecacheParticleSystem( $"outside_ring_radCP1_opaCP2_1k_x_5k" )
+	PrecacheParticleSystem( $"outside_ring_radCP1_opaCP2_1k_x_100k" )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	file.usePreciseRingFx = GetCurrentPlaylistVarBool( "deathfield_usePreciseRingFx", true )
+
+	RegisterNetworkedVariable( "hasDeathFieldImmunity", SNDC_PLAYER_EXCLUSIVE, SNVT_BOOL, false )
+	RegisterNetworkedVariable( "currentDeathFieldStage", SNDC_GLOBAL, SNVT_INT, -1 )
+	RegisterNetworkedVariable( "nextCircleStartTime", SNDC_GLOBAL, SNVT_TIME, -1 )
+	RegisterNetworkedVariable( "circleCloseTime", SNDC_GLOBAL, SNVT_TIME, -1 )
+
+	Remote_RegisterClientFunction( "ServerCallback_AnnounceCircleClosing" )
+	Remote_RegisterClientFunction( "ServerCallback_SurveyBeaconNotifications", "entity", "int", 0, 8 )
+	Remote_RegisterClientFunction( "ServerCallback_UpdateSurveyBeaconHUDVisibility" )
+
+	file.ringOpacityOverrideEnabled = GetCurrentPlaylistVarBool( "deathfield_ringOpacityOverrideEnabled", true )
+	if ( file.ringOpacityOverrideEnabled )
+	{
+		RegisterNetworkedVariable( "ringOpacityOverride", SNDC_GLOBAL, SNVT_FLOAT_RANGE, 1.0, 0.0, 1.0 )
+	}
+
+	PrecacheParticleSystem( DEATHFIELD_EFFECT )
+	PrecacheParticleSystem( OBSERVER_DEATHFIELD_EFFECT )
+
+	RegisterSignal( "NewDeathFieldStarting" )
+	RegisterSignal( "UpdateSurveyBeaconVisibility" )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+		if( Deathfield_EnforcedRingLethality_Enabled() )
+		{
+			Sh_DeathField_EnforcedRingLethality_Init()
+		}
+
+
+
+
+
+
+
+
+
+
+	InitDeathFieldDataAndStageData()
+
+
+		string colorCorrectionString = (file.customDeathfieldFXSettings.colorCorrection.len() == 0) ? COLOR_CORRECTION : file.customDeathfieldFXSettings.colorCorrection
+		file.colorCorrection = ColorCorrection_Register( colorCorrectionString )
+
+		file.observer_1p_deathFieldTintStrength = GetCurrentPlaylistVarFloat( "observer_1p_deathFieldTintStrength", 0.4 )
+		file.observer_3p_deathFieldTintStrength = GetCurrentPlaylistVarFloat( "observer_3p_deathFieldTintStrength", 0.6 )
+
+		FlagInit( "DeathFieldStartClient", false )
+
+		AddCreateCallback( "prop_per_team_networked", OnPropScriptCreated )
+		AddCreateCallback( "script_mover", OnPropScriptCreated )
+		AddCreateCallback( "prop_script", OnPropScriptCreated )
+		AddCreateCallback( "prop_dynamic", OnPropDynamicCreated )
+		AddCallback_PlayerClassChanged( SurveyBeaon_ClassChanged )
+
+		AddCallback_OnViewPlayerChanged( OnViewPlayerChanged )
+
+		AddCreatePilotCockpitCallback( TrackDeathfieldDistance )
+		AddLocalPlayerTookDamageTypeCallback( eDamageSourceId.deathField, Callback_OnPlayerTakeDeathFieldDamage )
+#if DEV
+			Waypoints_RegisterCustomType( DUMMY_ZONE_WP_NAME, DEV_OnDummyCircleWpInstanced )
+#endif
+
+		SurveyBeacon_AddSurveyBeaconMinimapPackage()
+
+		if ( GetCurrentPlaylistVarBool( "deathfield_sound_override", false ) )
+		{
+			distanceToSound.clear()
+			int idx = 0
+			float lastDist = 0
+			while ( GetCurrentPlaylistVarString( "deathfield_sound_override_stage_" + idx, "" ) != "" )
+			{
+				string override = GetCurrentPlaylistVarString( "deathfield_sound_override_stage_" + idx, "" )
+				array<string> tokens = split( override, ":" )
+
+				Assert( tokens.len() == 2 )
+				float dist = float( tokens[0] )
+				string audio = tokens[1]
+
+				if ( idx > 0 )
+				{
+					Assert( dist < lastDist )
+				}
+
+				lastDist = dist
+				distanceToSound[ dist ] <- audio
+				idx++
+			}
+
+			Assert( distanceToSound.len() > 0 )
+		}
+
+		if ( GetCurrentPlaylistVarBool( "deathfield_opacity_override", true ) )
+		{
+			if ( GetCurrentPlaylistVarFloat( "deathfield_ringOpacityOverrideValue", 1.0 ) != 1.0 )
+			{
+				file.ringOpacityOverrideValue = GetCurrentPlaylistVarFloat( "deathfield_ringOpacityOverrideValue", 1.0 )
+			}
+			else
+			{
+				RegisterNetVarFloatChangeCallback( "ringOpacityOverride", Cl_Deathfield_SetOpacityOverride )
+			}
+		}
+
+		if ( file.ringOpacityOverrideEnabled )
+		{
+			if ( file.customDeathfieldFXSettings.deathfieldInnerOpacityFxIdx.len() > 0 )
+			{
+				file.deathFieldFxIdx.clear()
+				file.deathFieldFxIdx.extend( file.customDeathfieldFXSettings.deathfieldInnerOpacityFxIdx )
+			}
+			else
+			{
+				file.deathFieldFxIdx = [ GetParticleSystemIndex( $"P_sort_ring_radCP1_opaCP2_1k_x_1k" ), GetParticleSystemIndex( $"P_sort_ring_radCP1_opaCP2_1k_x_5k" ), GetParticleSystemIndex( $"P_sort_ring_radCP1_opaCP2_1k_x_100k" ) ]
+			}
+
+			if ( file.customDeathfieldFXSettings.deathfieldOuterOpacityFxIdx.len() > 0 )
+			{
+				file.deathFieldFxOuterIdx.clear()
+				file.deathFieldFxOuterIdx.extend( file.customDeathfieldFXSettings.deathfieldOuterOpacityFxIdx )
+			}
+			else
+			{
+				file.deathFieldFxOuterIdx = [ GetParticleSystemIndex( $"outside_ring_radCP1_opaCP2_1k_x_1k" ), GetParticleSystemIndex( $"outside_ring_radCP1_opaCP2_1k_x_5k" ), GetParticleSystemIndex( $"outside_ring_radCP1_opaCP2_1k_x_100k" ) ]
+			}
+		}
+		else if ( file.usePreciseRingFx )
+		{
+			if ( file.customDeathfieldFXSettings.deathfieldInnerPreciseFxIdx.len() > 0 )
+			{
+				file.deathFieldFxIdx.clear()
+				file.deathFieldFxIdx.extend( file.customDeathfieldFXSettings.deathfieldInnerPreciseFxIdx )
+			}
+			else
+			{
+				file.deathFieldFxIdx = [ GetParticleSystemIndex( $"P_sort_survival_radius_CP_1k_x_1k" ), GetParticleSystemIndex( $"P_sort_survival_radius_CP_1k_x_5k" ), GetParticleSystemIndex( $"P_sort_survival_radius_CP_1k_x_100k" ) ]
+			}
+
+			if ( file.customDeathfieldFXSettings.deathfieldOuterPreciseFxIdx.len() > 0 )
+			{
+				file.deathFieldFxOuterIdx.clear()
+				file.deathFieldFxOuterIdx.extend( file.customDeathfieldFXSettings.deathfieldOuterPreciseFxIdx )
+			}
+			else
+			{
+				file.deathFieldFxOuterIdx = [ GetParticleSystemIndex( $"outside_survival_radius_CP_1k_x_1k" ), GetParticleSystemIndex( $"outside_survival_radius_CP_1k_x_5k" ), GetParticleSystemIndex( $"outside_survival_radius_CP_1k_x_100k" ) ]
+			}
+		}
+		else
+		{
+			if ( file.customDeathfieldFXSettings.deathfieldInnerFxIdx.len() > 0 )
+			{
+				file.deathFieldFxIdx.clear()
+				file.deathFieldFxIdx.extend( file.customDeathfieldFXSettings.deathfieldInnerFxIdx )
+			}
+			else
+			{
+				file.deathFieldFxIdx = [ GetParticleSystemIndex( $"P_sort_survival_radius_CP_1x1" ), GetParticleSystemIndex( $"P_sort_survival_radius_CP_1x5" ), GetParticleSystemIndex( $"P_sort_survival_radius_CP_1x100" ) ]
+			}
+
+			if ( file.customDeathfieldFXSettings.deathfieldOuterFxIdx.len() > 0 )
+			{
+				file.deathFieldFxOuterIdx.clear()
+				file.deathFieldFxOuterIdx.extend( file.customDeathfieldFXSettings.deathfieldOuterFxIdx )
+			}
+			else
+			{
+				file.deathFieldFxOuterIdx = [ GetParticleSystemIndex( $"outside_survival_radius_CP_1x1" ), GetParticleSystemIndex( $"outside_survival_radius_CP_1x5" ), GetParticleSystemIndex( $"outside_survival_radius_CP_1x100" ) ]
+			}
+		}
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function GenerateDeathFieldStageData()
+{
+	file.deathFieldStageData.clear()
+
+	int i = 0
+	while ( true )
+	{
+		float radius = GetRingTuningOverrideVar( "deathfield_radius_" + i, -1.0 )
+
+		bool allowMissingDefaults = false
+		if ( radius < 0 )
+		{
+			if ( file.deathFieldStageData.len() > 0 )
+			{
+				break
+			}
+			else
+			{
+				Warning( "Survival deathfield playlist vars are missing!" )
+				allowMissingDefaults = true
+			}
+		}
+
+		file.deathFieldStageData.append( CreateDeathFieldStageData( i++, allowMissingDefaults ) )
+	}
+}
+
+float function GetRingTuningOverrideVar( string varName, float defaultValue )
+{
+
+	if ( GetCurrentPlaylistVarBool ("deathfield_allows_override", true ) )
+	{
+		
+		const string NO_RING_TUNING_OVERRIDE = ""
+		string tuningOverridePlaylist = GetCurrentPlaylistVarString ( "playlist_ring_tuning_override", NO_RING_TUNING_OVERRIDE )
+
+		if ( tuningOverridePlaylist != NO_RING_TUNING_OVERRIDE )
+		{
+			
+			return GetPlaylistVarFloat( tuningOverridePlaylist, varName, defaultValue )
+		}
+	}
+	return GetCurrentPlaylistVarFloat( varName, defaultValue )
+
+}
+
+DeathFieldStageData function CreateDeathFieldStageData( int index, bool allowMissingDefaults )
+{
+	float lastRadius = SURVIVAL_Deathfield_GetStartRadius()
+
+	if ( file.deathFieldStageData.len() > 0 )
+	{
+		lastRadius = file.deathFieldStageData[ file.deathFieldStageData.len() - 1 ].endRadius
+	}
+
+	bool circleDebug = GetBugReproNum() == 1001
+
+	int currentIndex = file.deathFieldStageData.len()
+
+	float defaultSpeed     = GetRingTuningOverrideVar( "deathfield_default_shrinkSpeed", 140.0 )
+	float shrinkSpeed      = GetRingTuningOverrideVar( "deathfield_shrinkSpeed_" + index, -1.0 )
+	float circleCloseSpeed = shrinkSpeed > 0 ? shrinkSpeed : defaultSpeed 
+
+	DeathFieldStageData data
+	data.circleDeviation = GetRingTuningOverrideVar( "deathfield_circleDeviation_" + index, 1.0 )
+
+	if ( index < file.deathFieldStagesOverrideRadius.len() )
+		data.endRadius = file.deathFieldStagesOverrideRadius[ index ]
+	else
+		data.endRadius = GetRingTuningOverrideVar( "deathfield_radius_" + index, allowMissingDefaults ? 20000.0 : -1.0 )
+
+	if ( index < file.deathFieldStagesOverrideMinimapZoom.len() )
+		data.minimapZoomScale = file.deathFieldStagesOverrideMinimapZoom[ index ]
+	else if ( data.endRadius <= 600 )
+		data.minimapZoomScale = 0.1
+	else if ( data.endRadius <= 1000 )
+		data.minimapZoomScale = 0.7
+	else if ( data.endRadius <= 2000 )
+		data.minimapZoomScale = 1.5
+	else if ( data.endRadius <= 5000 )
+		data.minimapZoomScale =  3.0
+
+	data.preShrinkDuration = GetRingTuningOverrideVar( "deathfield_preShrinkDuration_" + index, allowMissingDefaults ? 240.0 : -1.0 )
+	data.shrinkDuration = ((lastRadius - data.endRadius) / circleCloseSpeed)
+	data.percentDamagePerTick = GetRingTuningOverrideVar( "deathfield_damagePercent_" + index, allowMissingDefaults ? 0.01 : -1.0 )
+
+
+
+
+	Assert( data.endRadius > 0 )
+	Assert( data.preShrinkDuration > 0 )
+	Assert( data.shrinkDuration > 0 )
+	Assert( data.percentDamagePerTick >= 0 )
+
+	if ( circleDebug )
+	{
+		data.preShrinkDuration = 10.0
+	}
+
+	return data
+}
+
+
+void function InitDeathFieldDataAndStageData()
+{
+	file.deathFieldStartStage = 0
+
+	GenerateDeathFieldStageData()
+
+	file.deathFieldStartStage = GetCurrentPlaylistVarInt( "survival_death_field_start_stage", 0 )
+	if ( file.deathFieldStartStage >= file.deathFieldStageData.len() )
+		file.deathFieldStartStage = file.deathFieldStageData.len()
+}
+
+
+float function SURVIVAL_Deathfield_GetStartRadius()
+{
+	float startRadius = GetRingTuningOverrideVar( "survival_death_field_start_radius", 65000 )
+
+	if ( file.deathFieldStartStage > 0 )
+	{
+		startRadius = file.deathFieldStageData[file.deathFieldStartStage - 1].endRadius
+	}
+	else if (file.overrideStartRadius > 0)
+	{
+		startRadius = file.overrideStartRadius
+	}
+
+	return startRadius
+}
+
+float function SURVIVAL_Deathfield_GetStartDamage()
+{
+	int startStage = maxint( file.deathFieldStartStage - 1, 0 )
+
+	return file.deathFieldStageData[startStage].percentDamagePerTick
+}
+
+bool function TeamShouldSeeBeaconMarker( int team, entity beacon )
+{
+	array<entity> players = GetPlayerArrayOfTeam( team )
+
+	bool shouldSee = false
+
+	foreach ( player in players )
+	{
+		if ( HasActiveSurveyZone( player ) )
+			return false
+
+		if ( PlayerShouldSeeSurveyBeaconMarkers( player, beacon ) && !HasActiveSurveyZone( player ) )
+			shouldSee = true
+	}
+
+	return shouldSee
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+bool function Deathfield_GetDoesDeathfieldStartEnabled()
+{
+	return GetCurrentPlaylistVarBool( "deathfield_start_enabled", false )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function SURVIVAL_AddCallback_OnDeathFieldStartShrink( void functionref( DeathFieldStageData ) callbackFunc )
+{
+	Assert( !file.ClientCallbacks_OnDeathFieldStartShrink.contains( callbackFunc ), "Already added " + string( callbackFunc ) + " with SURVIVAL_AddCallback_OnDeathFieldStartShrink" )
+	file.ClientCallbacks_OnDeathFieldStartShrink.append( callbackFunc )
+}
+
+void function SURVIVAL_AddCallback_OnDeathFieldStopShrink( void functionref( DeathFieldStageData ) callbackFunc )
+{
+	Assert( !file.ClientCallbacks_OnDeathFieldStopShrink.contains( callbackFunc ), "Already added " + string( callbackFunc ) + " with SURVIVAL_AddCallback_OnDeathFieldStopShrink" )
+	file.ClientCallbacks_OnDeathFieldStopShrink.append( callbackFunc )
+}
+
+
+void function UpdateSurveyBeaconHint()
+{
+	if ( GetCurrentPlaylistVarBool( "survey_beacons_enabled", true ) == false )
+		return
+
+	entity localClientPlayer = GetLocalClientPlayer()
+	entity player = localClientPlayer.GetTeam() == TEAM_SPECTATOR ? localClientPlayer : GetLocalViewPlayer()
+	if ( !PlayerShouldSeeSurveyBeaconMarkers( player, null ) )
+		RemoveMapFeatureItemByName( "#SURVEY_BEACON" )
+	else
+		SetMapFeatureItem( 100, "#SURVEY_BEACON", "#SURVEY_BEACON_DESC", $"rui/hud/gametype_icons/survival/survey_beacon_only_pathfinder" )
+}
+
+
+void function OnPropDynamicCreated( entity prop )
+{
+	string modelName = prop.GetModelName()
+	if ( modelName == "mdl/fx/bb_shield.rmdl" )
+	{
+		Chroma_OnBubbleShieldCreated( prop )
+	}
+}
+
+void function OnPropScriptCreated( entity prop )
+{
+	if ( prop.GetTargetName() == "surveyZone" )
+	{
+		file.surveyMinimapEnts.append( prop )
+		AddEntityDestroyedCallback( prop, SurveyZoneCleanupOnDestroy )
+
+		entity owner = prop.GetOwner()
+		entity localPlayer = GetLocalViewPlayer()
+		if ( IsValid( owner ) && owner.GetTeam() == localPlayer.GetTeam() )
+		{
+			string playerName  = localPlayer == owner ? Localize( "#OBITUARY_YOU" ) : owner.GetPlayerName()
+			Obituary_Print_Localized( Localize( "#PLAYER_REVEALED_NEXT_RING", playerName ) )
+		}
+	}
+
+	if ( prop.GetTargetName() == "deathField" )
+	{
+		file.deathField = prop
+
+		thread Cl_DeathFieldThink( prop )
+
+		var gamestateRui = ClGameState_GetRui()
+		array<var> ruis  = [gamestateRui]
+		var cameraRui    = GetCameraCircleStatusRui()
+		if ( IsValid( cameraRui ) )
+			ruis.append( cameraRui )
+
+		foreach ( rui in ruis )
+		{
+			RuiTrackFloat3( rui, "deathFieldOrigin", prop, RUI_TRACK_ABSORIGIN_FOLLOW )
+		}
+	}
+
+	if ( (prop.GetTargetName() == "safeZone") || (prop.GetTargetName() == "safeZone_noline") )
+	{
+		file.safeZone = prop
+
+		var gamestateRui = ClGameState_GetRui()
+		array<var> ruis  = [gamestateRui]
+		var camera

@@ -1,0 +1,6361 @@
+
+
+
+
+
+
+
+
+
+
+const bool DEBUG_CHARACTER_SELECT = false
+
+
+const asset BACKGROUND_SMOKE_MODEL = $"mdl/levels_terrain/mp_lobby/mp_character_select_smoke.rmdl" 
+const asset BACKGROUND_GEO_MODEL = $"mdl/levels_terrain/mp_lobby/mp_character_select_geo.rmdl" 
+const asset LIGHT_RIG_MODEL = $"mdl/empty/lights/empty_lights.rmdl"
+
+global const string CHARACTER_SELECT_NETVAR_LOCK_STEP_INDEX = "characterSelectLockstepIndex"
+global const string CHARACTER_SELECT_NETVAR_LOCK_STEP_START_TIME = "characterSelectLockstepStartTime"
+global const string CHARACTER_SELECT_NETVAR_LOCK_STEP_END_TIME = "characterSelectLockstepEndTime"
+global const string CHARACTER_SELECT_NETVAR_HAS_LOCKED_IN_CHARACTER = "hasLockedInCharacter"
+global const string CHARACTER_SELECT_NETVAR_LOCKED_IN_CHARACTER_TIME = "lockedInCharacterTime"
+
+
+
+
+
+
+global const string CHARACTER_SELECT_NETVAR_LOCK_STEP_PLAYER_INDEX = "characterSelectLockstepPlayerIndex"
+global const string CHARACTER_SELECT_NETVAR_FOCUS_CHARACTER_GUID = "characterSelectFocusCharacterGUID"
+global const string CHARACTER_SELECT_NETVAR_VOLUNTEERED_JUMPMASTER = "characterSelectVolunteeredForJumpmaster"
+
+const string REMOTE_SERVERCALL_ON_RESELECT_MENU_OPEN = "ClientToServer_OnCharacterReselectMenuOpen"
+const string REMOTE_SERVERCALL_ON_RESELECT_MENU_CLOSE = "ClientToServer_OnCharacterReselectMenuClose"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global function CharacterSelectSkinSelectionIsEnabled
+global function CharacterSelect_AlwaysShowClassRoles
+
+global function AddCallback_CustomIsCharacterLockedForPlayer
+global function CharacterSelect_CustomIsCharacterLockedForPlayer
+
+
+global const int NUM_CHARACTER_SELECT_BUTTONS = 50
+global const int NUM_CHARACTER_SELECT_BUTTONS_PER_CLASS = 11
+
+
+global function UIToClient_OnToggleJumpmasterButtonClick
+global function OpenCharacterSelectMenu
+global function CharacterSelectMenu_SetCustomJIPDescription
+global function PickMVP
+global function DoAllSquadsCardsPresentation
+global function DoMVPSquadCardsPresentation
+global function DoSquadCardsPresentation
+
+global function Do3dSquadPresentation
+
+global function DoChampionSquadCardsPresentation
+global function OpenCharacterSelectClientSetup
+global function _OpenCharacterSelectMenu
+global function CloseCharacterSelectMenu
+global function OnCharacterSelectMenuClosed_RemoveCallbacks
+global function UpdateMenuElementHandles
+global function Client_TryUnlockCharacter
+global function ServerCallback_CharacterLockRejected
+global function ServerCallback_ForceCharacterLockFeedback
+global function OnLoadoutButton_RightClick
+global function UpdateCharacterDetailsMenu
+global function GetOtherTeammates
+global function CharacterSelect_GetIsBrowseMode
+global function CharacterSelect_SetIsBrowseMode
+global function CharacterSelect_MenuIsOpen
+global function CharacterSelect_SetTooltipUpdateFunc
+global function AddCallback_OnCharacterSelectMenuOpened
+global function AddCallback_OnCharacterSelectMenuClosed
+global function AddCallback_CharacterSelectMenu_OnCharacterFocused
+global function AddCallback_CharacterSelectMenu_OnCharacterLocked
+global function AddCallback_OnCharacterSelectDetailsToggled
+global function AddCallback_OnCharacterSelectBackgroundCreated
+global function AddCallback_OnCharacterSelectModelChanged
+global function AddCallback_OnCharacterSelectUpdateLights
+global function CharacterSelect_UpdateMenuButtons
+global function CharacterSelect_RestorePlayerView
+global function CharacterSelect_ClearMenuAndRestoreView
+global function UpdateBackgroundViaFunc
+global function OverrideCharacterSelectCamera
+global function RestoreCharacterSelectCamera
+global function PanAwayCharacterSelect
+global function FadeInOut
+global function SetCustomReadyUpVoiceLine
+global function CharacterSelect_Menu_ShouldOpen
+global function CharacterSelect_GetBackgroundOffset
+global function CharacterSelect_CreateBackgroundModelGeo
+global function CharacterSelect_CreateBackgroundModelSmoke
+global function CharacterSelect_CreateLightRigModel
+global function CharacterSelect_GetExtraCameraAngles
+global function ServerToClient_SetInitialSelection
+
+#if SUPPORTS_COMPACT_UI
+global function UIToClient_OnUiLayoutModeChanged
+#endif
+
+
+
+
+
+global const string CHARACTER_SELECT_CAMERA_ENT_NAME = "target_char_sel_camera_new"
+global const string CHARACTER_SELECT_CHARACTER_ENT_NAME = "target_char_sel_pilot_new"
+global const string CHARACTER_SELECT_BACKGROUND_ENT_NAME = "target_char_sel_bg_new"
+global const string CHARACTER_SELECT_LIGHT_KEY_NAME = "char_sel_light_key"
+global const string CHARACTER_SELECT_LIGHT_FILL_NAME = "char_sel_light_fill"
+global const string CHARACTER_SELECT_LIGHT_RIML_NAME = "char_sel_light_rim_l"
+global const string CHARACTER_SELECT_LIGHT_RIMR_NAME = "char_sel_light_rim_r"
+
+const string CAMERA_ENT_NAME = CHARACTER_SELECT_CAMERA_ENT_NAME
+const string CHARACTER_ENT_NAME = CHARACTER_SELECT_CHARACTER_ENT_NAME
+const string BACKGROUND_ENT_NAME = CHARACTER_SELECT_BACKGROUND_ENT_NAME
+const string LIGHT_KEY_NAME = CHARACTER_SELECT_LIGHT_KEY_NAME
+const string LIGHT_FILL_NAME = CHARACTER_SELECT_LIGHT_FILL_NAME
+const string LIGHT_RIML_NAME = CHARACTER_SELECT_LIGHT_RIML_NAME
+const string LIGHT_RIMR_NAME = CHARACTER_SELECT_LIGHT_RIMR_NAME
+
+const CAMERA_FOV = 35.5
+const CAMERA_TRANSITION_DURATION = 0.25
+const MAIN_DOF_NEAR_START = 7.5
+const MAIN_DOF_NEAR_END = 7.7
+const MAIN_DOF_FAR_START = 225.0
+const MAIN_DOF_FAR_END = 450.0
+const RUI_NAME_PLATE_WIDTH = 262
+const RUI_NAME_PLATE_HEIGHT = 110
+const COLOR_CORRECTION = "materials/correction/menu.raw_hdr"
+const int MAX_TEAM_FOCUS_INDEX = 3
+const float READY_ANIM_MIN_DURATION = 4.0
+global const int CHAMPION_SQAUD_SMOKE_SKIN_INDEX = 9
+global const int CHAMPION_SQAUD_BACKGROUND_SKIN_INDEX = 9
+
+
+
+
+global enum eNewCharacterSelectMenuState
+{
+	COUNTDOWN,
+	PICKING,
+
+	SELECTED,
+
+	LOCKED,
+}
+
+
+
+
+global function CharacterSelectMenu_Init
+global function IsCharacterReselectEnabled
+global function IsCharacterJIPSelectEnabled
+global function IsCharacterReselectAllowedNow
+
+
+
+
+
+
+
+
+#if DEV
+global function Dev_CharacterSelectClearCamera
+global function Dev_CharacterSelectRefreshLighting
+#endif
+
+
+
+global function CreateCharacterSelectClientEnts
+global function UpdateCamera
+global function SetCharacterSelectSceneForChampionSquad
+
+
+
+
+
+
+
+
+
+
+
+
+
+struct FileLevelStruct
+{
+
+		bool isBrowseMode = false
+		bool browseModeShowLockedCharacters = false
+		float isBrowseModeStartTime
+
+
+
+		bool menuEntsExist = false
+
+
+
+
+
+
+
+
+		bool lightEntsExist = false
+
+		var menu
+		var whiteFlash
+		var portraitsPanel
+		var calloutRuiPanel
+		var buttonHintPanel
+		var buttonHintRui
+
+		var		mapModeDetailsRui
+
+		
+		var topLegendRowAnchor
+		var botLegendRowAnchor
+
+
+
+		
+		var assaultShelf
+		var skirmisherShelf
+		var reconShelf
+		var supportShelf
+		var controllerShelf
+
+
+
+		var assaultShelfRUI
+		var	skirmisherShelfRUI
+		var	reconShelfRUI
+		var	supportShelfRUI
+		var	controllerShelfRUI
+
+
+
+		
+		array<var> characterButtons
+		array<var> roleButtons_Assault
+		array<var> roleButtons_Skirmisher
+		array<var> roleButtons_Recon
+		array<var> roleButtons_Defense
+		array<var> roleButtons_Support
+
+
+
+		array<var> characterButtonRuis
+
+
+
+
+		array<ItemFlavor> allCharacters
+		int        colorCorrection
+
+		int localClientLockstepIndex
+
+		entity camera
+		entity cameraToRestore
+		entity characterModel
+		entity characterNode
+		entity characterNodeMover
+		entity lightRigModel
+		entity keyLight
+		entity fillLight
+		entity rimLightL
+		entity rimLightR
+#if SUPPORTS_COMPACT_UI
+		int  buttonIdxToUpdate
+		bool uiLayoutModeChanged
+#endif
+
+		int currentCharacterIndex
+		entity backgroundModelSmoke
+		entity backgroundModelGeo
+
+		var                              backgroundRuiTopo
+		var                              backgroundRui
+
+		vector							 backgroundRuiOrigin
+		vector							 backgroundRuiAngles
+
+		var								 background3dSquadFrame
+
+
+
+		var								 upgradeTreeRTK
+
+
+		var                              countdownRui
+		var								 jipRui
+		array<var>                       ruiPlayerBarRuis
+		array<var>                		 gCardRuiHandles
+		array<var>						 squadLineupRuiHandles
+		array<NestedGladiatorCardHandle> nestedGladiatorCardHandles
+
+		table<int, ItemFlavor>	buttonIndexCharacterMap
+		array<int>				buttonIndexUsed
+		array<int>				lockedButtonIndexes
+		array<int>				disabledButtonIndexes
+		array<int>				enabledButtonIndexes 
+		array<int>				tempEnabledButtonIndexes
+		array<int>				unlockedByBattlepassButtonIndexes
+		array<int>				unlockedByCalEventButtonIndexes
+		array<int>				unlockedByBotModeButtonIndexes
+		array<int>				unlockableInNewPlayerPassButtonIndexes
+
+		array<ItemFlavor> characterSkins
+
+		ItemFlavor ornull desiredCharacterOrNull = null
+		ItemFlavor ornull desiredSkinOrNull = null
+		ItemFlavor ornull localPlayerCharacterSelectedOrNull = null
+
+		entity            lastLockedPlayer
+		int               desiredMenuState = eNewCharacterSelectMenuState.PICKING
+		table             signalDummy
+		float             lockSequenceAnimTime = 0.0
+
+
+
+
+		table<int, string> connectedPlayerNames
+
+		table<var, void functionref( var button )> buttonEventHandlersAdded_Click
+		table<var, void functionref( var button )> buttonEventHandlersAdded_Focus
+		table<var, void functionref( var button )> buttonEventHandlersAdded_Unfocus
+
+		bool menuEntsReady = false
+		bool menuIsOpen = false
+
+		int championEHI = -1
+		int championSquad1EHI = -1
+		int championSquad2EHI = -1
+
+		bool isUpdatePlayerModelRunning = false
+
+		void functionref( ItemFlavor, ToolTipData, bool, bool ) tooltipUpdateFunc
+
+		
+		bool isJiP = false
+		string jipDescription = "#CONTROL_RESPAWN_LATE_JOIN_PLAYER_DESC"
+
+		string customVoiceLine = ""
+
+		bool hasSetEligible = false
+		var preFocusedButton = null
+
+}
+
+struct CharacterLists {
+	array<ItemFlavor> shipping
+	array<ItemFlavor> unlocked
+	array<ItemFlavor> unlockedByBattlepass
+	array<ItemFlavor> unlockedByCalEvent
+	array<ItemFlavor> unlockedByBotMode
+	array<ItemFlavor> unlockableInNewPlayerPass
+	array<ItemFlavor> locked
+	array<ItemFlavor> disabled
+	array<ItemFlavor> all
+
+
+
+}
+
+global enum SquadPresentationStartTimePhases
+{
+
+	squad3dPresentationStartTime,
+
+	squadPresentationStartTime,
+	mvpPresentationStartTime,
+	championSquadPresentationStartTime,
+	podiumStartTime,
+	finalEndTime
+}
+
+global function Character_GetSquadPresentationStartTime
+global function Character_IsCharacterUnlockedForCalevent
+global function Character_IsUnlockedForBattlePassV2
+
+FileLevelStruct& fileLevel
+
+struct {
+	array< void functionref() > Callbacks_OnCharacterMenuOpened
+	array< void functionref() > Callbacks_OnCharacterMenuClosed
+	array< void functionref(ItemFlavor) > Callbacks_OnCharacterFocused
+	array< void functionref(ItemFlavor) > Callbacks_OnCharacterLocked
+	array< void functionref(bool) > Callbacks_OnCharacterDetailsToggled
+
+
+	array< bool functionref( ItemFlavor, entity ) > Callbacks_CustomIsCharacterLocked
+
+
+
+		array< void functionref(var) > Callbacks_CustomizeBackgroundRui
+		array< void functionref(ItemFlavor, entity, entity, entity, var) > Callbacks_OnCharacterModelChanged
+		array< void functionref( entity, entity, entity, entity, entity ) > Callbacks_CustomUpdateLights
+		bool volunteeredForJumpMasterCache = false
+
+} file
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function UIToClient_OnToggleJumpmasterButtonClick()
+{
+	if ( !IsFullyConnected() )
+		return
+
+	entity localPlayer = GetLocalClientPlayer()
+	if ( !IsValid( localPlayer ) )
+		return
+
+	
+	if ( GetCurrentPlaylistVarBool( "enable_jumpmaster_volunteering", false ) )
+	{
+		int currentMatchPreferenceFlags = localPlayer.GetPersistentVarAsInt( "matchPreferences" )
+
+		if ( file.volunteeredForJumpMasterCache )
+		{
+			Remote_ServerCallFunction( "ClientCallback_PlayerClearMatchPreferenceFlag", localPlayer, eMatchPreferenceFlags.JUMPMASTER_OPT_IN )
+		}
+		else
+		{
+			Remote_ServerCallFunction( "ClientCallback_PlayerSetMatchPreferenceFlag", localPlayer, eMatchPreferenceFlags.JUMPMASTER_OPT_IN )
+		}
+
+		file.volunteeredForJumpMasterCache = !file.volunteeredForJumpMasterCache
+		UpdateButtonPrompts()
+	}
+}
+
+#if SUPPORTS_COMPACT_UI
+void function UIToClient_OnUiLayoutModeChanged()
+{
+	UpdateMenuButtons()
+	fileLevel.uiLayoutModeChanged = true
+	UpdateForFocusOnButtonIndex( fileLevel.buttonIdxToUpdate )
+}
+#endif
+
+
+
+void function CharacterSelectMenu_Init()
+{
+	PrecacheModel( BACKGROUND_GEO_MODEL )
+	PrecacheModel( BACKGROUND_SMOKE_MODEL )
+	PrecacheModel( LIGHT_RIG_MODEL )
+
+	Remote_RegisterServerFunction( "ClientCallback_UpdateCharacterSelectFocus", "int", INT_MIN, INT_MAX, "int", INT_MIN, INT_MAX )
+	Remote_RegisterServerFunction( REMOTE_SERVERCALL_ON_RESELECT_MENU_OPEN )
+	Remote_RegisterServerFunction( REMOTE_SERVERCALL_ON_RESELECT_MENU_CLOSE )
+
+	Remote_RegisterClientFunction( "ServerToClient_SetInitialSelection", "int", INT_MIN, INT_MAX )
+	Remote_RegisterClientFunction( "ServerCallback_ForceCharacterLockFeedback", "entity", "bool" )
+	Remote_RegisterClientFunction( "ServerCallback_CharacterLockRejected" )
+
+	RegisterNetworkedVariable( CHARACTER_SELECT_NETVAR_HAS_LOCKED_IN_CHARACTER, SNDC_PLAYER_GLOBAL, SNVT_BOOL, false )
+	RegisterNetworkedVariable( CHARACTER_SELECT_NETVAR_LOCKED_IN_CHARACTER_TIME, SNDC_PLAYER_GLOBAL, SNVT_TIME, -1 )
+	RegisterNetworkedVariable( CHARACTER_SELECT_NETVAR_LOCK_STEP_PLAYER_INDEX, SNDC_PLAYER_GLOBAL, SNVT_INT, -1 )
+	RegisterNetworkedVariable( CHARACTER_SELECT_NETVAR_FOCUS_CHARACTER_GUID, SNDC_PLAYER_GLOBAL, SNVT_BIG_INT, -1 )
+	RegisterNetworkedVariable( CHARACTER_SELECT_NETVAR_VOLUNTEERED_JUMPMASTER, SNDC_PLAYER_GLOBAL, SNVT_BOOL, false )
+	RegisterNetworkedVariable( "characterSelectFocusSkinGUID", SNDC_PLAYER_GLOBAL, SNVT_BIG_INT, -1 )
+	RegisterNetworkedVariable( "characterSelectionReady", SNDC_GLOBAL, SNVT_BOOL, false )
+	RegisterNetworkedVariable( CHARACTER_SELECT_NETVAR_LOCK_STEP_INDEX, SNDC_GLOBAL, SNVT_INT, -1 )
+	RegisterNetworkedVariable( CHARACTER_SELECT_NETVAR_LOCK_STEP_START_TIME, SNDC_GLOBAL, SNVT_TIME, -1 )
+	RegisterNetworkedVariable( CHARACTER_SELECT_NETVAR_LOCK_STEP_END_TIME, SNDC_GLOBAL, SNVT_TIME, -1 )
+	RegisterNetworkedVariable( "characterSelectPicksEndTime", SNDC_GLOBAL, SNVT_TIME, -1 )
+	RegisterNetworkedVariable( "allSquadsPresentationStartTime", SNDC_GLOBAL, SNVT_TIME, -1 )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+		RegisterSignal( "UpdateScene" )
+		RegisterSignal( "UpdatingModel" )
+		RegisterSignal( "PlayerModelUpdated" )
+		RegisterSignal( "UpdatingAnim" )
+		RegisterSignal( "CharacterSelectClosing" )
+		RegisterSignal( "LocalPlayerPickingSounds" )
+		RegisterSignal( "CloseCharacterSelectMenuAtTime" )
+
+		RegisterNetVarIntChangeCallback( CHARACTER_SELECT_NETVAR_LOCK_STEP_INDEX, OnLockStepPickIndexChanged )
+		RegisterNetVarTimeChangeCallback( CHARACTER_SELECT_NETVAR_LOCK_STEP_START_TIME, OnLockStepPickTimeChanged )
+		RegisterNetVarTimeChangeCallback( CHARACTER_SELECT_NETVAR_LOCK_STEP_END_TIME, OnLockStepPickTimeChanged )
+		RegisterNetVarBoolChangeCallback( CHARACTER_SELECT_NETVAR_HAS_LOCKED_IN_CHARACTER, OnPlayerUpdatedCharacterLock )
+		RegisterNetVarTimeChangeCallback( CHARACTER_SELECT_NETVAR_LOCKED_IN_CHARACTER_TIME, OnPlayerUpdatedCharacterLockTime )
+
+		RegisterNetVarIntChangeCallback( CHARACTER_SELECT_NETVAR_LOCK_STEP_PLAYER_INDEX, OnLockStepPlayerIndexChanged )
+		RegisterNetVarIntChangeCallback( CHARACTER_SELECT_NETVAR_FOCUS_CHARACTER_GUID, OnPlayerUpdatedCharacterFocus )
+		RegisterNetVarBoolChangeCallback( CHARACTER_SELECT_NETVAR_VOLUNTEERED_JUMPMASTER, OnPlayerUpdatedVolunteeredJumpmaster )
+
+
+
+
+
+
+
+
+
+
+		AddCallback_FullUpdate( Client_FullUpdate )
+		AddCallback_UIScriptReset( Client_UIScriptReset )
+		if ( SquadMuteLegendSelectEnabled() )
+			AddCallback_OnSquadMuteChanged( Client_MuteChanged )
+
+		fileLevel.colorCorrection = ColorCorrection_Register( COLOR_CORRECTION )
+
+		AddClientCallback_OnResolutionChanged( CharacterSelectMenu_OnResolutionChanged )
+
+}
+
+
+bool function CharacterSelectSkinSelectionIsEnabled()
+{
+	return GetCurrentPlaylistVarBool( "character_select_do_skin_selection", false )
+}
+
+
+
+
+
+
+
+
+
+void function OpenCharacterSelectMenu( bool isBrowseMode = false, bool browseModeShowLockedCharacters = false, bool isJiP = false )
+{
+	CommsMenu_Shutdown( false )
+	fileLevel.isBrowseMode = isBrowseMode
+	fileLevel.isJiP = isJiP
+	fileLevel.isBrowseModeStartTime = Time()
+	fileLevel.browseModeShowLockedCharacters = browseModeShowLockedCharacters
+
+	fileLevel.menuEntsExist = DoMenuEntsExist()
+	fileLevel.lightEntsExist = DoMenuLightsExist()
+
+	foreach( func in file.Callbacks_OnCharacterDetailsToggled )
+		func( isBrowseMode && !browseModeShowLockedCharacters )
+
+	NotifyCharacterSelectBeginEnd( true )
+
+	bool isSpecialCharacterSelect = false
+
+
+
+
+
+
+	if (isSpecialCharacterSelect)
+	{
+
+
+
+
+	}
+	else
+	{
+
+
+
+
+
+		RunUIScript( "UI_RunCharacterSelect", fileLevel.isBrowseMode, fileLevel.menuEntsExist )
+	}
+
+	foreach ( func in file.Callbacks_OnCharacterMenuOpened )
+		func()
+
+	AddCallback_OnSquadMuteChanged( UpdateButtonPrompts )
+}
+
+bool function CharacterSelect_Menu_ShouldOpen( entity player )
+{
+	if ( !IsValid( player ))
+		return false
+
+	if ( !player.IsPlayer() )
+		return false
+
+	if ( IsAlive( player ) && player.ContextAction_IsMeleeExecution() )
+		return false
+
+	if ( IsInBleedoutOrRevive( player ) )
+		return false
+
+	if ( player.IsPhaseShifted() )
+		return false
+
+	if ( !IsWatchingReplay() )
+	{
+		if ( GetCurrentArmoredLeapPhase( player ) != PLAYER_ARMORED_LEAP_PHASE_NONE )
+			return false
+	}
+
+	if ( player.ContextAction_IsEmoting() ) 
+		return false
+
+	if ( GetGameState() > eGameState.PickLoadout && IsCharacterReselectEnabled() )
+	{
+		if ( !IsCharacterReselectAllowedNow() )
+			return false
+	}
+
+	if ( GameModeVariant_IsActive( eGameModeVariants.SURVIVAL_TRAINING ) )
+		return false
+
+	return true
+}
+
+bool function CharacterSelect_MenuIsOpen()
+{
+	return fileLevel.menuIsOpen
+}
+
+void function CharacterSelect_SetTooltipUpdateFunc( void functionref( ItemFlavor, ToolTipData, bool, bool ) func )
+{
+	fileLevel.tooltipUpdateFunc = func
+}
+
+void function AddCallback_OnCharacterSelectMenuOpened( void functionref() callbackFunc )
+{
+	file.Callbacks_OnCharacterMenuOpened.append( callbackFunc )
+}
+
+void function AddCallback_CharacterSelectMenu_OnCharacterFocused( void functionref(ItemFlavor) callbackFunc )
+{
+	file.Callbacks_OnCharacterFocused.append( callbackFunc )
+}
+
+void function AddCallback_CharacterSelectMenu_OnCharacterLocked( void functionref(ItemFlavor) callbackFunc )
+{
+	file.Callbacks_OnCharacterLocked.append( callbackFunc )
+}
+
+void function AddCallback_OnCharacterSelectMenuClosed( void functionref() callbackFunc )
+{
+	file.Callbacks_OnCharacterMenuClosed.append( callbackFunc )
+}
+
+void function AddCallback_OnCharacterSelectDetailsToggled( void functionref(bool) callbackFunc )
+{
+	file.Callbacks_OnCharacterDetailsToggled.append( callbackFunc )
+}
+
+void function AddCallback_OnCharacterSelectBackgroundCreated( void functionref( var ) callbackFunc )
+{
+	file.Callbacks_CustomizeBackgroundRui.append( callbackFunc )
+}
+
+void function AddCallback_OnCharacterSelectModelChanged( void functionref( ItemFlavor, entity, entity, entity, var ) callbackFunc )
+{
+	file.Callbacks_OnCharacterModelChanged.append( callbackFunc )
+}
+
+void function AddCallback_OnCharacterSelectUpdateLights( void functionref( entity, entity, entity, entity, entity ) callbackFunc )
+{
+	file.Callbacks_CustomUpdateLights.append( callbackFunc )
+}
+
+void function UpdateBackgroundViaFunc( void functionref( entity, entity, var ) callbackFunc )
+{
+	callbackFunc( fileLevel.backgroundModelGeo, fileLevel.backgroundModelSmoke, fileLevel.backgroundRui )
+}
+
+void function PanAwayCharacterSelect()
+{
+	RunUIScript( "UI_CloseCharacterSelect" )
+
+	if ( !IsValid( fileLevel.camera ) )
+		return
+
+	fileLevel.nestedGladiatorCardHandles.clear()
+	fileLevel.gCardRuiHandles.clear()
+
+	fileLevel.squadLineupRuiHandles.clear()
+
+
+	bool isSpecialCharacterSelect = false
+
+
+
+
+
+
+
+	if (!isSpecialCharacterSelect)
+	{
+		RuiSetFloat( fileLevel.mapModeDetailsRui, "gcardsStartTime", Time() )
+		RuiSetFloat( fileLevel.backgroundRui, "gcardsStartTime", Time() )
+	}
+
+
+	foreach( func in file.Callbacks_OnCharacterDetailsToggled )
+		func(false)
+
+	UpdateButtonStates()
+
+	float outroSceneChangeDuration = CharSelect_GetOutroSceneChangeDuration()
+	fileLevel.characterNodeMover = CreateClientsideScriptMover( $"mdl/dev/empty_model.rmdl", GetEntByScriptName( CAMERA_ENT_NAME ).GetOrigin(), GetEntByScriptName( CAMERA_ENT_NAME ).GetAngles() )
+
+	entity charNode = fileLevel.characterNode
+
+	charNode.SetParent( fileLevel.characterNodeMover, "", true )
+
+
+	ScreenFade( GetLocalClientPlayer(), 0, 0, 0, 255, 0.5, 0, FFADE_OUT | FFADE_PURGE )
+	wait 0.5
+
+
+	if (fileLevel.characterNodeMover != null && !CharSelect_GetSquad3dPresentationEnabled() )
+
+
+
+	{
+		fileLevel.characterNodeMover.NonPhysicsRotateTo( fileLevel.characterNodeMover.GetAngles() + <0, 135, 0>, 0.1, 0, 0 )
+	}
+
+
+	EmitSoundOnEntity( GetLocalClientPlayer(), "UI_Survival_Intro_LegendPanLeft" )
+
+	ScreenFade( GetLocalClientPlayer(), 0, 0, 0, 255, outroSceneChangeDuration / 3.0, 0, FFADE_IN | FFADE_PURGE )
+
+	
+
+	
+	NotifyCharacterSelectBeginEnd( false )
+
+
+	if ( GameModeVariant_IsActive( eGameModeVariants.SURVIVAL_BATTLE_RUSH ) )
+	{
+		BattleRush_StopCharSelectMusic()
+		BattleRush_ServerCallback_PlayJumpMusic()
+	}
+
+
+	fileLevel.characterModel.Hide()
+}
+
+void function Client_MuteChanged()
+{
+	UpdateButtonStates()
+}
+
+
+entity function PickMVP( array<entity> players )
+{
+	entity champion   = null
+	
+	int bestPlacement = 9999999
+	int mostKills     = 0
+	int mostDamage    = 0
+	int highestPlayerCount = 0
+
+	foreach ( int i, entity player in players )
+	{
+		bool better = false
+
+		int matchResultsCurrMatchIndex = modint( player.GetPersistentVarAsInt( "matchResults_nextIndex" ), PersistenceGetArrayCount( "matchResults" ) ) 
+		int matchResultsPrevMatchIndex = modint( matchResultsCurrMatchIndex - 1, PersistenceGetArrayCount( "matchResults" ) )
+		int placement                  = player.GetPersistentVarAsInt( format( "matchResults[%d].placement", matchResultsPrevMatchIndex ) )
+		int kills                      = player.GetPersistentVarAsInt( format( "matchResults[%d].playersKilled", matchResultsPrevMatchIndex ) )
+		int damage                     = player.GetPersistentVarAsInt( format( "matchResults[%d].damageDealt", matchResultsPrevMatchIndex ) )
+		int prevMatchPlacementOf	   = player.GetPersistentVarAsInt( format( "matchResults[%d].placementof", matchResultsPrevMatchIndex ) )
+
+		if ( prevMatchPlacementOf > 0 && placement < bestPlacement )
+		{
+			better = true
+		}
+		else if ( placement == bestPlacement )
+		{
+			if ( prevMatchPlacementOf > highestPlayerCount ) 
+			{
+				better = true
+			}
+			else if ( kills > mostKills )
+			{
+				better = true
+			}
+			else if ( kills == mostKills )
+			{
+				if ( damage > mostDamage )
+				{
+					better = true
+				}
+				else if ( damage == mostDamage )
+				{
+					better = CoinFlip()
+
+					
+					if ( i == players.len() - 1 && champion == null )
+						better = true
+				}
+			}
+		}
+
+		if ( better )
+		{
+			champion = player
+			bestPlacement = placement
+			mostKills = kills
+			mostDamage = damage
+			highestPlayerCount = prevMatchPlacementOf
+		}
+	}
+
+	if ( champion == null )
+		return players.len() > 0 ? players[0] : null 
+
+	return champion
+}
+
+void function DoAllSquadsCardsPresentation( float endTime )
+{
+	foreach( func in file.Callbacks_OnCharacterMenuClosed )
+		func()
+
+	thread FadeInOut(0.5, 0.5, 0.5)
+	bool shouldHideCharacterSelectRoom = GetCurrentPlaylistVarBool( "survival_hide_character_select_room", false )
+
+	if ( shouldHideCharacterSelectRoom )
+		CharacterSelect_RestorePlayerView()
+
+	int totalSquads = GetCurrentPlaylistVarInt( "max_teams", 4 )
+	int maxSquadSize = GetCurrentPlaylistVarInt( "max_players" , 4) / totalSquads
+	float squadElementWidth = 420
+	float paddingWidth = (1920 - (squadElementWidth * totalSquads))/ (totalSquads+1)
+
+	for (int i = 0; i < totalSquads; i++)
+	{
+		int squadIndex = i + TEAM_IMC
+		int uiSquadIndex = Squads_GetSquadUIIndex(squadIndex)
+		int reorderedIndex    = Squads_GetReorderedTeamsUIId( squadIndex )
+
+		array<entity> players = GetPlayerArrayOfTeam( squadIndex )
+		ArrayRemoveInvalid( players )
+
+		var squadLineupsRui = CreateFullscreenPostFXRui($"ui/all_squads_lineup_start_flow.rpak", 3)
+
+		fileLevel.squadLineupRuiHandles.append(squadLineupsRui)
+
+		RuiSetImage( squadLineupsRui, "squadIcon", Squads_GetSquadIcon(uiSquadIndex ))
+		RuiSetString(squadLineupsRui, "squadName", Squads_GetSquadNameLong(uiSquadIndex ))
+		RuiSetColorAlpha( squadLineupsRui, "squadColor", Squads_GetSquadColor(uiSquadIndex), 1.0 )
+
+		if ( reorderedIndex < 1 && !IsLocalPlayerOnTeamSpectator() )
+			RuiSetBool(squadLineupsRui, "isPlayerSquad", true)
+
+		RuiSetInt(squadLineupsRui, "totalSquads" , totalSquads)
+		RuiSetInt( squadLineupsRui, "squadSize", GetExpectedSquadSize() )
+		RuiSetInt(squadLineupsRui, "currentSquadIndex" , reorderedIndex )
+
+		foreach (int playerIndex, entity player in players )
+		{
+			ItemFlavor character = LoadoutSlot_GetItemFlavor( ToEHI( player ), Loadout_Character() )
+			var NestedRui = RuiCreateNested( squadLineupsRui, "uihandleTeammate" + playerIndex, $"ui/squad_lineup_start_flow.rpak" )
+
+			RuiSetImage( NestedRui, "characterPortrait", CharacterClass_GetGalleryPortrait( character ) )
+			RuiSetString( NestedRui, "characterName", GetDisplayablePlayerNameFromEHI( ToEHI( player ) ) )
+			RuiSetColorAlpha( NestedRui, "elementColor", Squads_GetSquadColor(uiSquadIndex), 1.0 )
+			string platformString = CrossplayUserOptIn() ? PlatformIDToIconString( GetHardwareFromName( player.GetHardwareName() ) ) : ""
+			RuiSetString( NestedRui, "platformIcon", platformString )
+		}
+
+		int missingPlayersSize = maxSquadSize - players.len()
+
+		if (missingPlayersSize > 0)
+		{
+			for (int j = 0; j < missingPlayersSize; j++)
+			{
+				int ruiIndex = players.len() + j
+				var NestedRui = RuiCreateNested( squadLineupsRui, "uihandleTeammate" + ruiIndex, $"ui/squad_lineup_start_flow.rpak" )
+
+				RuiSetBool( NestedRui, "isDisconnected", true )
+				RuiSetString( NestedRui, "platformIcon", "" )
+			}
+		}
+	}
+
+	
+	array<entity> teammates = GetPlayerSquad()
+	ArrayRemoveInvalid( teammates )
+
+	var borderRui = CreateFullscreenPostFXRui( $"ui/round_end_squads_border.rpak", 3 )
+
+	RuiSetString( borderRui, "gameModeString", GetCurrentPlaylistVarString( "name", "#PLAYLIST_UNAVAILABLE" ) )
+	RuiSetString( borderRui, "mapNameString", GetMapNameText() )
+	RuiSetImage( borderRui , "gameModeIcon", GetGamemodeLogoFromImageMap( GetCurrentPlaylistVarString( "gamemode_logo", "BATTLE_ROYALE" )) )
+	RuiSetBool( borderRui, "compactTitles", false )
+
+	for ( int index = 0 ; index < 4 ; index++ )
+	{
+		if ( index < teammates.len() )
+		{
+			RuiSetString( borderRui, "playerName" + (index + 1), teammates[index].GetPlayerName() )
+			RuiTrackInt( borderRui, "playerMic" + (index + 1), teammates[index], RUI_TRACK_MIC_STATUS )
+			RuiSetBool( borderRui, "playerAvailable" + (index + 1), true )
+		}
+		else
+		{
+			RuiSetString( borderRui, "playerName" + (index + 1), "" )
+			RuiSetInt( borderRui, "playerMic" + (index + 1), -1 )
+			RuiSetBool( borderRui, "playerAvailable" + (index + 1), false )
+		}
+	}
+
+	
+
+	fileLevel.squadLineupRuiHandles.append( borderRui )
+
+	OnThreadEnd(
+		void function() : ( borderRui )
+		{
+			foreach( var rui in fileLevel.squadLineupRuiHandles )
+				RuiDestroyIfAlive( rui )
+
+			RuiDestroyIfAlive( borderRui )
+		}
+	)
+
+	while( Time() < endTime )
+		WaitFrame()
+}
+
+
+void function Do3dSquadPresentation()
+{
+	printf( "[sh_character_select] Do3dSquadPresentation running." )
+
+	foreach( func in file.Callbacks_OnCharacterMenuClosed )
+		func()
+
+	array<entity> teammates = GetPlayerSquad()
+	ArrayRemoveInvalid( teammates )
+
+	fileLevel.background3dSquadFrame = RuiCreate( $"ui/character_select_3d_squad_frame.rpak", clGlobal.topoFullScreen, RUI_DRAW_POSTEFFECTS, 0 )
+	int teammatesCount = teammates.len()
+
+	foreach( entity player in teammates )
+	{
+		PauseMainDialogueQueue( FUNC_NAME() )
+
+		ItemFlavor currentCharacter = LoadoutSlot_GetItemFlavor( ToEHI( player ), Loadout_Character() )
+		ItemFlavor currentSkin = LoadoutSlot_GetItemFlavor( ToEHI( player ), Loadout_CharacterSkin( currentCharacter ) )
+		thread PlayCharacterReadyUpLine( currentCharacter )
+		thread UpdatePlayerModel( currentCharacter, currentSkin, player )
+		thread UpdatePlayerAnim( currentCharacter, eNewCharacterSelectMenuState.LOCKED, player, false )
+		thread DisplaySpectatorCardSidePane(eGladCardDisplaySituation.SPECTATE_ANIMATED, ToEHI( player ), $"", "", < 0, -0.075, 0.0 >, false, 0.9)
+
+		wait ( CHARACTER_SELECT_3D_SQUAD_TIME * GetMaxTeamSizeForPlaylist( GetCurrentPlaylistName() ) ) / teammatesCount
+	}
+
+	Signal( clGlobal.levelEnt, "DisplaySpectatorCardSidePane" )
+
+	float endTime = Character_GetSquadPresentationStartTime( SquadPresentationStartTimePhases.squadPresentationStartTime, GetGlobalNetTime( "allSquadsPresentationStartTime" ) )
+	while( Time() < endTime )
+		WaitFrame()
+
+	RuiDestroyIfAlive( fileLevel.background3dSquadFrame )
+	fileLevel.background3dSquadFrame = null
+
+	if ( IsValid( fileLevel.characterModel ) )
+	{
+		fileLevel.characterModel.Hide()
+	}
+
+	foreach ( entity player in teammates )
+	{
+		ResumeMainDialogueQueue( FUNC_NAME() )
+	}
+}
+
+
+void function DoSquadCardsPresentation( bool showTitleFrame )
+{
+	foreach( func in file.Callbacks_OnCharacterMenuClosed )
+		func()
+
+	bool shouldHideCharacterSelectRoom = GetCurrentPlaylistVarBool( "survival_hide_character_select_room", false )
+
+
+
+
+
+
+	if ( shouldHideCharacterSelectRoom )
+		CharacterSelect_RestorePlayerView()
+
+	array<float> offsets = [-1.0, 0.0, 1.0]
+	if ( MAX_TEAM_PLAYERS == 1 )
+		offsets = [0.0]
+	if ( MAX_TEAM_PLAYERS == 2 )
+		offsets = [-0.5, 0.5]
+
+	array<entity> teammates = GetPlayerSquad()
+	ArrayRemoveInvalid( teammates )
+
+	entity localViewPlayer = GetLocalViewPlayer()
+	bool morePlayersThanOffsets = teammates.len() > offsets.len()
+	if ( morePlayersThanOffsets )
+		teammates.fastremovebyvalue( localViewPlayer )
+
+	for ( int i = 0; i < min( teammates.len(), offsets.len() ); i++ )
+	{
+		entity teammate = teammates[i]
+
+		
+		var gladCardsRui = CreateFullscreenRui( $"ui/round_end_squad_member_gcard.rpak", -100 )
+		fileLevel.gCardRuiHandles.append( gladCardsRui )
+		NestedGladiatorCardHandle nestedGCHandle = CreateNestedGladiatorCard( gladCardsRui, "card", eGladCardDisplaySituation.GAME_INTRO_MY_SQUAD_ANIMATED, eGladCardPresentation.FULL_BOX )
+		ChangeNestedGladiatorCardOwner( nestedGCHandle, ToEHI( teammate ), null, eGladCardLifestateOverride.ALIVE )
+		RuiSetFloat( gladCardsRui, "offset", offsets[i] )
+		RuiSetFloat (gladCardsRui, "elementScale", 1.0)
+		fileLevel.nestedGladiatorCardHandles.append( nestedGCHandle )
+
+
+
+
+
+
+		if (showTitleFrame && teammates.len() > 0)
+		{
+			int playerTeam   = teammate.GetTeam()
+			int uiSquadIndex = Squads_GetSquadUIIndex( playerTeam )
+
+			RuiSetBool( nestedGCHandle.cardRui, "isSquadMode", true )
+			RuiSetColorAlpha( nestedGCHandle.cardRui, "squadModeColor", Squads_GetSquadColor(uiSquadIndex), 1.0)
+		}
+
+
+		
+		var playerStatsRui = CreateFullscreenPostFXRui( $"ui/round_end_squad_member_stats.rpak", 2 )
+		fileLevel.gCardRuiHandles.append( playerStatsRui )
+		RuiSetFloat( playerStatsRui, "offset", offsets[i] )
+		RuiSetBool( playerStatsRui, "showStats", false )
+		RuiSetString( playerStatsRui, "playerName", teammate.GetPlayerName() )
+		RuiSetFloat( playerStatsRui, "playerNameFontScale", 2.0 )
+		RuiTrackInt( playerStatsRui, "micStatus", teammate, RUI_TRACK_MIC_STATUS )
+
+
+		if ( teammate == GetLocalViewPlayer() )
+		{
+			LoadoutEntry characterSlot = Loadout_Character()
+			ItemFlavor character       = LoadoutSlot_GetItemFlavor( ToEHI( teammate ), characterSlot )
+			SetChromaCharacter( character )
+		}
+	}
+
+	
+	var borderRui = CreateFullscreenPostFXRui( $"ui/round_end_squads_border.rpak", 3 )
+	if ( GameModeVariant_IsActive( eGameModeVariants.SURVIVAL_SOLOS ) )
+	{
+		RuiSetString( borderRui, "headerText", "#SOLO_HEADER_YOU_SELECTION" )
+	}
+	else
+	{
+		string headerText
+		switch (true)
+		{
+			case GameModeVariant_IsActive( eGameModeVariants.SURVIVAL_VALENTINES_S15 ):
+				headerText = "#SQUAD_HEADER_YOUR_SQUAD_DATE_NIGHT"
+				break
+
+			default:
+				headerText = "#SQUAD_HEADER_YOUR_SQUAD"
+		}
+
+		RuiSetString( borderRui, "headerText", headerText )
+	}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	RuiSetString( borderRui, "gameModeString", GetCurrentPlaylistVarString( "name", "#PLAYLIST_UNAVAILABLE" ) )
+	RuiSetString( borderRui, "mapNameString", GetMapNameText() )
+	RuiSetColorAlpha( borderRui, "headerColor", SrgbToLinear( GetKeyColor( COLORID_FRIENDLY ) / 255.0 ), 1.0 )
+	RuiSetBool( borderRui, "compactTitles", true )
+	RuiSetBool( borderRui, "showTitleFrame", showTitleFrame )
+	RuiSetBool( borderRui, "showSquadBanner", showTitleFrame )
+
+	if (showTitleFrame && teammates.len() > 0 )
+	{
+		int playerTeam   = teammates[0].GetTeam()
+		int uiSquadIndex = Squads_GetSquadUIIndex( playerTeam )
+
+		vector squadColor = Squads_GetSquadColor(uiSquadIndex)
+
+		RuiSetImage( borderRui, "squadIcon", Squads_GetSquadIcon(uiSquadIndex ))
+		RuiSetString(borderRui, "squadName", Squads_GetSquadNameLong(uiSquadIndex ))
+		RuiSetColorAlpha( borderRui, "squadColor", squadColor, 1.0)
+		RuiSetColorAlpha( borderRui, "headerColor", squadColor, 1.0 )
+	}
+
+	for ( int index = 0 ; index < 4 ; index++ )
+	{
+		if ( index < teammates.len() )
+		{
+			RuiSetString( borderRui, "playerName" + (index + 1), teammates[index].GetPlayerName() )
+			RuiTrackInt( borderRui, "playerMic" + (index + 1), teammates[index], RUI_TRACK_MIC_STATUS )
+			RuiSetBool( borderRui, "playerAvailable" + (index + 1), true )
+		}
+		else
+		{
+			RuiSetString( borderRui, "playerName" + (index + 1), "" )
+			RuiSetInt( borderRui, "playerMic" + (index + 1), -1 )
+			RuiSetBool( borderRui, "playerAvailable" + (index + 1), false )
+		}
+	}
+
+	EmitSoundOnEntity( GetLocalClientPlayer(), "UI_Survival_Intro_GladiatorCard_Appear" )
+
+	fileLevel.gCardRuiHandles.append( bord	{
+		array<entity> teammates = GetPlayerSquad()
+		if ( teammates.len() > 0 ) championEHI 		= ToEHI( teammates[0] )
+		if ( teammates.len() > 1 ) championSquad1EHI = ToEHI( teammates[1] )
+		if ( teammates.len() > 2 ) championSquad2EHI = ToEHI( teammates[2] )
+		didPopulateChamptionSquad = true
+	}
+
+	if ( !didPopulateChamptionSquad )
+	{
+		championEHI			= GetGlobalNetInt( "championEEH" )
+		championSquad1EHI	= GetGlobalNetInt( "championSquad1EEH" )
+		championSquad2EHI	= GetGlobalNetInt( "championSquad2EEH" )
+	}
+
+	float fadeToBlackDuration   = 0.5
+	float fadeFromBlackDuration = 0.5
+	float blackDuration         = 0.25
+
+	bool shouldPlayChampionVO = true
+
+
+
+
+
+
+
+
+
+
+
+
+	
+	if ( shouldPlayChampionVO )
+	{
+		string voLine = GetAnyDialogueAliasFromName( PickCommentaryLineFromBucket( eSurvivalCommentaryBucket.INTRO_CHAMPION_CARD ) )
+		blackDuration = max( GetSoundDuration( voLine ) * 0.5, 2.0 )
+		EmitSoundOnEntity( GetLocalClientPlayer(), voLine )
+	}
+
+	int me = GetLocalViewPlayer().GetEncodedEHandle()
+	if ( me == championEHI || me == championSquad1EHI || me == championSquad2EHI )
+		Chroma_SetBaseLayer( CHROMALOOP_SMOKE, CHROMATRANS_BLEND, {[0.0] = <1, .75, 0>, [1.0] = <.75, .3, 0>}, 2.0 ) 
+	else
+		Chroma_SetBaseLayer( CHROMALOOP_SMOKE, CHROMATRANS_BLEND, {[0.0] = <0, 0, 0>, [1.0] = <.5, .5, .5>}, 2.0 ) 
+
+	
+	EmitSoundOnEntity( GetLocalClientPlayer(), "UI_Survival_Intro_GladiatorCard_Disappear" )
+	ScreenFade( GetLocalClientPlayer(), 0, 0, 0, 255, fadeToBlackDuration, blackDuration, FFADE_OUT | FFADE_PURGE )
+	wait fadeToBlackDuration
+
+
+
+
+
+
+
+	{
+		SetCharacterSelectSceneForChampionSquad()
+	}
+
+	wait blackDuration
+	ScreenFade( GetLocalClientPlayer(), 0, 0, 0, 255, fadeFromBlackDuration, 0.0, FFADE_IN | FFADE_PURGE )
+
+	EmitSoundOnEntity( GetLocalClientPlayer(), "UI_Survival_Intro_GladiatorCard_Appear" )
+
+	
+	var rui = CreateFullscreenRui( $"ui/gladiator_card_intro_screen.rpak", RUI_SORT_SCREENFADE - 1 )
+	string topHeader
+	bool showBottomText = !GameModeVariant_IsActive( eGameModeVariants.SURVIVAL_RANKED )
+
+	if ( GameModeVariant_IsActive( eGameModeVariants.SURVIVAL_SOLOS ) )
+	{
+		topHeader = "#GLADIATOR_CARD_INTRO_CHAMPION_SOLO"
+	}
+
+	else if ( GameMode_IsActive( eGameModes.ARENAS ) )
+	{
+		topHeader = "#PL_ENEMY_SQUAD"
+		showBottomText = false 
+	}
+
+	else if ( GameModeVariant_IsActive( eGameModeVariants.SURVIVAL_VALENTINES_S15 ) )
+	{
+		topHeader = "#GLADIATOR_CARD_INTRO_CHAMPION_SQUAD_DATE_NIGHT"
+	}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	else
+		topHeader = "#GLADIATOR_CARD_INTRO_CHAMPION_SQUAD"
+
+
+	RuiSetString( rui, "topHeader", topHeader )
+	RuiSetGameTime( rui, "transitionInAt", Time() )
+	RuiSetGameTime( rui, "transitionOutAt", endTime )
+	RuiSetFloat( rui, "xpBonusAmount", XpEventTypeData_GetAmount( eXPType.KILL_CHAMPION_MEMBER ) )
+	RuiSetBool( rui, "isDuoMode", GetExpectedSquadSize( GetLocalClientPlayer() ) == 2 )
+	RuiSetString( rui, "gameModeString", GetCurrentPlaylistVarString( "name", "#PLAYLIST_UNAVAILABLE" ) )
+	RuiSetString( rui, "mapNameString", GetMapNameText( false ) )
+
+	array<entity> teammates = GetPlayerSquad()
+	ArrayRemoveInvalid( teammates )
+	for ( int index = 0 ; index < 4 ; index++ )
+	{
+		if ( index < teammates.len() )
+		{
+			string displayName = GetPlayerNameUnlessAnonymized( ToEHI( teammates[index] ) )
+			RuiSetString( rui, "playerName" + (index + 1), displayName )
+			RuiTrackInt( rui, "playerMic" + (index + 1), teammates[index], RUI_TRACK_MIC_STATUS )
+			RuiSetBool( rui, "playerAvailable" + (index + 1), true )
+		}
+		else
+		{
+			RuiSetString( rui, "playerName" + (index + 1), "" )
+			RuiSetInt( rui, "playerMic" + (index + 1), -1 )
+			RuiSetBool( rui, "playerAvailable" + (index + 1), false )
+		}
+	}
+
+	RuiSetBool( rui, "showBottomText", showBottomText )
+
+	array<NestedGladiatorCardHandle> nestedGCHandles
+
+	if ( championSquad1EHI != EHI_null && EHIHasValidScriptStruct( championSquad1EHI ) )
+	{
+		NestedGladiatorCardHandle handle = CreateNestedGladiatorCard( rui, "cardBoxLeft", eGladCardDisplaySituation.GAME_INTRO_CHAMPION_SQUAD_STILL, eGladCardPresentation.FULL_BOX )
+		ChangeNestedGladiatorCardOwner( handle, championSquad1EHI, Time(), eGladCardLifestateOverride.ALIVE )
+		nestedGCHandles.append( handle )
+	}
+	if ( championEHI != EHI_null && EHIHasValidScriptStruct( championEHI ) )
+	{
+		NestedGladiatorCardHandle handle = CreateNestedGladiatorCard( rui, "cardBoxMiddle", eGladCardDisplaySituation.GAME_INTRO_CHAMPION_SQUAD_ANIMATED, eGladCardPresentation.FULL_BOX )
+		ChangeNestedGladiatorCardOwner( handle, championEHI, Time() + 0.2, eGladCardLifestateOverride.ALIVE )
+		nestedGCHandles.append( handle )
+	}
+	if ( championSquad2EHI != EHI_null && EHIHasValidScriptStruct( championSquad2EHI ) )
+	{
+		NestedGladiatorCardHandle handle = CreateNestedGladiatorCard( rui, "cardBoxRight", eGladCardDisplaySituation.GAME_INTRO_CHAMPION_SQUAD_STILL, eGladCardPresentation.FULL_BOX )
+		ChangeNestedGladiatorCardOwner( handle, championSquad2EHI, Time() + 0.4, eGladCardLifestateOverride.ALIVE )
+		nestedGCHandles.append( handle )
+	}
+
+
+
+
+
+
+
+	OnThreadEnd(
+		void function() : ( rui, nestedGCHandles )
+		{
+			ResumeMainDialogueQueue( FUNC_NAME() )
+			foreach ( NestedGladiatorCardHandle ngch in nestedGCHandles )
+				CleanupNestedGladiatorCard( ngch )
+			RuiDestroyIfAlive( rui )
+			EmitSoundOnEntity( GetLocalClientPlayer(), "UI_Survival_Intro_GladiatorCard_Disappear" )
+
+			Chroma_EndCharacterSelect()
+		}
+	)
+
+	if ( ShouldPlayIntroQuip() && championEHI != EHI_null )
+	{
+		thread PlayIntroQuipThread( GetLocalClientPlayer(), championEHI )
+	}
+
+	wait 1.5
+
+	EmitSoundOnEntity( GetLocalClientPlayer(), "UI_Survival_Intro_BannerChampion" )
+
+	while( Time() < endTime )
+		WaitFrame()
+}
+
+bool function ShouldPlayIntroQuip()
+{
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	return true
+}
+
+
+void function CharacterSelectMenu_SetCustomJIPDescription( string description )
+{
+	fileLevel.jipDescription = description
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function OpenCharacterSelectClientSetup( var menu )
+{
+	RemoveCallback_OnPlayerDisconnected( OnPlayerDisconnected )
+	AddCallback_OnPlayerDisconnected( OnPlayerDisconnected )
+
+	RemoveDestroyCallback( "player", OnPlayerDestroyed )
+	AddDestroyCallback( "player", OnPlayerDestroyed )
+
+	fileLevel.calloutRuiPanel = Hud_GetChild( menu, "calloutRuiPanel" )
+
+	if ( !fileLevel.isBrowseMode )
+	{
+		thread FlashScreenWhite()
+		float gameStartTime = GetGlobalNetTime( "pickLoadoutGamestateEndTime" )
+		Assert( gameStartTime > -1 )
+		thread CloseCharacterSelectMenuAtTime( gameStartTime )
+	}
+
+	if ( !fileLevel.menuEntsExist )
+		printt( "CHARACTER SELECT MAP INSTANCE NOT IN THIS BSP" )
+
+
+	if ( !CharacterSelectIsLockStep() )
+		fileLevel.localClientLockstepIndex = 0
+	else
+
+		fileLevel.localClientLockstepIndex = GetLocalClientPlayer().GetPlayerNetInt( CHARACTER_SELECT_NETVAR_LOCK_STEP_PLAYER_INDEX )
+
+	CreateCharacterSelectClientEnts()
+	UpdateCamera()
+
+	fileLevel.menuIsOpen = true
+
+	thread UpdateSceneThink()
+	fileLevel.backgroundRuiTopo = CreateRUITopology_Worldspace( fileLevel.backgroundRuiOrigin, fileLevel.backgroundRuiAngles * -1, RUI_NAME_PLATE_WIDTH, RUI_NAME_PLATE_HEIGHT )
+
+
+	
+	if ( !CharacterSelectIsLockStep() )
+	{
+		LoadoutEntry characterSlot = Loadout_Character()
+		if ( LoadoutSlot_IsReady( LocalClientEHI(), characterSlot ) )
+		{
+			ItemFlavor character = LoadoutSlot_GetItemFlavor( LocalClientEHI(), characterSlot )
+			if ( CharacterSelect_CustomIsCharacterLockedForPlayer( character, GetLocalClientPlayer() ) )
+			{
+				ItemFlavor selection = GetItemFlavorByAsset( CHARACTER_RANDOM )
+				fileLevel.desiredCharacterOrNull = selection
+				fileLevel.localPlayerCharacterSelectedOrNull = selection
+				RequestSetItemFlavorLoadoutSlot( LocalClientEHI(), Loadout_Character(), selection )
+			}
+			else
+			{
+				fileLevel.desiredCharacterOrNull = character
+			}
+
+			fileLevel.desiredSkinOrNull = null
+
+			Signal( fileLevel.signalDummy, "UpdateScene" )
+		}
+	}
+
+}
+
+
+
+void function _OpenCharacterSelectMenu( var menu )
+{
+#if DEV
+		printt( FUNC_NAME() + "():> Entered" )
+#endif
+
+	OpenCharacterSelectClientSetup(menu)
+	fileLevel.menuEntsReady = true
+
+	UpdateMenuElementHandles( menu )
+
+	if ( fileLevel.backgroundRui == null )
+		fileLevel.backgroundRui = CreateFullscreenRui( $"ui/character_select_class_name_plate.rpak", 300 )
+
+
+	fileLevel.upgradeTreeRTK = Hud_GetChild( menu, "LobbyLegendSkillPerkInfo" )
+	ItemFlavor defaultCharacter = LoadoutSlot_GetItemFlavor( LocalClientEHI(), Loadout_Character() )
+	ItemFlavor characterSkin = LoadoutSlot_GetItemFlavor( LocalClientEHI(), Loadout_CharacterSkin( defaultCharacter ) )
+	RunUIScript( "ClientToUI_UpdateHighlightedCharacter", ItemFlavor_GetGUIDString( defaultCharacter ), ItemFlavor_GetGUIDString( characterSkin ) )
+
+
+	
+	if (fileLevel.mapModeDetailsRui == null)
+	{
+		var mapModeNameRui = CreateFullscreenRui( $"ui/character_select_map_mode_details.rpak", 300 )
+		RuiSetString( mapModeNameRui, "gameModeString", GetCurrentPlaylistVarString( "name", "#PLAYLIST_UNAVAILABLE" ) )
+		RuiSetString( mapModeNameRui, "mapNameString", GetMapNameText() )
+		fileLevel.mapModeDetailsRui = mapModeNameRui
+	}
+
+	fileLevel.assaultShelfRUI = Hud_GetRui(Hud_GetChild( fileLevel.portraitsPanel, "AssaultShelf" ))
+	fileLevel.skirmisherShelfRUI = Hud_GetRui(Hud_GetChild( fileLevel.portraitsPanel, "SkirmisherShelf" ))
+	fileLevel.reconShelfRUI = Hud_GetRui(Hud_GetChild( fileLevel.portraitsPanel, "ReconShelf" ))
+	fileLevel.supportShelfRUI = Hud_GetRui(Hud_GetChild( fileLevel.portraitsPanel, "SupportShelf" ))
+	fileLevel.controllerShelfRUI = Hud_GetRui(Hud_GetChild( fileLevel.portraitsPanel, "ControllerShelf" ))
+
+
+
+
+
+	if ( !fileLevel.isBrowseMode )
+		FooterRui()
+
+	if ( IsCharacterReselectAllowedNow() )
+		Remote_ServerCallFunction( REMOTE_SERVERCALL_ON_RESELECT_MENU_OPEN )
+
+
+
+
+
+
+	UpdateMenuButtons()
+
+#if DEBUG_CHARACTER_SELECT
+		thread DebugMenuThink()
+#endif
+
+	if ( !fileLevel.isBrowseMode )
+	{
+
+		if ( CharacterSelectIsLockStep() )
+
+		{
+			Assert( fileLevel.localClientLockstepIndex >= 0 )
+
+			foreach( entity player in GetPlayerSquad() )
+			{
+				
+				int teammatePickingIndex = player.GetPlayerNetInt( CHARACTER_SELECT_NETVAR_LOCK_STEP_PLAYER_INDEX )
+				if ( teammatePickingIndex >= 0 && player != GetLocalClientPlayer() )
+					Assert( teammatePickingIndex != fileLevel.localClientLockstepIndex )
+			}
+		}
+
+		AddCallback_ItemFlavorLoadoutSlotDidChange_AnyPlayer( Loadout_Character(), OnTeammateLoadoutSelectionChanged, false )
+		foreach( ItemFlavor character in GetAllCharacters() )
+		{
+			LoadoutEntry skinSlot = Loadout_CharacterSkin( character )
+			AddCallback_ItemFlavorLoadoutSlotDidChange_AnyPlayer( skinSlot, OnTeammateLoadoutSelectionChanged, false )
+		}
+	}
+
+	if ( fileLevel.isBrowseMode )
+	{
+		ItemFlavor selectedCharacter = LoadoutSlot_GetItemFlavor( LocalClientEHI(), Loadout_Character() )
+		int buttonIndex = GetButtonIndexForCharacter( selectedCharacter )
+		if ( buttonIndex >= 0 )
+		{
+			fileLevel.currentCharacterIndex = buttonIndex
+			EmitSoundOnEntity( GetLocalClientPlayer(), "ui_menu_focus_legendselectscreen" )
+			UpdateForFocusOnButtonIndex( buttonIndex )
+		}
+
+		if ( fileLevel.browseModeShowLockedCharacters )
+		{
+			AddCallback_ItemFlavorLoadoutSlotDidChange_AnyPlayer( Loadout_Character(), OnTeammateLoadoutSelectionChanged, false )
+			foreach( ItemFlavor character in GetAllCharacters() )
+			{
+				LoadoutEntry skinSlot = Loadout_CharacterSkin( character )
+				AddCallback_ItemFlavorLoadoutSlotDidChange_AnyPlayer( skinSlot, OnTeammateLoadoutSelectionChanged, false )
+			}
+		}
+	}
+}
+
+string function GetMapNameText( bool showPlayerSpawnLocation = true )
+{
+	string mapLabel = GetCurrentPlaylistVarString( "map_name", "#PLAYLIST_UNAVAILABLE" )
+	mapLabel = Localize( mapLabel )
+
+
+		if( ForcedSpawn_Enabled() && showPlayerSpawnLocation )
+		{
+			
+			string poiName = Localize( ForcedSpawn_Assignments_ClientGet() )
+			string fullDropZoneString = Localize( "#DROPPING_AT_LOBBY", poiName )
+			
+			mapLabel = mapLabel + fullDropZoneString
+		}
+
+
+	return mapLabel
+}
+
+void function ClearButtonVisibleState()
+{
+	array < array<var> > groups = [ fileLevel.roleButtons_Assault, fileLevel.roleButtons_Skirmisher, fileLevel.roleButtons_Recon, fileLevel.roleButtons_Defense, fileLevel.roleButtons_Support  ]
+
+
+
+
+
+	foreach ( index, group in groups )
+	{
+		foreach ( btn in group )
+			Hud_SetVisible( btn, false )
+	}
+}
+
+void function UpdateMenuElementHandles( var menu )
+{
+	fileLevel.menu            = menu
+	fileLevel.whiteFlash      = Hud_GetChild( menu, "WhiteFlash" )
+	fileLevel.portraitsPanel  = Hud_GetChild( menu, "PortraitsPanel" )
+	fileLevel.calloutRuiPanel = Hud_GetChild( menu, "calloutRuiPanel" )
+	fileLevel.buttonHintPanel = Hud_GetChild( menu, "ButtonHintRuiPanel" )
+
+	fileLevel.characterButtons = []
+	fileLevel.characterButtonRuis = []
+	fileLevel.allCharacters = []
+	fileLevel.buttonHintRui = Hud_GetRui( fileLevel.buttonHintPanel )
+	fileLevel.roleButtons_Assault = Client_GetPanelElementsByClassname( fileLevel.portraitsPanel, "AssaultCharacterRoleButtonClass" )
+	fileLevel.roleButtons_Skirmisher = Client_GetPanelElementsByClassname( fileLevel.portraitsPanel, "SkirmisherCharacterRoleButtonClass" )
+	fileLevel.roleButtons_Recon = Client_GetPanelElementsByClassname( fileLevel.portraitsPanel, "ReconCharacterRoleButtonClass" )
+	fileLevel.roleButtons_Defense = Client_GetPanelElementsByClassname( fileLevel.portraitsPanel, "DefenseCharacterRoleButtonClass" )
+	fileLevel.roleButtons_Support = Client_GetPanelElementsByClassname( fileLevel.portraitsPanel, "SupportCharacterRoleButtonClass" )
+
+
+
+	fileLevel.topLegendRowAnchor = Hud_GetChild( fileLevel.portraitsPanel, "Top_List_Anchor" )
+	fileLevel.botLegendRowAnchor =  Hud_GetChild( fileLevel.portraitsPanel, "Bot_List_Anchor" )
+
+
+
+	fileLevel.assaultShelf = Hud_GetChild( fileLevel.portraitsPanel, "AssaultShelf" )
+	fileLevel.skirmisherShelf = Hud_GetChild( fileLevel.portraitsPanel, "SkirmisherShelf" )
+	fileLevel.reconShelf = Hud_GetChild( fileLevel.portraitsPanel, "ReconShelf" )
+	fileLevel.supportShelf = Hud_GetChild( fileLevel.portraitsPanel, "SupportShelf" )
+	fileLevel.controllerShelf = Hud_GetChild( fileLevel.portraitsPanel, "ControllerShelf" )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	ClearButtonVisibleState()
+	if ( IsPrivateMatch() )
+	{
+		CustomMatch_LoadLegendBanData()
+	}
+	CharacterLists characters = PopulateCharacterListStruct()
+
+	fileLevel.allCharacters.extend( characters.shipping )
+	fileLevel.allCharacters.extend( characters.unlocked )
+	fileLevel.allCharacters.extend( characters.locked )
+	fileLevel.allCharacters.extend( characters.disabled )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	array<ItemFlavor> orderedCharacters = GetCharacterButtonOrder( fileLevel.allCharacters, NUM_CHARACTER_SELECT_BUTTONS )
+
+	int assaultLegendsAmount = GetCharactersByRole( orderedCharacters, eCharacterClassRole.OFFENSE ).len()
+	int skirmisherLegendsAmount = GetCharactersByRole( orderedCharacters, eCharacterClassRole.SKIRMISHER ).len()
+	int reconLegendsAmount = GetCharactersByRole( orderedCharacters, eCharacterClassRole.RECON ).len()
+	int supportLegendsAmount = GetCharactersByRole( orderedCharacters, eCharacterClassRole.SUPPORT ).len()
+	int defenderLegendsAmount = GetCharactersByRole( orderedCharacters, eCharacterClassRole.DEFENSE ).len()
+
+
+
+
+	bool useMergedLegendGroups = GetCurrentPlaylistVarBool( "legend_select_all_one_group", false )
+	if ( useMergedLegendGroups )
+	{
+		
+		int totalLegendCount = assaultLegendsAmount + skirmisherLegendsAmount + reconLegendsAmount + supportLegendsAmount + defenderLegendsAmount
+
+		
+		Assert( totalLegendCount <= NUM_CHARACTER_SELECT_BUTTONS_PER_CLASS, "Character select doesn't have enough character buttons to support the playlist var 'legend_select_all_one_group' with " + totalLegendCount + " Legends Enabled. Only supports up to " + NUM_CHARACTER_SELECT_BUTTONS_PER_CLASS )
+
+		
+	_AddEventHandler( button, UIE_LOSE_FOCUS, OnLoadoutButton_LostFocus )
+		fileLevel.buttonEventHandlersAdded_Unfocus[ button ] <- OnLoadoutButton_LostFocus
+
+		Hud_SetVisible( button, false )
+	}
+
+	thread function() : ()
+	{
+		WaitFrame()
+		ItemFlavor character = LoadoutSlot_GetItemFlavor( ToEHI( GetLocalClientPlayer() ), Loadout_Character() )
+		int focusCharacterGuid = ItemFlavor_GetGUID( character )
+		if ( IsValidItemFlavorGUID( focusCharacterGuidR_SELECT_BUTTONS )
+	array<var> characterButtons
+
+	foreach ( index, character in orderedCharacters )
+	{
+		characterButtons.append( fileLevel.characterButtons[index] )
+
+		
+		
+
+		if ( characters.locked.contains( character ) || characters.disabled.contains( character ) )
+		{
+			if ( characters.locked.contains( character ) )
+				fileLevel.lockedButtonIndexes.append( index )
+			else if ( characters.disabled.contains( character ) )
+				fileLevel.disabsReady( playerEHI, characterSlot ) )
+		return
+	ItemFlavor character = LoadoutSlot_GetItemFlavor( playerEHI, characterSlot )
+
+	
+	LoadoutEntry skinSlot = Loadout_CharacterSkin( character )
+	if ( !LoadoutSlot_IsReady( playerEHI, skinSlot ) )
+		return
+	
+
+	
+	fileLevel.desiredCharacterOrNull = character
+	fileLevel.desiredSkinOrNull = null
+	Signal( fileLevel.signalDummy, "UpdateScene" )
+
+	
+	UpdateButtonStates()
+}
+
+void function ServerCallback_CharacterLockRejected()
+{
+	UnlockCharacter()
+	EmitSoundOnEntity( GetLocalClientPlayer(), "ui_ingame_fd_armoryclose" )
+}
+
+void function OnPlayerUpdatedCharacterLockTime( entity player, float newTime )
+{
+	if ( fileLevel.isBrowseMode && fileLevel.browseModeShowLockedCharacters )
+		UpdateButtonStates()
+}
+
+
+
+
+
+
+
+
+
+
+
+void function UpdateButtonStates( ItemFlavor ornull titanOverride = null )
+{
+	if ( !fileLevel.menuEntsReady )
+		return
+
+	Assert( fileLevel.characterButtons.len() == fileLevel.characterButtonRuis.len() )
+
+	entity localPlayer    = GetLocalClientPlayer()
+	array<entity> players = GetPlayerSquad()
+
+	int currentLockStepIndex   = GetGlobalNetInt( CHARACTER_SELECT_NETVAR_LOCK_STEP_INDEX )
+	bool localPlayerIsLockedIn = PlayerHasLockedInCharacterSelection( localPlayer )
+
+
+
+
+
+
+
+
+
+	for ( int i = 0 ; i < fileLevel.characterButtons.len() ; i++ )
+	{
+		var button = fileLevel.characterButtons[i]
+
+		
+		if ( !IsValid( button ) )
+			return
+
+		if ( (!fileLevel.isBrowseMode && (currentLockStepIndex < -1 || currentLockStepIndex >= MAX_TEAM_PLAYERS)) || !fileLevel.buttonIndexUsed.contains( i ) )
+		{
+			
+			
+			
+			
+
+			if ( (currentLockStepIndex < -1) || (Time() >= GetGlobalNetTime( "allSquadsPresentationStartTime" )) )
+				Hud_SetVisible( button, false )
+
+			Hud_SetEnabled( button, false )
+			continue
+		}
+
+		ItemFlavor character = fileLevel.buttonIndexCharacterMap[ i ]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+		var buttonRui        = fileLevel.characterButtonRuis[i]
+		ItemFlavor ornull skin = GetCharacterSkinOrNullForButtonIndex( i )
+
+		
+		Hud_SetVisible( button, true )
+		Hud_SetLocked( button, false )
+		Hud_SetEnabled( button, true )
+		RuiSetBool( buttonRui, "isDisabledCharacter", false )
+		RuiSetBool( buttonRui, "isFakeDisabled", false )
+		RuiSetBool( buttonRui, "isTempUnlocked", false )
+
+
+
+
+
+
+
+
+
+
+
+
+		if ( !CharacterSelectIsLockStep() )
+			RuiSetBool( buttonRui, "isSelecting", true )
+		else
+
+			RuiSetBool( buttonRui, "isSelecting", currentLockStepIndex == localPlayer.GetPlayerNetInt( CHARACTER_SELECT_NETVAR_LOCK_STEP_PLAYER_INDEX ) )
+
+
+		RuiSetInt( buttonRui, "teamSelectedIndex", -1 )
+		RuiSetInt( buttonRui, "teamSelectedTeamColorIndex", -1 )
+
+		for ( int k = 0 ; k <= MAX_TEAM_FOCUS_INDEX ; k++ )
+			RuiSetBool( buttonRui, "teamFocusme", "" )
+				RuiSetStringIfExists( playerRui, "playerName", "" )
+				RuiSetIntIfExists( playerRui, "micStatus", 3 )
+				RuiSetBoolIfExists( playerRui, "statusTextVisible", false )
+				RuiSetBoolIfExists( playerRui, "isDisconnected", false )
+				RuiSetBoolIfExists( playerRui, "isJumpmaster", false )
+			}
+		}
+	}
+
+	bool isTempUnlocked = GetCurrentPlaylistVarBool( "all_characters_unlocked", false )
+	bool isFiringRangeTemp = GameModeVariant_IsActivze.height )
+		RuiSetFloatIfExists( fileLevel.buttonHintRui, "xPosOffset", 142 / aspectRatio )
+	}
+
+
+
+	if ( currentLockStepIndex == fileLevel.localClientLockstepIndex || !CharacterSelectIsLockStep() )
+
+
+
+	{
+		if ( IsCharacterSelectPortraitsEnabled() )
+		{
+			if ( localPlayerIsLockedIn )
+				hintStrings.push( "#CHAR_SEL_BUTTON_HINT_CANEL_DETAILS" )
+			else
+				hintStrings.push( "#CHAR_SEL_BUTTON_HINT_SELECT_DETAILS" )
+		}
+	}
+
+	if ( SquadMuteLegend[LoadScriptFile] self 0x7ff67896f188  out 0x24cf3d8ee0  path : scripts/vscripts/sh_social.gnut.client
+[dump] scripts/vscripts/sh_social.gnut.client (4522 bytes)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global function GetItemFlavorForCommunityUserInfo
+global function GetBadgeItemFlavorForCommunityUserInfo
+global function GetBadgeDataIntegerFromCommunityUserInfo
+global function GetTrackerItemFlavorForCommunityUserInfo
+global function GetTrackerDataIntegerFromCommunityUserInfo
+
+
+
+
+
+
+
+
+
+
+
+const float ONLINE_FRIEND_COUNT_QUERRY_INTERVAL  = 2.0 
+const float PLAYER_STRYDER_CHAR_DATA_ARRAY_CASUAL_UPDATE_DEBOUNCE_INTERVAL = 2.0 
+
+const bool PLAYER_STRYDER_CHAR_DATA_ARRAY_SEND_DEBUG = false
+
+
+
+
+
+
+
+
+struct
+{
+
+
+
+
+
+
+
+
+
+
+
+
+} file
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ItemFlavor function GetItemFlavorForCommunityUserInfo( CommunityUserInfo userInfo, int slotIndex, int itemType )
+{
+	ItemFlavor ornull requestedFlavor = GetItemFlavorOrNullByGUID( userInfo.charData[slotIndex], itemType )
+
+	LoadoutEntry entry
+	if ( itemType == eItemType.character )
+	{
+		entry = Loadout_Character()
+	}
+	else
+	{
+		ItemFlavor character = GetItemFlavorForCommunityUserInfo( userInfo, ePlayerStryderCharDataArraySlots.CHARACTER, eItemType.character )
+		switch ( itemType )
+		{
+			case eItemType.character_skin :
+			{
+				entry = Loadout_CharacterSkin( character )
+				break
+			}
+
+			case eItemType.gladiator_card_frame :
+			{
+				entry = Loadout_GladiatorCardFrame( character )
+				break
+			}
+
+			case eItemType.gladiator_card_stance :
+			{
+				entry = Loadout_GladiatorCardStance( character )
+				break
+			}
+
+			case eItemType.gladiator_card_intro_quip :
+			{
+				entry = Loadout_CharacterIntroQuip( character )
+				break
+			}
+			case eItemType.melee_skin :
+			{
+				entry = Loadout_MeleeSkin( character )
+				break
+			}
+
+			default:
+				unreachable 
+		}
+	}
+
+	if ( requestedFlavor == null || !IsItemFlavorValidForLoadoutSlot( entry, expect ItemFlavor(requestedFlavor) ) )
+		requestedFlavor = GetDefaultItemFlavorForLoadoutSlot( entry )
+
+	expect ItemFlavor(requestedFlavor)
+
+	return requestedFlavor
+}
+
+ItemFlavor function GetBadgeItemFlavorForCommunityUserInfo( CommunityUserInfo userInfo, ItemFlavor character, int badgeIndex )
+{
+	LoadoutEntry entry                = Loadout_GladiatorCardBadge( character, badgeIndex )
+	ItemFlavor ornull badgeItemFlavor = GetItemFlavorOrNullByGUID( userInfo.charData[ ePlayerStryderCharDataArraySlots.BANNER_BADGE1 + 2 * badgeIndex ], eItemType.gladiator_card_badgeammate3_quads_stagec_ref",
+	]
+
+	foreach ( name in entNames )
+	{
+		if ( GetEntArrayByScriptName( name ).len() != 1 )
+			return false
+	}
+
+
+		if ( IsLobbyRefreshEnabled() )
+		{
+			entNames =
+			[
+					"play_camera_target_refresh",
+					"play_character_refresh_ref",
+					"play_teammate1_refresh_ref",
+					"play_teammate2_refresh_ref",
+					"play_teammate3_refresh_ref",
+					"play_character_quads_refresh_ref",
+					"play_teammate1_quads_refresh_ref",
+					"play_teammate2_quads_refresh_ref",
+					"play_teammate3_quads_refresh_ref"
+			]
+
+			foreach ( name in entNames )
+			{
+				if ( GetEntArrayByScriptName( name ).len() != 1 )
+					return false
+			}
+		}
+
+
+	return true
+}
+
+#if DEV
+void function ShowModelInfo()
+{
+	EndSignal( level, "StopShowingModelInfo" )
+
+	while( true )
+	{
+		MenuModelData ornull md = GetActiveModelData()
+
+		if( md != null )
+		{
+			expect MenuModelData( md )
+			DebugDrawScreenText( 0.1, 0.1, "Model Name: " + md.model.GetModelName() )
+			DebugDrawScreenText( 0.1, 0.125, "Activity: " +  md.bodyAnim )
+			DebugDrawScreenText( 0.1, 0.15, "Sequence: " + md.model.GetCurrentSequenceName() )
+		}
+		else
+		{
+			DebugDrawScreenTextWithColor( 0.25, 0.25, format( "No active Model!" ), <255, 0, 0> )
+		}
+
+		WaitFrame()
+	}
+}
+
+void function DEV_ToggleModelInfo()
+{
+	if( !file.DEV_modelInfoEnabled )
+		thread ShowModelInfo()
+	else
+		Signal( level, "StopShowingModelInfo" )
+
+	file.DEV_modelInfoEnabled = !file.DEV_modelInfoEnabled
+}
+#endif
+
+void function InitTeammatePosition( string scriptName, string idle )
+{
+	entity ent = GetEntByScriptName( scriptName )
+
+	file.teammateRefEnts.append( ent )
+	file.teammateRefEntsUsedMap[ent] <- false
+	file.teammateRefEntIdleAnimMap[ent] <- idle
+}
+
+void function EnableModelTurn()
+{
+	file.modelTurnEnabled = true
+}
+
+void function DisableModelTurn()
+{
+	file.modelTurnEnabled = false
+}
+
+void function EnableTurnLockout()
+{
+	file.neverRotateModel = true
+}
+
+void function DisableTurnLockout()
+{
+	file.neverRotateModel = false
+}
+
+const float STICK_DEADZONE = 0.1
+
+void function TurntableUpdateEntityAngles( MenuModelData modelData )
+{
+	float[2] rotationDelta   = ModelData_GetRotationDelta( modelData )
+	
+	vector baseAngles        = ModelData_GetBaseAngles( modelData )
+	vector pitchTowardCamera = AnglesCompose( baseAngles + <0, -90, 0>, AnglesCompose( <rotationDelta[1], 0, 0>, <0, 90, 0> ) )
+	vector newAng            = AnglesCompose( pitchTowardCamera, <0, rotationDelta[0], 0> )
+
+	ModelData_GetMover( modelData ).SetAngles( newAng )
+}
+
+float function StepTowardsZero(float vel, float amount)
+{
+	if (vel > 0.0)
+		return vel > amount ? (vel - amount) : 0.0
+	else if (vel < 0.0)
+		return vel < amount ? (vel + amount) : 0.0
+
+	return 0.0
+}
+
+bool function TurntableUpdateAnglesFromInput( MenuModelData modelData, float maxYawDegrees, float maxPitchDegrees, bool useCurrentMoverAnglesAsDelta = false )
+{
+	if ( file.neverRotateModel )
+		return false
+
+	float[2] currentRotationDelta = ModelData_GetRotationDelta( modelData )
+	float[2] rotationDelta
+	float maxTurnSpeed            = ModelData_GetMaxTurnSpeed( modelData )
+
+	if ( file.modelTurnEnabled || GetDpadNavigationActive() )
+	{
+		bool readFromControllerStickInput = IsControllerModeActive()
+
+
+
+		if ( readFromControllerStickInput )
+		{
+			float stickXRaw         = clamp( InputGetAxis( ANALOG_RIGHT_X ), -1.0, 1.0 )
+			float stickYRaw         = clamp( InputGetAxis( ANALOG_RIGHT_Y ), -1.0, 1.0 )
+
+
+
+
+
+
+
+
+
+
+
+
+			float stickXRemappedAbs = (fabs( stickXRaw ) < STICK_DEADZONE) ? 0.0 : ((fabs( stickXRaw ) - STICK_DEADZONE) / (1.0 - STICK_DEADZONE))
+			float stickX            = EaseIn( stickXRemappedAbs ) * (stickXRaw < 0.0 ? -1.0 : 1.0)
+			modelData.rotationVel[0] += stickX * maxTurnSpeed * FrameTime() * STICK_ROTATE_SPEED
+
+			float stickYRemappedAbs = (fabs( stickYRaw ) < STICK_DEADZONE) ? 0.0 : ((fabs( stickYRaw ) - STICK_DEADZONE) / (1.0 - STICK_DEADZONE))
+			float stickY            = EaseIn( stickYRemappedAbs ) * (stickYRaw < 0.0 ? -1.0 : 1.0)
+			modelData.rotationVel[1] -= stickY * maxTurnSpeed * FrameTime() * STICK_ROTATE_SPEED
+		}
+		else
+		{
+			modelData.rotationVel[0] += file.mouseRotateDelta[0]
+			file.mouseRotateDelta[0] = 0  
+
+			modelData.rotationVel[1] -= file.mouseRotateDelta[1]
+			file.mouseRotateDelta[1] = 0 
+		}
+	}
+
+	rotationDelta[0] = currentRotationDelta[0] + (modelData.rotationVel[0] * FrameTime()) % 360.0
+	rotationDelta[1] = currentRotationDelta[1] + (modelData.rotationVel[1] * FrameTime()) % 360.0
+
+	float velDecay = 180 * FrameTime()
+	float dampX = max(fabs(modelData.rotationVel[0]) / 60.0, 0.1)
+	float dampY = max(fabs(modelData.rotationVel[1]) / 60.0, 0.1)
+	modelData.rotationVel[0] = clamp(StepTowardsZero(modelData.rotationVel[0], velDecay * dampX), -maxTurnSpeed, maxTurnSpeed)
+	modelData.rotationVel[1] = clamp(StepTowardsZero(modelData.rotationVel[1], velDecay * dampY), -maxTurnSpeed, maxTurnSpeed)
+
+	if ( maxYawDegrees < 360.0 )
+	{
+		float minRotationDelta = 0 - (maxYawDegrees / 2)
+		float maxRotationDelta = maxYawDegrees / 2
+
+		if (rotationDelta[0] < minRotationDelta || rotationDelta[0] > maxRotationDelta)
+		{
+			rotationDelta[0] = clamp( rotationDelta[0], minRotationDelta, maxRotationDelta )
+			modelData.rotationVel[0] = 0.0
+		}
+	}
+
+	if ( maxPitchDegrees < 360.0 )
+	{
+		float minRotationDelta = 0 - (maxPitchDegrees / 2)
+		float maxRotationDelta = maxPitchDegrees / 2
+
+		if (rotationDelta[1] < minRotationDelta || rotationDelta[1] > maxRotationDelta)
+		{
+			rotationDelta[1] = clamp( rotationDelta[1], minRotationDelta, maxRotationDelta )
+			modelData.rotationVel[1] = 0.0
+		}
+	}
+
+	if ( currentRotationDelta[0] == rotationDelta[0] && currentRotationDelta[1] == rotationDelta[1] )
+		return false
+
+	if ( useCurrentMoverAnglesAsDelta )
+	{
+		float moverY      = ModelData_GetMover( modelData ).GetAngles().y
+		float baseAnglesY = ModelData_GetBaseAngles( modelData ).y
+		currentRotationDelta[0] = AnglesCompose( <0, moverY, 0>, <0, baseAnglesY * -1.0, 0> ).y
+		currentRotationDelta[1] = ModelData_GetMover( modelData ).GetAngles().x * -1
+	}
+	else
+	{
+		currentRotationDelta[0] = rotationDelta[0]
+		currentRotationDelta[1] = rotationDelta[1]
+	}
+
+	TurntableUpdateEntityAngles( modelData )
+	return true
+}
+
+void function TurntableSetCameraZoomPos( CameraZoomData data, float maxPercentIncrement = 0.01 )
+{
+	const float MOVETO_SPEED = 50.0
+
+	float normalizedTriggerInput = 0.0
+	float newVal                 = 0.0
+	float newIncrement           = 0.0
+	float maxDistVectorScaleChange = 0.0
+
+	if ( file.desiredPresentationType == ePresentationType.WEAPON_SKIN )
+	{
+		maxDistVectorScaleChange = -1 * ( file.weaponVectorScale * data.maxDist )
+	}
+
+	if ( IsControllerModeActive() )
+	{
+		float maxDistIncrement = (maxPercentIncrement * 4.0) * data.maxDist
+
+		float stickLTriggerRaw         = clamp( InputGetAxis( ANALOG_L_TRIGGER ), -1.0, 1.0 )
+		float stickLTriggerRemappedAbs = (fabs( stickLTriggerRaw ) < STICK_DEADZONE) ? 0.0 : ((fabs( stickLTriggerRaw ) - STICK_DEADZONE) / (1.0 - STICK_DEADZONE))
+		float stickLTrigger            = EaseIn( stickLTriggerRemappedAbs ) * (stickLTriggerRaw < 0.0 ? -1.0 : 1.0)
+
+		float stickRTriggerRaw         = clamp( InputGetAxis( ANALOG_R_TRIGGER ), -1.0, 1.0 )
+		float stickRTriggerRemappedAbs = (fabs( stickRTriggerRaw ) < STICK_DEADZONE) ? 0.0 : ((fabs( stickRTriggerRaw ) - STICK_DEADZONE) / (1.0 - STICK_DEADZONE))
+		float stickRTrigger            = EaseIn( stickRTriggerRemappedAbs ) * (stickRTriggerRaw < 0.0 ? -1.0 : 1.0)
+
+		if ( stickLTrigger > 0 && stickRTrigger > 0 )
+			normalizedTriggerInput = 0.0
+
+		if ( stickLTrigger > 0 )
+			normalizedTriggerInput = stickLTrigger * -1.0
+
+		else if ( stickRTrigger > 0 )
+			normalizedTriggerInput = stickRTrigger
+
+		if ( normalizedTriggerInput == 0.0 )
+			return
+
+		newIncrement = normalizedTriggerInput * maxDistIncrement
+
+		newVal = Clamp( data.lastVal + newIncrement, 0.0, data.maxDist + maxDistVectorScaleChange )
+
+		float distChange = fabs( newVal - data.lastVal )
+		if ( distChange < 0.001 )
+			return
+
+		vector destination = data.startPos + (data.normVec * newVal)
+		data.mover.SetOrigin( destination )
+	}
+	else
+	{
+		float maxDistIncrement = maxPercentIncrement * data.maxDist
+
+		float delta = file.mouseWheelNewValue - file.mouseWheelLastValue
+
+		if ( delta == 0.0 )
+			return
+
+		file.mouseWheelNewValue = Clamp( file.mouseWheelNewValue, -100.0, 100.0 )
+		newIncrement = delta * maxDistIncrement
+		file.mouseWheelLastValue = file.mouseWheelNewValue
+
+		newVal = Clamp( data.lastVal + newIncrement, 0.0, data.maxDist + maxDistVectorScaleChange )
+		float distChange = fabs( newVal - data.lastVal )
+		if ( distChange < 0.001 )
+			return
+
+		vector destination = data.startPos + (data.normVec * newVal)
+
+		float moveToDuration = distChange / MOVETO_SPEED
+
+		data.mover.NonPhysicsStop()
+		data.mover.NonPhysicsMoveTo( destination, moveToDuration, moveToDuration * 0.33, moveToDuration * 0.33 )
+	}
+
+	data.lastVal = newVal
+}
+
+void function Menu_InitPresentationDataFromCameraSettings()
+{
+	var dataTable = GetDataTable( $"datatable/camera_settings.rpak" )
+	for ( int i = 0; i < GetDataTableRowCount( dataTable ); i++ )
+	{
+		string camName = GetDataTableString( dataTable, i, GetDataTableColumnByName( dataTable, "camName" ) )
+		if ( camName.len() <= 6 || camName.slice(0, 6) != "LOBBY_" )
+			continue
+
+		int presentationIdx = -1
+		camName = camName.slice( 6 )
+
+		foreach ( string presentationType, int eNumIdx in ePresentationType )
+		{
+			if ( camName == presentationType )
+			{
+				presentationIdx = eNumIdx
+				break
+			}
+		}
+
+		if ( presentationIdx == -1 )
+		{
+			printt( "LOBBY: camera setting LOBBY_" + camName + " does not correspond to any PresentationDef" )
+			continue
+		}
+
+		PresentationDef pd = file.presentationData[presentationIdx]
+		pd.useCharacterOffsets = GetDataTableBool( dataTable, i, GetDataTableColumnByName( dataTable, "useCharOffsets" ) )
+		pd.maxYawDegrees = GetDataTableFloat( dataTable, i, GetDataTableColumnByName( dataTable, "maxYawDegrees" ) )
+		pd.maxPitchDegrees = GetDataTableFloat( dataTable, i, GetDataTableColumnByName( dataTable, "maxPitchDegrees" ) )
+		pd.positionOffset = GetDataTableVector( dataTable, i, GetDataTableColumnByName( dataTable, "posOffset" ) )
+		pd.angleOffset = GetDataTableVector( dataTable, i, GetDataTableColumnByName( dataTable, "angleOffset" ) )
+		pd.fov = GetDataTableFloat( dataTable, i, GetDataTableColumnByName( dataTable, "fov" ) )
+		pd.dofNearStart = GetDataTableFloat( dataTable, i, GetDataTableColumnByName( dataTable, "dofNearStart" ) )
+		pd.dofNearEnd = GetDataTableFloat( dataTable, i, GetDataTableColumnByName( dataTable, "dofNearEnd" ) )
+		pd.dofFarStart = GetDataTableFloat( dataTable, i, GetDataTableColumnByName( dataTable, "dofFarStart" ) )
+		pd.dofFarEnd = GetDataTableFloat( dataTable, i, GetDataTableColumnByName( dataTable, "dofFarEnd" ) )
+		pd.csmTexelScale1 = GetDataTableFloat( dataTable, i, GetDataTableColumnByName( dataTable, "csmTexelScale1" ) )
+		pd.csmTexelScale2 = GetDataTableFloat( dataTable, i, GetDataTableColumnByName( dataTable, "csmTexelScale2" ) )
+		pd.csmStartDistance = GetDataTableFloat( dataTable, i, GetDataTableColumnByName( dataTable, "csmStartDist" ) )
+
+		string associatedLightsName = GetDataTableString( dataTable, i, GetDataTableColumnByName( dataTable, "associatedLightsName" ) )
+
+		if ( associatedLightsName != "" )
+		{
+			pd.lights = GetEntArrayByScriptName( associatedLightsName )
+			pd.lightDefName = GetDataTableString( dataTable, i, GetDataTableColumnByName( dataTable, "lightDefName" ) )
+		}
+		else
+		{
+			pd.lights = []
+		}
+
+		string targetEntName = GetDataTableString( dataTable, i, GetDataTableColumnByName( dataTable, "targetEntName" ) )
+
+		foreach ( string scriptName, int eNumIdx in eCameraTargetNames )
+		{
+			if ( targetEntName == scriptName )
+			{
+				pd.cameraTargetName = eNumIdx
+				break
+			}
+		}
+
+		
+		int ease = GetDataTableInt( dataTable, i, GetDataTableColumnByName( dataTable, "ease" ) )
+		if ( ease != 0 )
+			pd.ease = ease
+	}
+
+	if ( file.initializedMenuModels )
+		RefreshPresentationType()
+}
+
+void function InitPresentationData()
+{
+	
+
+	{
+		PresentationDef pd = file.presentationData[ePresentationType.INACTIVE]
+		pd.modelData = null
+	}
+
+	{
+		PresentationDef pd = file.presentationData[ePresentationType.PLAY]
+		pd.modelData = file.playCharacter
+		pd.startFunc = StartPresentation_PLAY
+		pd.endFunc = EndPresentation_PLAY
+	}
+
+	{
+		PresentationDef pd = file.presentationData[ePresentationType.PLAY_SHIFTED]
+		pd.modelData = file.playCharacter
+		pd.startFunc = StartPresentation_PLAY
+		pd.endFunc = EndPresentation_PLAY
+	}
+
+	{
+		PresentationDef pd = file.presentationData[ePresentationType.CHARACTER_SELECT]
+		pd.modelData = file.customizeCharacter
+		pd.startFunc = StartPresentation_CHARACTER_SELECT
+		pd.endFunc = EndPresentation_CHARACTER_SELECT
+	}
+
+	{
+		PresentationDef pd = file.presentationData[ePresentationType.CHARACTER_SKIN]
+		pd.modelData = file.customizeCharacter
+		pd.startFunc = StartPresentation_CHARACTER_SKIN
+		pd.endFunc = EndPresentation_CHARACTER_SKIN
+	}
+
+	{
+		PresentationDef pd = file.presentationData[ePresentationType.CHARACTER_CARD]
+		pd.modelData = null
+		pd.startFunc = StartPresentation_CHARACTER_CARD
+	}
+
+	{
+		PresentationDef pd = file.presentationData[ePresentationType.CHARACTER_QUIPS]
+		pd.modelData = file.customizeCharacter
+		pd.startFunc = StartPresentation_CHARACTER_QUIPS
+		pd.endFunc = EndPresentation_CHARACTER_QUIPS
+	}
+
+	{
+		PresentationDef pd = file.presentationData[ePresentationType.HOLOSPRAYS]
+		pd.modelData = file.customizeCharacter
+		pd.startFunc = StartPresentation_HOLOSPRAYS
+	}
+
+	{
+		PresentationDef pd = file.presentationData[ePresentationType.WEAPON_CATEGORY]
+		pd.modelData = null
+	}
+	{
+		PresentationDef pd = file.presentationData[ePresentationType.WEAPON_OVERVIEW]
+		pd.modelData = file.weaponOverviewModelData
+		pd.startFunc = StartPresentation_WEAPON_OVERVIEW_INSPECT
+		pd.endFunc = EndPresentation_WEAPON_OVERVIEW_INSPECT
+	}
+	{
+		PresentationDef pd = file.presentationData[ePresentationType.WEAPON_SKIN]
+		pd.modelData = file.customizeWeapon
+		pd.startFunc = StartPresentation_WEAPON_SKIN
+		pd.endFunc = EndPresentation_WEAPON_SKIN
+	}
+
+	{
+		PresentationDef pd = file.presentationData[ePresentationType.WEAPON_CHARMS]
+		pd.modelData = file.customizeWeapon
+		pd.startFunc = StartPresentation_WEAPON_CHARMS
+		pd.endFunc = EndPresentation_WEAPON_CHARMS
+	}
+
+	{
+		PresentationDef pd = file.presentationData[ePresentationType.STORE]
+		pd.modelData = null
+	}
+
+	{
+		PresentationDef pd = file.presentationData[ePresentationType.NO_MODELS]
+		pd.modelData = null
+	}
+
+	{
+		PresentationDef pd = file.presentationData[ePresentationType.BATTLE_PASS]
+		pd.modelData = null
+		pd.startFunc = StartPresentation_BATTLE_PASS
+		pd.endFunc = EndPresentation_BATTLE_PASS
+	}
+
+	{
+		PresentationDef pd = file.presentationData[ePresentationType.BATTLE_PASS_3]
+		pd.modelData = null
+		pd.startFunc = StartPresentation_BATTLE_PASS
+		pd.endFunc = EndPresentation_BATTLE_PASS
+	}
+
+	{
+		PresentationDef pd = file.presentationData[ePresentationType.LEGEND_PASS]
+		pd.modelData = null
+		pd.startFunc = StartPresentation_BATTLE_PASS
+		pd.endFunc = EndPresentation_BATTLE_PASS
+	}
+
+	{
+		PresentationDef pd = file.presentationData[ePresentationType.LOOT_CEREMONY]
+		pd.modelData = file.lootCeremonyModelData
+	}
+
+	{
+		PresentationDef pd = file.presentationData[ePresentationType.COLLECTION_EVENT]
+		pd.modelData = null
+	}
+
+	{
+		PresentationDef pd = file.presentationData[ePresentationType.QUEST_PANEL]
+		pd.modelData = file.questGoalModelData
+		pd.startFunc = StartPresentation_QUEST_GOAL
+		pd.endFunc = EndPresentation_QUEST_GOAL
+	}
+
+	{
+		PresentationDef pd = file.presentationData[ePresentationType.STORE_INSPECT]
+		pd.modelData = file.storeInspectModelData
+		pd.startFunc = StartPresentation_STORE_INSPECT
+		pd.endFunc = EndPresentation_STORE_INSPECT
+	}
+
+	{
+		PresentationDef pd = file.presentationData[ePresentationType.STORE_INSPECT_LOOT_POOL]
+		pd.modelData = file.storeInspectModelData
+		pd.startFunc = StartPresentation_STORE_INSPECT
+		pd.endFunc = EndPresentation_STORE_INSPECT
+	}
+
+	{
+		PresentationDef pd = file.presentationData[ePresentationType.MELEE_INSPECT]
+		pd.modelData = file.meleeInspectModelData
+		pd.startFunc = StartPresentation_MELEE_INSPECT
+		pd.endFunc = EndPresentation_MELEE_INSPECT
+	}
+
+	{
+		PresentationDef pd = file.presentationData[ePresentationType.CLUB_LANDING]
+		pd.modelData = null
+		pd.startFunc = StartPresentation_CLUBS_LANDING
+	}
+
+	{
+		PresentationDef pd = file.presentationData[ePresentationType.CLUB_DISCOVERY]
+		pd.modelData = null
+		pd.startFunc = StartPresentation_CLUBS_DISCOVERY
+	}
+
+
+	{
+		PresentationDef pd = file.presentationData[ePresentationType.ARENAS_RANKED]
+		pd.modelData = null
+		pd.startFunc = StartArenasRankedBackground
+		pd.endFunc = EndArenasRankedBackground
+	}
+
+
+	{
+		PresentationDef pd = file.presentationData[ePresentationType.APPLIED_STICKER_INJECTOR]
+		pd.modelData = file.appliedStickerModelData
+		pd.startFunc = StartPresentation_APPLIED_STICKER
+		pd.endFunc = EndPresentation_APPLIED_STICKER
+	}
+
+	{
+		PresentationDef pd = file.presentationData[ePresentationType.APPLIED_STICKER_SMALL_CELL]
+		pd.modelData = file.appliedStickerModelData
+		pd.startFunc = StartPresentation_APPLIED_STICKER
+		pd.endFunc = EndPresentation_APPLIED_STICKER
+	}
+
+	{
+		PresentationDef pd = file.presentationData[ePresentationType.APPLIED_STICKER_LARGE_CELL]
+		pd.modelData = file.appliedStickerModelData
+		pd.startFunc = StartPresentation_APPLIED_STICKER
+		pd.endFunc = EndPresentation_APPLIED_STICKER
+	}
+
+	{
+		PresentationDef pd = file.presentationData[ePresentationType.UNAPPLIED_STICKER]
+		pd.modelData = file.unappliedStickerModelData
+		pd.startFunc = StartPresentation_UNAPPLIED_STICKER
+		pd.endFunc = EndPresentation_UNAPPLIED_STICKER
+	}
+
+	{
+		PresentationDef pd = file.presentationData[ePresentationType.WEAPON_TRIAL_CELEBRATIONS]
+		pd.modelData = null
+		pd.startFunc = StartPresentation_WEAPON_TRIAL_CELEBRATIONS
+		pd.endFunc = EndPresentation_WEAPON_TRIAL_CELEBRATIONS
+	}
+
+	{
+		PresentationDef pd = file.presentationData[ePresentationType.PLAY_QUADS]
+		pd.modelData = file.playCharacter
+		pd.startFunc = StartPresentation_PLAY
+		pd.endFunc = EndPresentation_PLAY
+	}
+
+
+	{
+		PresentationDef pd = file.presentationData[ePresentationType.PLAY_CORE]
+		pd.modelData = file.playCharacter
+		pd.startFunc = StartPresentation_PLAY
+		pd.endFunc = EndPresentation_PLAY
+	}
+
+	{
+		PresentationDef pd = file.presentationData[ePresentationType.PLAY_UNHINGED]
+		pd.modelData = file.playCharacter
+		pd.startFunc = StartPresentation_PLAY
+		pd.endFunc = EndPresentation_PLAY
+	}
+
+
+
+	{
+		PresentationDef pd = file.presentationData[ePresentationType.CHARACTER_SELECTS_CUSTOMIZATION]
+		pd.modelData = null
+		pd.startFunc = StartPresentation_CHARACTER_SELECTS_CUSTOMIZATION
+	}
+
+	{
+		PresentationDef pd = file.presentationData[ePresentationType.REWARD_SUMMARY_SEQUENCE]
+		pd.modelData = null
+	}
+
+	Menu_InitPresentationDataFromCameraSettings()
+}
+
+void function InitMenuModelFlashData()
+{
+	{
+		MenuModelFlashDef fd = file.menuModelFlashData[eMenuModelFlashType.DEFAULT]
+		fd.fillIntensityScalar    = 10
+		fd.outlineIntensityScalar = 300
+		fd.fadeInTime             = 0.01
+		fd.fadeOutTime            = 0.5
+		fd.lifeTime               = 0.1
+		fd.outlineRadius          = 2
+	}
+
+	{
+		MenuModelFlashDef fd = file.menuModelFlashData[eMenuModelFlashType.CHARACTER_SELECT]
+		fd.fillIntensityScalar    = 10
+		fd.outlineIntensityScalar = 300
+		fd.fadeInTime             = 0.01
+		fd.fadeOutTime            = 0.25
+		fd.lifeTime               = 0.1
+		fd.outlineRadius          = 2
+	}
+
+	{
+		MenuModelFlashDef fd = file.menuModelFlashData[eMenuModelFlashType.VICTORY_SEQUENCE]
+		fd.fillIntensityScalar    = 5
+		fd.outlineIntensityScalar = 10
+		fd.fadeInTime             = 0.01
+		fd.fadeOutTime            = 0.3
+		fd.lifeTime               = 0.1
+		fd.outlineRadius          = 2
+	}
+
+	{
+		MenuModelFlashDef fd = file.menuModelFlashData[eMenuModelFlashType.LOOT_CEREMONY_LOW_RARITY]
+		fd.fillIntensityScalar    = 5000
+		fd.outlineIntensityScalar = 1
+		fd.fadeInTime             = 0.2
+		fd.fadeOutTime            = 0.55
+		fd.lifeTime               = 0.2
+		fd.outlineRadius          = 1
+	}
+
+	{
+		MenuModelFlashDef fd = file.menuModelFlashData[eMenuModelFlashType.LOOT_CEREMONY_HIGH_RARITY]
+		fd.fillIntensityScalar    = 5000
+		fd.outlineIntensityScalar = 1
+		fd.fadeInTime             = 0.75
+		fd.fadeOutTime            = 0.2
+		fd.lifeTime               = 0.75
+		fd.outlineRadius          = 1
+	}
+
+	{
+		MenuModelFlashDef fd = file.menuModelFlashData[eMenuModelFlashType.LOOT_CEREMONY_QUICK]
+		fd.fillIntensityScalar    = 25
+		fd.outlineIntensityScalar = 1
+		fd.fadeInTime             = 0.1
+		fd.fadeOutTime            = 0.25
+		fd.lifeTime               = 0.35
+		fd.outlineRadius          = 1
+	}
+
+	{
+		MenuModelFlashDef fd = file.menuModelFlashData[eMenuModelFlashType.BATTLEPASS]
+		fd.fillIntensityScalar    = 10
+		fd.outlineIntensityScalar = 300
+		fd.fadeInTime             = 0.01
+		fd.fadeOutTime            = 0.3
+		fd.lifeTime               = 0.01
+		fd.outlineRadius          = 2
+	}
+
+	{
+		MenuModelFlashDef fd = file.menuModelFlashData[eMenuModelFlashType.QUEST_MODEL_PIECE]
+		fd.fillIntensityScalar    = 10
+		fd.outlineIntensityScalar = 300
+		fd.fadeInTime             = 0.01
+		fd.fadeOutTime            = 5.5
+		fd.lifeTime               = 0.1
+		fd.outlineRadius          = 2
+	}
+}
+
+void function StartPresentation_PLAY()
+{
+	if ( file.presentationData[file.previousPresentationType].startFunc != StartPresentation_PLAY )
+	{
+		Signal( ModelData_GetModel( file.playCharacter ), "EndOnReadyThread" )
+
+
+		if ( IsLobbyRefreshEnabled() )
+		{
+			if ( AreAllPartyMembersReady() )
+			{
+				file.partyWasReady = true
+				PlayAnimationForParty(eCharacterActivityState.READY_IDLE)
+			}
+			else if ( file.partyWasReady )
+			{
+				file.partyWasReady = false
+				PlayAnimationForParty(eCharacterActivityState.IDLE)
+			}
+			else
+			{
+				ModelData_SetAnim( file.playCharacter, GetLobbyIdleActivity( eLobbyEntityIndex.PLAYER ) )
+			}
+		}
+		else
+
+			ModelData_SetAnim( file.playCharacter, GetLobbyIdleActivity( eLobbyEntityIndex.PLAYER ) )
+		UpdateMenuCharacterModel( GetLocalClientPlayer(), -1 )
+
+		thread TrackPartyMembersAndDisplayModelsThread()
+	}
+
+	AddCallback_OnPartyUpdated( UpdateMenuWithPartyMembers )
+}
+
+void function OnReady_PLAY( bool ready )
+{
+	if ( IsPlayPresentationType( file.currentPresentationType ) == false )
+		return
+
+
+	file.isClientPlayerReady = ready
+
+
+	if ( ready )
+	{
+		int unixTimeNow = GetUnixTimestamp()
+		if ( tuning.eventStartTime <= unixTimeNow && unixTimeNow <= tuning.eventEndTime )
+		{
+			foreach ( EventEntity eventEntity in tuning.eventEntity )
+			{
+				if ( eventEntity.turnon == EventEntityTurnon.Readyup )
+				{
+					int particleIndex = GetParticleSystemIndex( eventEntity.VFX )
+					StartParticleEffectInWorld( particleIndex, eventEntity.origin, eventEntity.angle )
+				}
+			}
+		}
+
+		if ( file.currentStage in file.stageReadyUpVFX )
+		{
+			foreach ( ReadyUpVFXData readyUpVFXData in file.stageReadyUpVFX[file.currentStage] )
+			{
+				int particleIndex = GetParticleSystemIndex( readyUpVFXData.VFX )
+
+				StartParticleEffectInWorld( particleIndex, readyUpVFXData.origin, readyUpVFXData.angles )
+			}
+		}
+		else
+		{
+			Warning( "Stage not setup in VFX table" )
+		}
+	}
+
+
+	PlayPartyAnimationForPartyReadyStatusUpdated()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+}
+
+void function OnReadyThread( bool onReady )
+{
+	Signal( ModelData_GetModel( file.playCharacter ), "EndOnReadyThread" )
+	EndSignal( ModelData_GetModel( file.playCharacter ), "EndOnReadyThread"  )
+
+	if ( onReady )
+	{
+		if ( ModelData_GetModel( file.playCharacter ).GetCurrentSequenceName().find( "lobby_center_idle" ) != -1 )
+		{
+			ModelData_SetAnim( file.playCharacter, "ACT_MP_MENU_LOBBY_CENTER_READYUP" )
+			WaittillAnimDone( ModelData_GetModel( file.playCharacter ) )
+			ModelData_SetAnim( file.playCharacter, "ACT_MP_MENU_LOBBY_CENTER_READY_IDLE" )
+			wait file.readyUpIdleTime
+			ModelData_SetAnim( file.playCharacter, "ACT_MP_MENU_LOBBY_CENTER_UNREADY" )
+			WaittillAnimDone( ModelData_GetModel( file.playCharacter ) )
+			ModelData_SetAnim( file.playCharacter, GetLobbyIdleActivity( eLobbyEntityIndex.PLAYER ) )
+		}
+	}
+	else
+	{
+		if ( file.playCharacter.bodyAnim == "ACT_MP_MENU_LOBBY_CENTER_READY_IDLE" )
+		{
+			ModelData_SetAnim( file.playCharacter, "ACT_MP_MENU_LOBBY_CENTER_UNREADY" )
+			WaittillAnimDone( ModelData_GetModel( file.playCharacter ) )
+			ModelData_SetAnim( file.playCharacter, GetLobbyIdleActivity( eLobbyEntityIndex.PLAYER ) )
+		}
+		else if ( file.playCharacter.bodyAnim == "ACT_MP_MENU_LOBBY_CENTER_READYUP"  )
+		{
+			WaittillAnimDone( ModelData_GetModel( file.playCharacter ) )
+			ModelData_SetAnim( file.playCharacter, "ACT_MP_MENU_LOBBY_CENTER_UNREADY" )
+			WaittillAnimDone( ModelData_GetModel( file.playCharacter ) )
+			ModelData_SetAnim( file.playCharacter, GetLobbyIdleActivity( eLobbyEntityIndex.PLAYER ) )
+		}
+	}
+}
+
+#if DEV
+void function DEV_ToggleForceAllPartyMembersReady()
+{
+	file.DEV_forceAllPartyMembersReady = !file.DEV_forceAllPartyMembersReady
+}
+#endif
+
+
+bool function AreAllPartyMembersReady()
+{
+	if ( !file.isClientPlayerReady )
+		return false
+
+#if DEV
+	if ( file.DEV_forceAllPartyMembersReady )
+		return true
+#endif
+
+	foreach ( string partyMemberUid, PartyMemberDisplayThreadData partyMemberDisplayThreadData in file.partyMemberUidCharacterDataMap )
+	{
+		if ( !partyMemberDisplayThreadData.isReady )
+			return false
+	}
+
+	return true
+}
+
+
+
+void function PlayPartyAnimationForPartyReadyStatusUpdated()
+{
+	if ( !IsLobbyRefreshEnabled() )
+		return
+
+	if ( AreAllPartyMembersReady() )
+	{
+		file.partyWasReady = true
+		PlayAnimationForParty(eCharacterActivityState.READY)
+	}
+	else if ( file.partyWasReady )
+	{
+		file.partyWasReady = false
+		PlayAnimationForParty(eCharacterActivityState.IDLE)
+	}
+}
+
+
+
+string function GetNextAnimationToPlay( entity model, string currentAnim )
+{
+	if ( !IsLobbyRefreshEnabled() )
+		return ""
+
+	if ( !IsValid( model ) || currentAnim.len() <= 0 )
+		return ""
+
+	string currentAnimBase = ""
+	string nextAnimBase = ""
+	if ( currentAnim.find( JOIN_ACTIVITY_BASE ) != -1 )
+	{
+		currentAnimBase = JOIN_ACTIVITY_BASE
+		nextAnimBase = IDLE_ACTIVITY_BASE
+	}
+	else if ( currentAnim.find( READY_ACTIVITY_BASE ) != -1 && currentAnim.find( READY_IDLE_ACTIVITY_BASE ) == -1 )
+	{
+		currentAnimBase = READY_ACTIVITY_BASE
+		nextAnimBase = READY_IDLE_ACTIVITY_BASE
+	}
+	else
+	{
+		return ""
+	}
+
+	string numericActivityStr = currentAnim.slice( ( currentAnimBase + "_" ).len() )
+	if ( numericActivityStr.len() <= 0 || !numericActivityStr.isnumeric() )
+	{
+		Warning( "Cannot get next anim cause current anim is not handled: " + currentAnim )
+		return ""
+	}
+
+	string nextAnim = nextAnimBase + "_" + numericActivityStr
+	if ( !model.Anim_HasSequence( nextAnim ) )
+	{
+		Warning( "Character doesn't have next anim set: " + nextAnim )
+		return ""
+	}
+
+	return nextAnim
+}
+
+
+
+array<string> function GetAvailableAnimationsForState( entity model, int characterActivityState )
+{
+	if ( !IsLobbyRefreshEnabled() )
+		return []
+
+	if ( !IsValid( model ) )
+		return []
+
+	int index                         = 1
+	string activityBase               = ""
+	switch ( characterActivityState )
+	{
+		case eCharacterActivityState.JOIN:
+			activityBase = JOIN_ACTIVITY_BASE
+			break
+		case eCharacterActivityState.IDLE:
+			activityBase = IDLE_ACTIVITY_BASE
+			break
+		case eCharacterActivityState.READY:
+			activityBase = READY_ACTIVITY_BASE
+			break
+		case eCharacterActivityState.READY_IDLE:
+			activityBase = READY_IDLE_ACTIVITY_BASE
+			break
+	}
+
+	array<string> availableAnimations = []
+	string numericStr = index < 10 ? "_0" : "_"
+	string checkActivity = activityBase  + numericStr + index.tostring()
+	while ( model.Anim_HasSequence( checkActivity ) )
+	{
+		availableAnimations.append( checkActivity )
+		index++
+		numericStr = index < 10 ? "_0" : "_"
+		checkActivity = activityBase + numericStr + index.tostring()
+	}
+
+	return availableAnimations
+}
+
+
+
+string function GetRandomAnimationForState( entity model, int characterActivityState )
+{
+	if ( !IsLobbyRefreshEnabled() )
+		return ""
+
+	array<string> animations = GetAvailableAnimationsForState( model, characterActivityState )
+	if ( animations.len() <= 0 )
+	{
+		Warning( "No animations were available for that character for the given state" )
+		return ""
+	}
+
+	return animations.getrandom()
+}
+
+
+
+void function PlayAnimationForParty(int characterActivityState)
+{
+	if ( !IsLobbyRefreshEnabled() )
+		return
+
+	thread PlayAnimationOnCharacter ( file.playCharacter.model, characterActivityState, file.playCharacter )
+
+	const int maxPlayersToCheck = 10
+	for ( int i = 0; i < maxPlayersToCheck; i ++ )
+	{
+		if ( i in file.teammateModel )
+		{
+			entity teammateModel = file.teammateModel[i]
+			if ( !IsValid( teammateModel ) )
+				continue
+
+			thread PlayAnimationOnCharacter ( teammateModel, characterActivityState )
+		}
+	}
+}
+
+
+
+void function PlayAnimationOnCharacter( entity model, int characterActivityState, MenuModelData ornull data = null )
+{
+	if ( !IsLobbyRefreshEnabled() )
+		return
+
+	Assert ( IsNewThread(), "Must be threaded off" )
+	Signal( model, "EndPlayAnimationOnCharacterThread" )
+	EndSignal( model, "EndPlayAnimationOnCharacterThread" )
+
+	if ( !IsValid( model ) )
+		return
+
+	string activity = GetRandomAnimationForState( model, characterActivityState )
+	if ( activity.len() > 0 )
+	{
+		if ( data != null )
+		{
+			expect MenuModelData( data )
+			data.bodyAnim = activity
+		}
+
+		model.Anim_Play( activity )
+		WaittillAnimDone( model )
+	}
+
+	activity = GetNextAnimationToPlay( model, activity )
+	if ( activity.len() > 0 )
+	{
+		if ( data != null )
+		{
+			expect MenuModelData( data )
+			data.bodyAnim = activity
+		}
+
+		model.Anim_Play( activity )
+		WaittillAnimDone( model )
+	}
+}
+
+
+void function EndPresentation_PLAY()
+{
+	RemoveCallback_OnPartyUpdated( UpdateMenuWithPartyMembers )
+}
+
+void function StartPresentation_CHARACTER_SELECT()
+{
+	ModelData_SetPoseEntity( file.customizeCharacter, GetEntByScriptName( "customize_character_ref" ) ) 
+	ModelData_SetAnim( file.customizeCharacter, "ACT_MP_MENU_LOBBY_SELECT_IDLE" )
+	file.playerSelectCharacterGUID = -1
+	UpdateMenuCharacterModel( GetLocalClientPlayer(), -1 )
+}
+
+void function EndPresentation_CHARACTER_SELECT()
+{
+	file.playerSelectCharacterGUID = -1
+	foreach ( entity light in file.presentationData[ ePresentationType.CHARACTER_SELECT ].lights )
+	{
+		if ( !IsValid( light ) )
+			continue
+
+		light.SetTweakLightRealtimeShadows( false )
+		light.SetTweakLightUpdateShadowsEveryFrame( false )
+		light.SetTweakLightDistance( 2.0 ) 
+		light.SetTweakLightBrightness( 0.01 )
+	}
+}
+
+void function StartPresentation_CHARACTER_SKIN()
+{
+	ModelData_GetMover( file.customizeCharacter ).SetOrigin( GetEntByScriptName( "customize_character_skin_ref" ).GetOrigin() )
+	ModelData_SetAnim( file.customizeCharacter, "ACT_MP_MENU_LOBBY_SELECT_IDLE" )
+
+	UpdateMenuCharacterModel( GetLocalClientPlayer(), -1 )
+
+	thread EnableLobbyMenuCameraZoom()
+}
+
+void function EndPresentation_CHARACTER_SKIN()
+{
+	CameraZoomThreadEnd()
+
+	StopBaseFX()
+}
+
+void function StartPresentation_CHARACTER_CARD()
+{
+	ModelData_GetMover( file.customizeCharacter ).SetOrigin( GetEntByScriptName( "customize_character_skin_ref" ).GetOrigin() + <0, 0, -500> )
+	UpdateMenuCharacterModel( GetLocalClientPlayer(), -1 )
+}
+
+void function StartPresentation_CHARACTER_QUIPS()
+{
+	ModelData_GetMover( file.customizeCharacter ).SetOrigin( GetEntByScriptName( "customize_character_skin_ref" ).GetOrigin() )
+	ModelData_SetAnim( file.customizeCharacter, "ACT_MP_MENU_LOBBY_SELECT_IDLE" )
+
+	UpdateMenuCharacterModel( GetLocalClientPlayer(), -1 )
+	StartBaseFX( false )
+}
+
+void function EndPresentation_CHARACTER_QUIPS()
+{
+	Signal( ModelData_GetModel( file.customizeCharacter ), SIGNAL_STARTING_EMOTE )
+
+	StopBaseFX()
+}
+
+void function StartPresentation_CHARACTER_SELECTS_CUSTOMIZATION()
+{
+	ModelData_GetMover( file.customizeCharacter ).SetOrigin( GetEntByScriptName( "customize_character_skin_ref" ).GetOrigin() + <0, 0, -500> )
+	UpdateMenuCharacterModel( GetLocalClientPlayer(), -1 )
+}
+
+void function StartPresentation_HOLOSPRAYS()
+{
+
+}
+
+void function StartPresentation_WEAPON_SKIN()
+{
+	entity weaponModel = ModelData_GetModel( file.customizeWeapon )
+	entity charm       = GetCharmForWeaponEntity( weaponModel )
+
+	weaponModel.Show()
+
+	if ( IsValid( charm ) )
+		charm.Show()
+
+	if ( file.previousPresentationType != ePresentationType.WEAPON_CHARMS && !file.cameraZoomedToGunCharm)
+		thread EnableLobbyMenuCameraZoom()
+}
+
+void function EndPresentation_WEAPON_SKIN()
+{
+	entity weaponModel = ModelData_GetModel( file.customizeWeapon )
+	entity weaponMover = ModelData_GetMover( file.customizeWeapon )
+	weaponModel.Hide()
+
+	entity charm = GetCharmForWeaponEntity( weaponModel )
+	if ( IsValid( charm ) )
+		charm.Hide()
+
+	bool desireWeaponCharmPresentation = file.desiredPresentationType == ePresentationType.WEAPON_CHARMS
+
+	if ( !desireWeaponCharmPresentation )
+	{
+		
+		Signal( level, "EndGunCharmCameraZoom" )
+
+		CameraZoomThreadEnd()
+
+		
+		weaponMover.SetOrigin( ModelData_GetBaseOrigin( file.customizeWeapon ) )
+
+		
+		int cameraTargetIndex    = eCameraTargetNames.customize_weapon_camera_target
+		entity cameraTarget      = file.cameraTargets[ cameraTargetIndex ]
+		vector cameraStartOrigin = file.cameraStartOriginsAngles[ cameraTargetIndex ]["origin"]
+		vector cameraStartAngles = file.cameraStartOriginsAngles[ cameraTargetIndex ]["angles"]
+
+		cameraTarget.SetOrigin( cameraStartOrigin )
+		cameraTarget.SetAngles( cameraStartAngles )
+	}
+}
+
+
+void function StartPresentation_WEAPON_CHARMS()
+{
+	entity weaponModel = ModelData_GetModel( file.customizeWeapon )
+	entity charm       = GetCharmForWeaponEntity( weaponModel )
+
+	weaponModel.Show()
+
+	if ( IsValid( charm ) )
+		charm.Show()
+
+	float[2] charmBaseRotationDelta
+	charmBaseRotationDelta[0] = -30.0
+	charmBaseRotationDelta[1] = 0.0
+	ModelData_SetBaseAngles( file.customizeWeapon, <0, 140, 0> )
+	ModelData_SetBaseRotationDelta( file.customizeWeapon, charmBaseRotationDelta )
+	ModelData_SetRotationDelta( file.customizeWeapon, charmBaseRotationDelta )
+}
+
+void function EndPresentation_WEAPON_CHARMS()
+{
+	
+	
+	
+	
+	if( file.currentPresentationType == file.desiredPresentationType )
+	{
+		return;
+	}
+
+	entity weaponModel = ModelData_GetModel( file.customizeWeapon )
+	entity weaponMover = ModelData_GetMover( file.customizeWeapon )
+	entity charm       = GetCharmForWeaponEntity( weaponModel )
+
+	weaponModel.Hide()
+
+	if ( IsValid( charm ) )
+		charm.Hide()
+
+	if ( ( file.desiredPresentationType != ePresentationType.WEAPON_SKIN  ) )
+	{
+		int cameraTargetIndex = eCameraTargetNames.customize_weapon_camera_target
+
+		entity cameraTarget      = file.cameraTargets[ cameraTargetIndex ]
+		vector cameraStartOrigin = file.cameraStartOriginsAngles[ cameraTargetIndex ]["origin"]
+		vector cameraStartAngles = file.cameraStartOriginsAngles[ cameraTargetIndex ]["angles"]
+
+		
+		string attachmentName = "MENU_ROTATE"
+		int attachID          = weaponModel.LookupAttachment( attachmentName )
+		vector attachOrigin   = weaponModel.GetAttachmentOrigin( attachID )
+
+		weaponModel.ClearParent()
+		weaponMover.SetOrigin( ModelData_GetBaseOrigin( file.customizeWeapon ) )
+		weaponModel.SetParent( weaponMover )
+
+		
+		file.cameraZoomData.lastVal = 0.0
+		file.cameraZoomData.mover.NonPhysicsStop()
+		weaponMover.NonPhysicsStop()
+
+		cameraTarget.ClearParent()
+		cameraTarget.SetOrigin( cameraStartOrigin)
+		cameraTarget.SetAngles( cameraStartAngles )
+
+		file.cameraZoomedToGunCharm = false
+	}
+
+	ModelData_SetBaseAngles( file.customizeWeapon, WEAPON_BASE_ANGLES )
+	ModelData_SetBaseRotationDelta( file.customizeWeapon, WEAPON_BASE_ROTATION_DELTA )
+}
+
+void function StartPresentation_BATTLE_PASS()
+{
+	BattlePassLightsOn()
+}
+
+void function EndPresentation_BATTLE_PASS()
+{
+	BattlePassLightsOff()
+}
+
+void function StartPresentation_STORE_INSPECT()
+{
+	file.storeBackgroundModelGeo.Show()
+	file.storeBackgroundModelSmoke.Show()
+}
+
+void function EndPresentation_STORE_INSPECT()
+{
+	file.storeBackgroundModelGeo.Hide()
+	file.storeBackgroundModelSmoke.Hide()
+
+	ClearStoreInspectItem()
+	CameraZoomThreadEnd()
+}
+
+void function StartPresentation_MELEE_INSPECT()
+{
+	ModelData_GetMover( file.meleeInspectModelData ).SetOrigin( file.meleeInspectRefEnt.GetOrigin() )
+
+	ModelData_GetMover( file.customizeCharacter ).SetOrigin( GetEntByScriptName( "customize_character_skin_ref" ).GetOrigin() + <0, 0, -500> )
+	UpdateMenuCharacterModel( GetLocalClientPlayer(), -1 )
+}
+
+void function EndPresentation_MELEE_INSPECT()
+{
+	ClearMeleeInspectItem()
+	CameraZoomThreadEnd()
+}
+
+void function StartPresentation_WEAPON_TRIAL_CELEBRATIONS()
+{
+	
+	int rarityIdx = 1 
+
+	SetStoreBackgroundSkins( rarityIdx )
+	file.storeBackgroundModelGeo.Show()
+	file.storeBackgroundModelSmoke.Show()
+
+	vector rarityColor      = GetFXRarityColorForUnlockable( rarityIdx )
+	entity targetBackground = GetEntByScriptName( STORE_BACKGROUND_ENT_NAME )
+
+	if ( EffectDoesExist( file.weaponMasteryBackgroundFXHandle ) )
+		EffectStop( file.weaponMasteryBackgroundFXHandle, true, false )
+
+	file.weaponMasteryBackgroundFXHandle = StartParticleEffectInWorldWithHandle( GetParticleSystemIndex( WEAPON_MASTERY_BACKGROUND_FX ), targetBackground.GetOrigin(), targetBackground.GetAngles() )
+
+	EffectSetControlPointVector( file.weaponMasteryBackgroundFXHandle, 1, rarityColor )
+	EffectSetDontKillForReplay( file.weaponMasteryBackgroundFXHandle )
+}
+
+void function EndPresentation_WEAPON_TRIAL_CELEBRATIONS()
+{
+	
+	file.storeBackgroundModelGeo.Hide()
+	file.storeBackgroundModelSmoke.Hide()
+
+	if ( EffectDoesExist( file.weaponMasteryBackgroundFXHandle ) )
+		EffectStop( file.weaponMasteryBackgroundFXHandle, true, false )
+}
+
+void function StartPresentation_WEAPON_OVERVIEW_INSPECT()
+{
+	file.weaponOverviewBackgroundModelGeo.Show()
+	file.weaponOverviewBackgroundModelSmoke.Show()
+}
+
+void function EndPresentation_WEAPON_OVERVIEW_INSPECT()
+{
+	file.weaponOverviewBackgroundModelGeo.Hide()
+	file.weaponOverviewBackgroundModelSmoke.Hide()
+
+	ClearWeaponOverviewItem()
+	CameraZoomThreadEnd()
+}
+
+
+void function StartArenasRankedBackground()
+{
+	thread StartArenasRankedBackgroundFX()
+}
+
+void function StartArenasRankedBackgroundFX( )
+{
+	EndSignal( level, "EndArenasRankedBackgroundFX" )
+	FlagWait( "EntitiesDidLoad" )
+
+	file.arenasBackgroundModelGeo.Show()
+	file.arenasBackgroundModelSmoke.Show()
+
+	if ( IsValid( file.arenasBackgroundModelSmoke ) )
+		file.arenasBackgroundModelSmoke.SetSkin( GetArenasSmokeSkinIndex() )
+
+	if ( IsValid( file.arenasBackgroundModelGeo ) )
+		file.arenasBackgroundModelGeo.SetSkin( GetArenasBackgroundSkinIndex() )
+
+	entity targetBackground   = GetEntByScriptName( STORE_BACKGROUND_ENT_NAME )
+
+	if ( EffectDoesExist( file.arenasRankedBackgroundFXHandle ) )
+		EffectStop( file.arenasRankedBackgroundFXHandle, true, false )
+
+	file.arenasRankedBackgroundFXHandle = StartParticleEffectInWorldWithHandle( GetParticleSystemIndex( ARENAS_ROOM_SPARKS ), targetBackground.GetOrigin(), targetBackground.GetAngles() )
+	EffectSetControlPointVector( file.arenasRankedBackgroundFXHandle, 1, ARENAS_ROOM_SPARKS_COLOR )
+	EffectSetDontKillForReplay( file.arenasRankedBackgroundFXHandle )
+
+	int FXHandle = file.arenasRankedBackgroundFXHandle
+
+	OnThreadEnd(
+		function() : ( FXHandle )
+		{
+			if ( EffectDoesExist( FXHandle ) )
+				EffectStop( FXHandle, true, false )
+
+			file.arenasBackgroundModelGeo.Hide()
+			file.arenasBackgroundModelSmoke.Hide()
+		}
+	)
+
+	WaitForever()
+}
+
+void function EndArenasRankedBackground()
+{
+	Signal( level, "EndArenasRankedBackgroundFX" )
+}
+
+
+
+
+
+void function StartPresentation_CLUBS_DISCOVERY()
+{
+	printf( "ClubBackgroundDebug: Marvin should be up close" )
+	entity mrvn = GetEntByScriptName( "club_landing_marvin" )
+	entity ref = GetEntByScriptName( "club_landing_discovery_ref" )
+	mrvn.SetOrigin( ref.GetOrigin() )
+	mrvn.SetAngles( ref.GetAngles() )
+	
+	mrvn.Anim_Play( "mrvn_underworld_idle" )
+}
+
+void function Mrvn_PlayIdleAfterSalutingThread( entity mrvn )
+{
+	while ( mrvn.IsSequenceFinished() )
+		WaitFrame()
+
+	mrvn.Anim_Play( "mrvn_underworld_idle" )
+}
+
+void function StartPresentation_CLUBS_LANDING()
+{
+	printf( "ClubBackgroundDebug: Marvin should be at the bar!" )
+	entity mrvn = GetEntByScriptName( "club_landing_marvin" )
+	entity ref = GetEntByScriptName( "club_landing_lobby_ref" )
+	mrvn.SetOrigin( ref.GetOrigin() )
+	mrvn.SetAngles( ref.GetAngles() )
+	mrvn.Anim_Play( "mrvn_underworld_bartender" )
+}
+
+void function StartPresentation_APPLIED_STICKER()
+{
+	
+	ModelData_GetMover( file.customizeWeapon ).SetOrigin( GetEntByScriptName( "customize_weapon_ref" ).GetOrigin() + <0, 0, -500> )
+
+	entity objectModel = ModelData_GetModel( file.appliedStickerModelData )
+	if ( IsValid( objectModel ) )
+		objectModel.Show()
+}
+
+void function EndPresentation_APPLIED_STICKER()
+{
+	entity objectModel = ModelData_GetModel( file.appliedStickerModelData )
+	if ( IsValid( objectModel ) )
+		objectModel.Hide()
+
+	
+	ModelData_GetMover( file.customizeWeapon ).SetOrigin( GetEntByScriptName( "customize_weapon_ref" ).GetOrigin() )
+}
+
+void function StartPresentation_UNAPPLIED_STICKER()
+{
+	
+	ModelData_GetMover( file.customizeWeapon ).SetOrigin( GetEntByScriptName( "customize_weapon_ref" ).GetOrigin() + <0, 0, -500> )
+
+	entity objectModel = ModelData_GetModel( file.unappliedStickerModelData )
+	if ( IsValid( objectModel ) )
+		objectModel.Show()
+}
+
+void function EndPresentation_UNAPPLIED_STICKER()
+{
+	entity objectModel = ModelData_GetModel( file.unappliedStickerModelData )
+	if ( IsValid( objectModel ) )
+		objectModel.Hide()
+
+	
+	ModelData_GetMover( file.customizeWeapon ).SetOrigin( GetEntByScriptName( "customize_weapon_ref" ).GetOrigin() )
+}
+
+void function EnableLobbyMenuCameraZoom()
+{
+	const float ZOOM_DISTANCE_CHARACTER_SKIN = 72.0
+	const float ZOOM_DISTANCE_INSPECT_CHARACTER_SKIN = 160.0
+
+	const float ZOOM_DISTANCE_WEAPON_SKIN = 24.0
+	const float ZOOM_DISTANCE_INSPECT_WEAPON_SKIN = 53.333333
+
+	const float ZOOM_DISTANCE_WEAPON_CHARM = 100.0
+	const float ZOOM_DISTANCE_INSPECT_WEAPON_CHARM = 222.222222
+	const float ZOOM_DISTANCE_INSPECT_MELEE_SKIN = 133.333333
+
+	EndSignal( level, "EndCameraZoom" )
+
+	
+	while( !file.cameraZoomModelInitialized )
+		WaitFrame()
+
+	vector focalPoint
+	float maxZoomDistance
+	int cameraTargetIndex
+
+	if ( file.desiredPresentationType == ePresentationType.CHARACTER_SKIN )
+	{
+		entity characterModel = ModelData_GetModel( file.customizeCharacter )
+
+		ItemFlavor skinFlavor      = ModelData_GetSkinFlavor( file.customizeCharacter )
+
+		if( !IsItemFlavorStructValid( skinFlavor.guid, eValidation.DONT_ASSERT ) )
+			return
+
+		ItemFlavor characterFlavor = CharacterSkin_GetCharacterFlavor( skinFlavor )
+		vector offset              = CharacterClass_GetMenuZoomOffset( characterFlavor )
+
+		focalPoint = characterModel.GetAttachmentOrigin( characterModel.LookupAttachment( "HEADSHOT" ) ) + offset
+		maxZoomDistance = ZOOM_DISTANCE_CHARACTER_SKIN
+		cameraTargetIndex = eCameraTargetNames.customize_character_camera_target
+	}
+	else if ( file.desiredPresentationType == ePresentationType.WEAPON_SKIN )
+	{
+		ItemFlavor skinFlavor     = ModelData_GetSkinFlavor( file.customizeWeapon )
+
+		if( !IsItemFlavorStructValid( skinFlavor.guid, eValidation.DONT_ASSERT ) )
+			return
+
+		ItemFlavor weaponFlavor   = WeaponSkin_GetWeaponFlavor( skinFlavor )
+		ItemFlavor categoryFlavor = WeaponItemFlavor_GetCategory( weaponFlavor )
+		
+
+		entity weaponModel = ModelData_GetModel( file.customizeWeapon )
+		vector modelRotateOrigin = weaponModel.GetAttachmentOrigin( weaponModel.LookupAttachment( "MENU_ROTATE" ) )
+		focalPoint = modelRotateOrigin
+
+		maxZoomDistance = ZOOM_DISTANCE_WEAPON_SKIN
+		cameraTargetIndex = eCameraTargetNames.customize_weapon_camera_target
+	}
+	else if ( file.desiredPresentationType == ePresentationType.STORE_INSPECT || file.desiredPresentationType == ePresentationType.STORE_INSPECT_LOOT_POOL )
+	{
+		entity model        = ModelData_GetModel( file.storeInspectModelData )
+		ItemFlavor itemFlav = ModelData_GetSkinFlavor( file.storeInspectModelData )
+
+		if( !IsItemFlavorStructValid( itemFlav.guid, eValidation.DONT_ASSERT ) )
+			return
+
+		int itemType        = ItemFlavor_GetType( itemFlav )
+		switch ( itemType )
+		{
+			case eItemType.character:
+			case eItemType.character_skin:
+			case eItemType.character_emote:
+				focalPoint = model.GetAttachmentOrigin( model.LookupAttachment( "HEADFOCUS" ) )
+				maxZoomDistance = ZOOM_DISTANCE_INSPECT_CHARACTER_SKIN
+				break
+
+			case eItemType.weapon_skin:
+				asset video = WeaponSkin_GetVideo( itemFlav )
+				if ( video != $"" )
+					break
+
+				ItemFlavor weaponFlavor = WeaponSkin_GetWeaponFlavor( itemFlav )
+				ItemFlavor categoryFlavor = WeaponItemFlavor_GetCategory( weaponFlavor )
+				if( model != null && IsValid( model ) )
+					focalPoint = model.GetAttachmentOrigin( model.LookupAttachment( "MENU_ROTATE" ) )
+				maxZoomDistance = ZOOM_DISTANCE_INSPECT_WEAPON_SKIN
+				break
+
+			case eItemType.weapon_charm:
+				focalPoint = GetCharmForWeaponEntity( model ).GetWorldSpaceCenter()
+				maxZoomDistance = ZOOM_DISTANCE_INSPECT_WEAPON_CHARM
+				break
+
+			case eItemType.melee_skin:
+				focalPoint = model.GetAttachmentOrigin( model.LookupAttachment( "MENU_ROTATE" ) )
+				maxZoomDistance = ZOOM_DISTANCE_INSPECT_MELEE_SKIN
+				break
+
+			default: 
+				return
+		}
+		cameraTargetIndex = eCameraTargetNames.store_inspect_camera_target
+	}
+	else if ( file.desiredPresentationType == ePresentationType.WEAPON_OVERVIEW )
+	{
+		entity model        = ModelData_GetModel( file.weaponOverviewModelData )
+		ItemFlavor itemFlav = ModelData_GetSkinFlavor( file.weaponOverviewModelData )
+
+		if( !IsItemFlavorStructValid( itemFlav.guid, eValidation.DONT_ASSERT ) )
+			return
+
+		int itemType = ItemFlavor_GetType( itemFlav )
+		switch ( itemType )
+		{
+			case eItemType.weapon_skin:
+				ItemFlavor weaponFlavor = WeaponSkin_GetWeaponFlavor( itemFlav )
+				ItemFlavor categoryFlavor = WeaponItemFlavor_GetCategory( weaponFlavor )
+				if( model != null && IsValid( model ) )
+					focalPoint = model.GetAttachmentOrigin( model.LookupAttachment( "MENU_ROTATE" ) )
+				maxZoomDistance = 0
+				break
+			default: 
+			return
+		}
+
+		cameraTargetIndex = eCameraTargetNames.weapon_mastery_inspect_camera_target
+	}
+	else if ( file.desiredPresentationType == ePresentationType.MELEE_INSPECT )
+	{
+		entity model        = ModelData_GetModel( file.meleeInspectModelData )
+		ItemFlavor itemFlav = ModelData_GetSkinFlavor( file.meleeInspectModelData )
+
+		if( !IsItemFlavorStructValid( itemFlav.guid, eValidation.DONT_ASSERT ) )
+			return
+
+		int itemType = ItemFlavor_GetType( itemFlav )
+		if ( itemType != eItemType.melee_skin )
+			return
+
+		focalPoint = model.GetAttachmentOrigin( model.LookupAttachment( "MENU_ROTATE" ) )
+		maxZoomDistance = ZOOM_DISTANCE_CHARACTER_SKIN
+		cameraTargetIndex = eCameraTargetNames.customize_character_camera_target
+	}
+
+	
+
+	entity cameraTarget      = file.cameraTargets[ cameraTargetIndex ]
+	vector cameraStartOrigin = file.cameraStartOriginsAngles[ cameraTargetIndex ]["origin"]
+	vector cameraStartAngles = file.cameraStartOriginsAngles[ cameraTargetIndex ]["angles"]
+
+	file.cameraZoomData.mover.SetOrigin( cameraStartOrigin )
+	file.cameraZoomData.mover.SetAngles( cameraStartAngles )
+	cameraTarget.SetParent( file.cameraZoomData.mover )
+
+	vector normVec = Normalize( focalPoint - cameraStartOrigin )
+	file.cameraZoomData.startPos = cameraStartOrigin
+	file.cameraZoomData.endPos = file.cameraZoomData.startPos + (normVec * maxZoomDistance)
+	file.cameraZoomData.maxDist = maxZoomDistance
+	file.cameraZoomData.normVec = normVec
+
+	OnThreadEnd(
+		function () : ( cameraTarget, cameraStartOrigin, cameraStartAngles )
+		{
+			cameraTarget.ClearParent()
+			cameraTarget.SetOrigin( cameraStartOrigin )
+			cameraTarget.SetAngles( cameraStartAngles )
+			file.cameraZoomModelInitialized = false
+		}
+	)
+
+	waitthread CameraZoomThread( file.cameraZoomData )
+}
+
+void function InitMenuEntities()
+{
+	printf( "InitMenuEntitiesDebug: InitMenuEntities() START" )
+#if DEV
+		if ( BuildingCubeMaps() )
+			return
+#endif
+
+	Assert( MenuMapEntitiesExist() )
+
+	InitPresentationData()
+	InitMenuModelFlashData()
+
+
+	InitTeammatePosition( "play_teammate1_quads_ref", GetLobbyIdleActivity( eLobbyEntityIndex.TEAMMATE1 ) )
+	InitTeammatePosition( "play_teammate2_quads_ref", GetLobbyIdleActivity( eLobbyEntityIndex.TEAMMATE2 ) )
+	InitTeammatePosition( "play_teammate3_quads_ref", GetLobbyIdleActivity( eLobbyEntityIndex.TEAMMATE3 ) )
+
+
+
+
+
+	file.cameraZoomData.mover = CreateClientsideScriptMover( $"mdl/dev/empty_model.rmdl", <0, 0, 0>, <0, 0, 0> )
+
+	file.cameraTargets.clear()
+	file.cameraStartOriginsAngles.clear()
+	foreach ( string scriptName, int eNumIdx in eCameraTargetNames )
+	{
+
+		
+		if ( !IsLobbyRefreshEnabled() && scriptName == "play_camera_target_refresh" )
+			continue
+
+
+		entity targetEnt = GetEntByScriptName( scriptName )
+		file.cameraTargets[ eNumIdx ] <- targetEnt
+		file.cameraStartOriginsAngles[ eNumIdx ] <- { origin = targetEnt.GetOrigin(), angles = targetEnt.GetAngles() }
+	}
+
+	clGlobal.menuCamera = CreateClientSidePointCamera( <0, 0, 0>, <0, 0, 0>, DEFAULT_FOV )
+
+	
+	EHI localPlayerEHI = WaitForLocalClientEHI()
+	if ( IsSpectator( GetLocalClientPlayer() ) && !IsPrivateMatchLobby() )
+	{
+		printf( "InitMenuEntitiesDebug: InitMenuEntities() Return: Local Client is Spectator" )
+		return 
+	}
+
+	if ( IsLobby() || IsPrivateMatchLobby() )
+	{
+		entity localPlayer = GetLocalClientPlayer()
+		localPlayer.SetMenuCameraEntityWithAudio( clGlobal.menuCamera ) 
+	}
+
+	entity refEnt
+	entity model
+	float[2] baseRotationDelta
+
+
+	refEnt = GetEntByScriptName( "play_character_quads_ref" )
+
+
+
+	ModelData_SetBaseOrigin( file.playCharacter, refEnt.GetOrigin() )
+	ModelData_SetBaseAngles( file.playCharacter, refEnt.GetAngles() )
+	model = CreateMenuModel( file.playCharacter, $"mdl/dev/empty_model.rmdl" )
+	ItemFlavor character     = LoadoutSlot_WaitForItemFlavor( localPlayerEHI, Loadout_Character() )
+	ItemFlavor characterSkin = LoadoutSlot_WaitForItemFlavor( localPlayerEHI, Loadout_CharacterSkin( character ) )
+	CharacterSkin_Apply( model, characterSkin )
+	model.SetAlive( true )
+
+	refEnt = GetEntByScriptName( "customize_character_ref" )
+
+	refEnt.SetOrigin( refEnt.GetOrigin()  + <-20, 0, -2 > )
+
+	ModelData_SetBaseOrigin( file.customizeCharacter, refEnt.GetOrigin() )
+
+	ModelData_SetBaseAngles( file.customizeCharacter, <0, -100, 0> )
+
+
+
+	baseRotationDelta[0] = 0
+	baseRotationDelta[1] = 0
+	ModelData_SetBaseRotationDelta( file.customizeCharacter, baseRotationDelta )
+	model = CreateMenuModel( file.customizeCharacter, $"mdl/dev/empty_model.rmdl" )
+	ModelData_CreateMover( file.customizeCharacter )
+	CharacterSkin_Apply( model, characterSkin )
+	model.SetAlive( true )
+
+	refEnt = GetEntByScriptName( "customize_weapon_ref" )
+	file.customizeWeaponRefEnt = refEnt
+	ModelData_SetBaseOrigin( file.customizeWeapon, refEnt.GetOrigin() )
+	ModelData_SetBaseAngles( file.customizeWeapon, WEAPON_BASE_ANGLES )
+	ModelData_SetBaseRotationDelta( file.customizeWeapon, WEAPON_BASE_ROTATION_DELTA )
+	model = CreateMenuModel( file.customizeWeapon, $"mdl/dev/empty_model.rmdl" )
+	model.kv.rendercolor = "0 0 0 255" 
+	ModelData_CreateMover( file.customizeWeapon )
+	ItemFlavor weapon     = GetAllWeaponItemFlavors( true )[0]
+	ItemFlavor weaponSkin = LoadoutSlot_GetItemFlavor( localPlayerEHI, Loadout_WeaponSkin( weapon ) )
+	WeaponCosmetics_Apply( model, weaponSkin, null )
+
+	refEnt = GetEntByScriptName( "store_inspect_ref" )
+	file.storeInspectRefEnt = refEnt
+	ModelData_SetBaseOrigin( file.storeInspectModelData, refEnt.GetOrigin() )
+	ModelData_SetBaseAngles( file.storeInspectModelData, refEnt.GetAngles() )
+	ModelData_SetBaseRotationDelta( file.storeInspectModelData, baseRotationDelta )
+	model = CreateMenuModel( file.storeInspectModelData, $"mdl/dev/empty_model.rmdl" )
+	ModelData_CreateMover( file.storeInspectModelData )
+
+	refEnt = GetEntByScriptName( "weapons_mastery_inspect_ref" )
+	file.weaponOverviewRefEnt = refEnt
+	ModelData_SetBaseOrigin( file.weaponOverviewModelData, refEnt.GetOrigin() )
+	ModelData_SetBaseAngles( file.weaponOverviewModelData, refEnt.GetAngles() )
+	ModelData_SetBaseRotationDelta( file.weaponOverviewModelData, baseRotationDelta )
+	model = CreateMenuModel( file.weaponOverviewModelData, $"mdl/dev/empty_model.rmdl" )
+	ModelData_CreateMover( file.weaponOverviewModelData )
+
+	refEnt = GetEntByScriptName( "customize_character_skin_ref" )
+	file.meleeInspectRefEnt = refEnt
+	ModelData_SetBaseOrigin( file.meleeInspectModelData, refEnt.GetOrigin() )
+	ModelData_SetBaseAngles( file.meleeInspectModelData, <0, 0, 0> )
+	ModelData_SetBaseRotationDelta( file.meleeInspectModelData, baseRotationDelta )
+	model = CreateMenuModel( file.meleeInspectModelData, $"mdl/dev/empty_model.rmdl" )
+	ModelData_CreateMover( file.meleeInspectModelData )
+
+	
+	refEnt = GetEntByScriptName( "battlepass_right_ref" )    
+	ModelData_SetBaseOrigin( file.questGoalModelData, refEnt.GetOrigin() )
+	ModelData_SetBaseAngles( file.questGoalModelData, <0, -115, 0> )
+	model = CreateMenuModel( file.questGoalModelData, $"mdl/dev/empty_model.rmdl" )
+	CreateMenuSubModel( file.questGoalModelData, $"mdl/dev/empty_model.rmdl" )
+	ModelData_CreateMover( file.questGoalModelData )
+
+	refEnt = GetEntByScriptName( "customize_weapon_ref" ) 
+	ModelData_SetBaseOrigin( file.appliedStickerModelData, refEnt.GetOrigin() + <3.25, 0, 2.5> )
+	ModelData_SetBaseAngles( file.appliedStickerModelData, <0, 0, 0> )
+	model = CreateMenuModel( file.appliedStickerModelData, $"mdl/dev/empty_model.rmdl" )
+	ModelData_CreateMover( file.appliedStickerModelData )
+
+	ModelData_SetBaseOrigin( file.unappliedStickerModelData, refEnt.GetOrigin() + <4, 0, 2> )
+	ModelData_SetBaseAngles( file.unappliedStickerModelData, <0, 255, 0> )
+	model = CreateMenuModel( file.unappliedStickerModelData, $"mdl/dev/empty_model.rmdl" )
+	ModelData_CreateMover( file.unappliedStickerModelData )
+
+	refEnt = GetEntByScriptName( "loot_ceremony_camera_target" ) 
+	ModelData_SetBaseOrigin( file.lootCeremonyModelData, refEnt.GetOrigin() + <200, 0, -40> )
+	ModelData_SetBaseAngles( file.lootCeremonyModelData, <0, 0, 0> )
+	model = CreateMenuModel( file.lootCeremonyModelData, $"mdl/dev/empty_model.rmdl" )
+	ModelData_CreateMover( file.lootCeremonyModelData )
+
+	
+	
+	
+	
+
+	InitBattlePassLights()
+	InitLightingConfigs()
+	InitBackgroundModels()
+
+	file.initializedMenuModels = true
+	printf( "InitMenuEntitiesDebug: InitMenuEntities() END" )
+}
+
+void function InitBackgroundModels()
+{
+
+		entity targetBackground = GetEntByScriptName( STORE_BACKGROUND_ENT_NAME )
+
+		vector offset            = <0, 0, 24>
+		UISize screenSize        = GetScreenSize()
+		float nearestAspectRatio = GetNearestAspectRatio( screenSize.width, screenSize.height )
+		if ( nearestAspectRatio > 2.25 )
+			offset += <0, 25, 0>
+
+		file.storeBackgroundModelGeo = CreateClientSidePropDynamic( targetBackground.GetOrigin() - offset, targetBackground.GetAngles(), STORE_BACKGROUND_GEO_MODEL )
+		file.storeBackgroundModelGeo.kv.solid = 0
+		file.storeBackgroundModelGeo.kv.disableshadows = 1
+		file.storeBackgroundModelGeo.kv.fadedist = -1
+		file.storeBackgroundModelGeo.MakeSafeForUIScriptHack()
+		file.storeBackgroundModelGeo.Hide()
+
+		file.storeBackgroundModelSmoke = CreateClientSidePropDynamic( targetBackground.GetOrigin() - offset, targetBackground.GetAngles(), STORE_BACKGROUND_SMOKE_MODEL )
+		file.storeBackgroundModelSmoke.kv.solid = 0
+		file.storeBackgroundModelSmoke.kv.disableshadows = 1
+		file.storeBackgroundModelSmoke.kv.fadedist = -1
+		file.storeBackgroundModelSmoke.MakeSafeForUIScriptHack()
+		file.storeBackgroundModelSmoke.Hide()
+
+
+		file.arenasBackgroundModelGeo = CreateClientSidePropDynamic( targetBackground.GetOrigin() - offset, targetBackground.GetAngles(), ARENAS_BACKGROUND_GEO_MODEL )
+		file.arenasBackgroundModelGeo.kv.solid = 0
+		file.arenasBackgroundModelGeo.kv.disableshadows = 1
+		file.arenasBackgroundModelGeo.kv.fadedist = -1
+		file.arenasBackgroundModelGeo.MakeSafeForUIScriptHack()
+		file.arenasBackgroundModelGeo.Hide()
+
+		file.arenasBackgroundModelSmoke = CreateClientSidePropDynamic( targetBackground.GetOrigin() - offset, targetBackground.GetAngles(), ARENAS_BACKGROUND_SMOKE_MODEL )
+		file.arenasBackgroundModelSmoke.kv.solid = 0
+		file.arenasBackgroundModelSmoke.kv.disableshadows = 1
+		file.arenasBackgroundModelSmoke.kv.fadedist = -1
+		file.arenasBackgroundModelSmoke.MakeSafeForUIScriptHack()
+		file.arenasBackgroundModelSmoke.Hide()
+
+
+		entity weaponOverviewTargetBackground = GetEntByScriptName( WEAPON_OVERVIEW_BACKGROUND_ENT_NAME )
+
+		file.weaponOverviewBackgroundModelGeo = CreateClientSidePropDynamic( weaponOverviewTargetBackground.GetOrigin() + <0, -100, 0 >, weaponOverviewTargetBackground.GetAngles(), STORE_BACKGROUND_GEO_MODEL )
+		file.weaponOverviewBackgroundModelGeo.kv.solid = 0
+		file.weaponOverviewBackgroundModelGeo.kv.disableshadows = 1
+		file.weaponOverviewBackgroundModelGeo.kv.fadedist = -1
+		file.weaponOverviewBackgroundModelGeo.MakeSafeForUIScriptHack()
+		file.weaponOverviewBackgroundModelGeo.Hide()
+
+		file.weaponOverviewBackgroundModelSmoke = CreateClientSidePropDynamic( weaponOverviewTargetBackground.GetOrigin() + <0, -100, 0 >, weaponOverviewTargetBackground.GetAngles(), STORE_BACKGROUND_SMOKE_MODEL )
+		file.weaponOverviewBackgroundModelSmoke.kv.solid = 0
+		file.weaponOverviewBackgroundModelSmoke.kv.disableshadows = 1
+		file.weaponOverviewBackgroundModelSmoke.kv.fadedist = -1
+		file.weaponOverviewBackgroundModelSmoke.MakeSafeForUIScriptHack()
+		file.weaponOverviewBackgroundModelSmoke.Hide()
+
+		if ( HasEntWithScriptName( LOBBY_SCREEN_SCRIPT_NAME ) )
+		{
+			file.lobbyScreen = GetEntByScriptName( LOBBY_SCREEN_SCRIPT_NAME )
+		}
+
+		if ( HasEntWithScriptName( LOBBY_TWEAK_LIGHT_SCRIPT_NAME ) )
+		{
+			file.lobbyLights = GetEntArrayByScriptName( LOBBY_TWEAK_LIGHT_SCRIPT_NAME )
+		}
+
+		foreach ( entity light in file.lobbyLights )
+		{
+			file.lobbyLightColors.append( LOBBY_TWEAK_LIGHT_MID_TRANSITION_COLOR )
+			light.SetTweakLightColor( LOBBY_TWEAK_LIGHT_MID_TRANSITION_COLOR )
+		}
+
+		int fxAsset = GetParticleSystemIndex( tuning.mainMenuVFX )
+		file.mainMenuVfxHandle = StartParticleEffectInWorldWithHandle( fxAsset, MAIN_MENU_SMOKE_VFX_ORIGIN, MAIN_MENU_SMOKE_VFX_ANGLE )
+		EffectSetControlPointVector( file.mainMenuVfxHandle, 1, MAIN_MENU_SMOKE_VFX_DARK_COLOR )
+		EffectSetControlPointVector( file.mainMenuVfxHandle, 2, MAIN_MENU_SMOKE_VFX_DARK_COLOR )
+
+		int unixTimeNow = GetUnixTimestamp()
+		if ( tuning.eventStartTime <= unixTimeNow && unixTimeNow <= tuning.eventEndTime )
+		{
+			foreach ( EventEntity eventEntity in tuning.eventEntity )
+			{
+				if ( eventEntity.turnon == EventEntityTurnon.EnterLobby )
+				{
+					int particleIndex = GetParticleSystemIndex( eventEntity.VFX )
+					StartParticleEffectInWorld( particleIndex, eventEntity.origin, eventEntity.angle )
+				}
+			}
+		}
+
+		file.isBootup = true
+		LobbyScreen_PlayBootupAnimation()
+
+
+}
+
+entity function CreateMenuModel_( MenuModelData modelData, asset modelAsset, bool isMainModel )
+{
+	vector origin     = <0, 0, 0>
+	vector angles     = <0, 0, 0>
+	vector baseOrigin = ModelData_GetBaseOrigin( modelData )
+	vector baseAngles = ModelData_GetBaseAngles( modelData )
+
+	if ( baseOrigin != origin )
+		origin = baseOrigin
+
+	if ( baseAngles != angles )
+		angles = baseAngles
+
+	entity oldModel = isMainModel ? ModelData_GetModel( modelData ) : ModelData_GetSubModel( modelData )
+	if ( IsValid( oldModel ) )
+		oldModel.Destroy()
+
+	entity model = CreateClientSidePropDynamic( origin, angles, modelAsset )
+	model.SetVisibleForLocalPlayer( 0 )
+	model.MakeSafeForUIScriptHack()
+	if ( isMainModel )
+		ModelData_SetModel( modelData, model )
+	else
+		ModelData_SetSubModel( modelData, model )
+
+	return model
+}
+entity function CreateMenuModel( MenuModelData modelData, asset modelAsset )
+{
+	return CreateMenuModel_( modelData, modelAsset, true )
+}
+entity function CreateMenuSubModel( MenuModelData modelData, asset modelAsset )
+{
+	return CreateMenuModel_( modelData, modelAsset, false )
+}
+
+void function UpdateMenuCharacterModel( entity player, int overrideCharacterFlavorGUID = -1, bool isCentered = false )
+{
+	if ( !file.isInitialized )
+		return
+
+	if ( player != GetLocalClientPlayer() )
+		return
+
+	thread UpdateMenuCharacterModelInternal( overrideCharacterFlavorGUID, isCentered )
+}
+
+
+void function UpdateMenuCharacterModelInternal( int overrideCharacterFlavorGUID, bool isCentered = false )
+{
+	Signal( file.signalDummy, "UpdateMenuCharacterModelInternal" )
+	EndSignal( file.signalDummy, "UpdateMenuCharacterModelInternal" )
+
+	while ( !file.initializedMenuModels ) 
+		WaitFrame()
+
+	EHI playerEHI = LocalClientEHI()
+	LoadoutSlot_WaitForItemFlavor( playerEHI, Loadout_Character() )
+
+
+	if ( file.currentPresentationType == ePresentationType.HOLOSPRAYS )
+		return 
+
+	if ( file.currentPresentationType == ePresentationType.CHARACTER_SELECT )
+	{
+		if ( overrideCharacterFlavorGUID == -1 )
+			overrideCharacterFlavorGUID = file.playerSelectCharacterGUID
+		else
+			file.playerSelectCharacterGUID = overrideCharacterFlavorGUID
+	}
+
+	ItemFlavor character
+	if ( overrideCharacterFlavorGUID == -1 )
+		character = LoadoutSlot_GetItemFlavor( playerEHI, Loadout_Character() )
+	else
+		character = GetItemFlavorByGUID( overrideCharacterFlavorGUID )
+
+#if DEV
+		if ( GetBugReproNum() == 1747 ) 
+			character = GetItemFlavorByCharacterRef( "character_dummie"  )
+#endif
+
+	clGlobal.currentMenuPilotModels.characterSkin = LoadoutSlot_WaitForItemFlavor( playerEHI, Loadout_CharacterSkin( character ) )
+
+	clGlobal.currentMenuPilotModels.garment = LoadoutSlot_WaitForItemFlavor( playerEHI, Loadout_DigitalGarment() )
+
+	
+	
+
+	if ( file.presentationData[ file.currentPresentationType ].useCharacterOffsets && file.presentationData[ file.currentPresentationType ].modelData != null )
+	{
+		entity refEnt = ModelData_GetPoseEntity( expect MenuModelData( file.presentationData[ file.currentPresentationType ].modelData ) )
+		vector base   = refEnt.GetOrigin()
+		vector offset = CharacterClass_GetGalleryModelOffset( character )
+#if DEV
+			if ( ItemFlavor_GetCharacterRef( character ) == file.DEV_characterOffsetCharacter )
+				offset = file.DEV_characterOffset
+#endif
+
+		ModelData_GetMover( expect MenuModelData( file.presentationData[ file.currentPresentationType ].modelData ) ).SetOrigin( base + offset )
+	}
+
+	if ( isCentered )
+	{
+		ModelData_GetMover( file.customizeCharacter ).SetOrigin( GetEntByScriptName( "customize_character_skin_ref" ).GetOrigin() + <-20, 0, 0> )
+		ModelData_GetMover( file.customizeCharacter ).SetAngles( GetEntByScriptName( "customize_character_skin_ref" ).GetAngles() + <-1.1, 0, 0> )
+	}
+
+	bool doTransitionFX = (file.currentPresentationType == ePresentationType.CHARACTER_SKIN)
+	UpdateCharacterModelDisplay( file.playCharacter, doTransitionFX )
+	UpdateCharacterModelDisplay( file.customizeCharacter, doTransitionFX )
+}
+
+void function StartBaseFX( bool isCentered )
+{
+	StopBaseFX()
+
+	if ( isCentered )
+		file.baseFXHandle = StartParticleEffectInWorldWithHandle( GetParticleSystemIndex( CHARACTER_BASE_EFFECT ), GetEntByScriptName( "customize_character_skin_ref" ).GetOrigin() + <-20, 0, 0> + <0, 0, -1.2>, <-1.1, 0, 0> )
+	else
+		file.baseFXHandle = StartParticleEffectInWorldWithHandle( GetParticleSystemIndex( CHARACTER_BASE_EFFECT ), ModelData_GetMover( file.customizeCharacter ).GetOrigin() + <0, 0, -1.2>, <-2.2, 0, 0> )
+
+	EffectSetDontKillForReplay( file.baseFXHandle )
+}
+
+void function StopBaseFX()
+{
+	if ( EffectDoesExist( file.baseFXHandle ) )
+	{
+		EffectStop( file.baseFXHandle, true, false )
+	}
+}
+
+void function UIToClient_StartCharacterModelBaseFX( bool isCentered )
+{
+	StartBaseFX( isCentered )
+}
+
+void function UIToClient_PreviewCharacterEmote( int guid, int overrideCharacterFlavorGUID )
+{
+	UpdateMenuCharacterModel( GetLocalClientPlayer(), overrideCharacterFlavorGUID )
+
+	ItemFlavor flav = GetItemFlavorByGUID( guid )
+	string anim3p   = CharacterQuip_GetAnim3p( flav, GetItemFlavorByGUID( overrideCharacterFlavorGUID ) )
+
+	entity model = ModelData_GetModel( file.customizeCharacter )
+	if ( model.Anim_HasActivity( anim3p ) || model.Anim_HasSequence( anim3p ) )
+	{
+		thread ModelPerformEmote( model, flav, ModelData_GetMover( file.customizeCharacter ), false, true )
+	}
+
+	if ( clGlobal.previewMenuPilotModels.characterSkin != null && EffectDoesExist( file.baseFXHandle ) )
+		EffectSetControlPointVector( file.baseFXHandle, 1, ItemFlavor_GetQualityColor( flav ) )
+}
+
+void function UIToClient_PreviewUnappliedSticker( SettingsAssetGUID itemFlavorGUID )
+{
+	ItemFlavor stickerItem = GetItemFlavorByGUID( itemFlavorGUID )
+
+	Assert( !Sticker_IsTheEmpty( stickerItem ) )
+
+
+	if ( IsValidStickerInstance( file.currentUnappliedStickerInstance ) )
+		DestroyStickerInstance( file.currentUnappliedStickerInstance )
+
+	entity stickerEnt = ModelData_GetModel( file.unappliedStickerModelData )
+
+
+
+
+
+
+
+
+	stickerEnt.SetLocalOrigin( <0, 0, 0> )
+	stickerEnt.SetLocalAngles( <0, 0, 0> )
+	stickerEnt.SetModel( UNAPPLIED_STICKER_MODEL )
+	stickerEnt.SetModelScale( 0.65 )
+	asset stickerMat = Sticker_GetReplacementMaterialAsset( stickerItem )
+	file.currentUnappliedStickerInstance = Sticker_SetMaterialModForLocalPlayer( stickerEnt, stickerMat )
+	stickerEnt.Show()
+
+	if ( ItemFlavor_HasQuality( stickerItem ) )
+	{
+		vector flashColor = ItemFlavor_GetQualityColor( stickerItem ) / 255
+		Sticker_CreateFlashData( file.currentUnappliedStickerInstance, stickerEnt, eMenuModelFlashType.DEFAULT, flashColor )
+		Sticker_OnPlaced( file.currentUnappliedStickerInstance, Sticker_FlashOnLoadComplete )
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function UIToClient_PreviewAppliedStickers( int stickerObjectType, int updatedStickerSlot )
+{
+	if ( IsValidStickerInstance( file.currentUnappliedStickerInstance ) )
+	{
+		DestroyStickerInstance( file.currentUnappliedStickerInstance )
+		file.currentUnappliedStickerInstance = -1
+	}
+
+	entity objectEnt  = ModelData_GetModel( file.appliedStickerModelData )
+	float objectScale = stickerObjectType == eStickerObjectType.injector ? 2.5 : 1.5
+
+	if ( file.currentStickerObjectType != stickerObjectType )
+	{
+		table< int, table<int, AppliedStickerData> > appliedStickersDataCopy = clone file.appliedStickersData
+
+		
+		foreach ( stickerObjectTypeKey, stickerSlotTable in appliedStickersDataCopy )
+		{
+			if ( stickerObjectTypeKey == stickerObjectType )
+				continue
+
+			foreach ( stickerSlot, appliedStickerData in stickerSlotTable )
+			{
+				if ( IsValidStickerInstance( appliedStickerData.stickerInstance ) )
+					DestroyStickerInstance( appliedStickerData.stickerInstance )
+			}
+
+			delete file.appliedStickersData[stickerObjectTypeKey]
+		}
+
+		ModelData_ResetRotation( file.appliedStickerModelData )
+
+		asset objectAsset = GetStickerObjectModel( stickerObjectType )
+		objectEnt.SetSkin( 0 )
+		objectEnt.SetModel( objectAsset )
+
+		
+		
+		
+		
+		
+		
+
+		if ( stickerObjectType == eStickerObjectType.phoenix_kit )
+			objectEnt.SetSkin( 1 )
+
+		vector localAngles = <-113, -177, -79>
+		string renderColor = "0 0 0 255"
+		if ( stickerObjectType == eStickerObjectType.injector )
+		{
+			localAngles = <26, 175, 18>
+			renderColor = "255 255 255 255"
+		}
+
+		objectEnt.SetModelScale( objectScale )
+		objectEnt.SetLocalAngles( localAngles )
+		objectEnt.kv.rendercolor = renderColor
+	}
+
+	ItemFlavor spoofItem = GetItemFlavorByGUID( FRAG_DEFAULT_SKIN_GUID ) 
+	UpdateWeaponLights( objectEnt, WEAPON_LIGHT_RIG_OFFSET, spoofItem )
+
+	file.currentStickerObjectType = stickerObjectType
+
+	if ( !( stickerObjectType in file.appliedStickersData ) )
+		file.appliedStickersData[stickerObjectType] <- {}
+
+	ItemFlavor ornull updatedStickerItem
+	int updatedStickerInstance = -1
+
+	
+	for ( int stickerSlot = 0; stickerSlot < GetMaxStickersForObjectType( stickerObjectType ); stickerSlot++ )
+	{
+		bool stickerSlotExists = (stickerSlot in file.appliedStickersData[stickerObjectType])
+		ItemFlavor stickerItem = LoadoutSlot_WaitForItemFlavor( LocalClientEHI(), Loadout_Sticker( stickerObjectType, stickerSlot ) )
+		int stickerInstance    = -1
+
+		if ( Sticker_IsTheEmpty( stickerItem ) )
+		{
+			if ( stickerSlotExists )
+			{
+				if ( IsValidStickerInstance( file.appliedStickersData[stickerObjectType][stickerSlot].stickerInstance ) )
+					DestroyStickerInstance( file.appliedStickersData[stickerObjectType][stickerSlot].stickerInstance )
+
+				delete file.appliedStickersData[stickerObjectType][stickerSlot]
+			}
+		}
+		else if ( !( stickerSlotExists && file.appliedStickersData[stickerObjectType][stickerSlot].stickerItem == stickerItem ) )
+		{
+			if ( stickerSlotExists && IsValidStickerInstance( file.appliedStickersData[stickerObjectType][stickerSlot].stickerInstance ) )
+				DestroyStickerInstance( file.appliedStickersData[stickerObjectType][stickerSlot].stickerInstance )
+
+			asset stickerMat   = Sticker_GetDecalMaterialAsset( stickerItem )
+			float stickerScale = Sticker_GetDecalScale( stickerItem, stickerObjectType, stickerSlot + 1 ) * objectScale
+			stickerInstance    = Sticker_PlaceDecalForLocalPlayer( objectEnt, stickerMat, "STICKER_" + (stickerSlot + 1), stickerScale )
+
+			AppliedStickerData appliedStickerData
+			appliedStickerData.stickerInstance = stickerInstance
+			appliedStickerData.stickerItem     = stickerItem
+
+			if ( stickerSlotExists )
+				file.appliedStickersData[stickerObjectType][stickerSlot] = appliedStickerData
+			else
+				file.appliedStickersData[stickerObjectType][stickerSlot] <- appliedStickerData
+		}
+
+		if ( stickerSlot == updatedStickerSlot )
+		{
+			updatedStickerItem = stickerItem
+			updatedStickerInstance = stickerInstance
+		}
+	}
+
+	if ( updatedStickerItem != null && updatedStickerInstance != -1 )
+	{
+		expect ItemFlavor( updatedStickerItem )
+
+		
+		if ( !Sticker_IsTheEmpty( updatedStickerItem ) && ItemFlavor_HasQuality( updatedStickerItem ) )
+		{
+			vector flashColor = ItemFlavor_GetQualityColor( updatedStickerItem ) / 255
+			Sticker_CreateFlashData( updatedStickerInstance, objectEnt, eMenuModelFlashType.DEFAULT, flashColor )
+			Sticker_OnPlaced( updatedStickerInstance, Sticker_FlashOnLoadComplete )
+		}
+	}
+}
+
+
+void function UIToClient_PreviewCharacterSkin( int guid, int overrideCharacterFlavorGUID, bool isCentered = false )
+{
+	clGlobal.previewMenuPilotModels.characterSkin = GetItemFlavorByGUID( guid )
+
+	if ( clGlobal.previewMenuPilotModels.characterSkin != null )
+		ModelData_SetSkinFlavor( file.customizeCharacter, expect ItemFlavor( clGlobal.previewMenuPilotModels.characterSkin ) )
+
+	UpdateMenuCharacterModel( GetLocalClientPlayer(), overrideCharacterFlavorGUID, isCentered )
+
+	if ( clGlobal.previewMenuPilotModels.characterSkin != null && EffectDoesExist( file.baseFXHandle ) )
+		EffectSetControlPointVector( file.baseFXHandle, 1, ItemFlavor_GetQualityColor( expect ItemFlavor( clGlobal.previewMenuPilotModels.characterSkin ) ) )
+}
+
+void function UIToClient_PreviewCharacterSkinFromCharacterSkinPanel( int guid, int overrideCharacterFlavorGUID, bool isCentered = false )
+{
+	UIToClient_PreviewCharacterSkin( guid, overrideCharacterFlavorGUID, isCentered )
+	file.cameraZoomModelInitialized = true
+}
+
+void function UIToClient_PreviewCharacterGarment( int guid, int overrideCharacterFlavorGUID, bool isCentered = false )
+{
+	clGlobal.previewMenuPilotModels.garment = GetItemFlavorByGUID( guid )
+
+	UpdateMenuCharacterModel( GetLocalClientPlayer(), overrideCharacterFlavorGUID, isCentered )
+
+	if ( clGlobal.currentMenuPilotModels.characterSkin != null && EffectDoesExist( file.baseFXHandle ) )
+		EffectSetControlPointVector( file.baseFXHandle, 1, ItemFlavor_GetQualityColor( expect ItemFlavor( clGlobal.currentMenuPilotModels.characterSkin ) ) )
+}
+
+void function UIToClient_PreviewCharacterGarmentFromCharacterSkinPanel( int guid, int overrideCharacterFlavorGUID, bool isCentered = false )
+{
+	clGlobal.previewMenuPilotModels.characterSkin = null
+	UIToClient_PreviewCharacterGarment( guid, overrideCharacterFlavorGUID, isCentered )
+	file.cameraZoomModelInitialized = true
+}
+
+void function UIToClient_ForceStoreBackgroundSkins( int skinIndex )
+{
+	SetStoreBackgroundSkins( skinIndex )
+}
+
+void function UIToClient_SetWeaponsOverviewBackgroundSkin( int skinIndex )
+{
+	if ( IsValid( file.weaponOverviewBackgroundModelSmoke ) )
+		file.weaponOverviewBackgroundModelSmoke.SetSkin( skinIndex )
+
+	if ( IsValid( file.weaponOverviewBackgroundModelGeo ) )
+		file.weaponOverviewBackgroundModelGeo.SetSkin( skinIndex )
+}
+
+void function SetStoreBackgroundSkins( int skinIndex )
+{
+	if ( IsValid( file.storeBackgroundModelSmoke ) )
+		file.storeBackgroundModelSmoke.SetSkin( skinIndex )
+
+	if ( IsValid( file.storeBackgroundModelGeo ) )
+		file.storeBackgroundModelGeo.SetSkin( skinIndex )
+}
+
+void function TransitionStoreBackgroundColors( ItemFlavor itemFlav )
+{
+	int rarityIdx     = 0 
+	vector flashColor = MENU_MODELS_DEFAULT_HIGHLIGHT_COLOR / 255
+
+	if ( ItemFlavor_HasQuality( itemFlav ) )
+	{
+		rarityIdx = ItemFlavor_GetQuality( itemFlav )
+		flashColor = ItemFlavor_GetQualityColor( itemFlav ) / 255
+	}
+
+	SetStoreBackgroundSkins( rarityIdx )
+
+	
+	if ( ItemFlavor_GetType( itemFlav ) == eItemType.sticker )
+		return
+
+	entity model         = ModelData_GetModel( file.storeInspectModelData )
+	bool includeChildren = true
+	bool depthDiscard    = false
+	thread FlashMenuModel( model, eMenuModelFlashType.DEFAULT, flashColor, includeChildren, depthDiscard )
+}
+
+void function TransitionWeaponOverviewBackgroundColors( ItemFlavor itemFlav )
+{
+	int rarityIdx     = 0 
+	vector flashColor = MENU_MODELS_DEFAULT_HIGHLIGHT_COLOR / 255
+
+	if ( ItemFlavor_HasQuality( itemFlav ) )
+	{
+		rarityIdx = ItemFlavor_GetQuality( itemFlav )
+		flashColor = ItemFlavor_GetQualityColor( itemFlav ) / 255
+	}
+
+	entity model         = ModelData_GetModel( file.weaponOverviewModelData )
+	bool includeChildren = true
+	bool depthDiscard    = false
+	thread FlashMenuModel( model, eMenuModelFlashType.DEFAULT, flashColor, includeChildren, depthDiscard )
+}
+
+
+void function TransitionStoreBackgroundFX( ItemFlavor itemFlav )
+{
+	EndSignal( level, "EndSetPresentationType" )
+
+	int rarityIdx      = 0 
+	vector rarityColor = MENU_MODELS_DEFAULT_HIGHLIGHT_COLOR
+
+	if ( ItemFlavor_HasQuality( itemFlav ) )
+	{
+		rarityIdx = ItemFlavor_GetQuality( itemFlav )
+		rarityColor = GetFXRarityColorForUnlockable( rarityIdx )
+	}
+
+	
+	Assert( rarityIdx < STORE_BACKGROUND_FX_TIERS.len(), "Couldn't find particle beam asset based on rarity: " + rarityIdx )
+	asset particleAssetRarity = STORE_BACKGROUND_FX_TIERS[rarityIdx]
+	entity targetBackground   = GetEntByScriptName( STORE_BACKGROUND_ENT_NAME )
+
+	if ( EffectDoesExist( file.storeBackgroundFXHandle ) )
+		EffectStop( file.storeBackgroundFXHandle, true, false )
+
+	file.storeBackgroundFXHandle = StartParticleEffectInWorldWithHandle( GetParticleSystemIndex( particleAssetRarity ), targetBackground.GetOrigin(), targetBackground.GetAngles() )
+	if ( !EffectDoesExist( file.storeBackgroundFXHandle ) )
+	{
+		
+		
+		
+		Warning( "storeBackgroundFXHandle does not exist?" )
+	}
+	else
+	{
+		EffectSetControlPointVector( file.storeBackgroundFXHandle, 1, rarityColor )
+		EffectSetDontKillForReplay( file.storeBackgroundFXHandle )
+	}
+
+	int FXHandle = file.storeBackgroundFXHandle
+
+	OnThreadEnd(
+		function() : ( FXHandle )
+		{
+			if ( EffectDoesExist( FXHandle ) )
+				EffectStop( FXHandle, true, false )
+		}
+	)
+
+	WaitForever()
+}
+
+
+
+void function TransitionWeaponOverviewBackgroundFX( ItemFlavor itemFlav )
+{
+	EndSignal( level, "EndSetPresentationType" )
+
+	int rarityIdx      = 0 
+	vector rarityColor = MENU_MODELS_DEFAULT_HIGHLIGHT_COLOR
+
+	if ( ItemFlavor_HasQuality( itemFlav ) )
+	{
+		rarityIdx = ItemFlavor_GetQuality( itemFlav )
+		rarityColor = GetFXRarityColorForUnlockable( rarityIdx )
+	}
+
+	
+	Assert( rarityIdx < STORE_BACKGROUND_FX_TIERS.len(), "Couldn't find particle beam asset based on rarity: " + rarityIdx )
+	asset particleAssetRarity = STORE_BACKGROUND_FX_TIERS[rarityIdx]
+	entity targetBackground   = GetEntByScriptName( WEAPON_OVERVIEW_BACKGROUND_ENT_NAME )
+
+	if ( EffectDoesExist( file.weaponOverviewBackgroundFXHandle ) )
+		EffectStop( file.weaponOverviewBackgroundFXHandle, true, false )
+
+	file.weaponOverviewBackgroundFXHandle = StartParticleEffectInWorldWithHandle( GetParticleSystemIndex( particleAssetRarity ), targetBackground.GetOrigin(), targetBackground.GetAngles() )
+	
+	
+
+
+	EffectSetControlPointVector( file.weaponOverviewBackgroundFXHandle, 1, rarityColor )
+	EffectSetDontKillForReplay( file.weaponOverviewBackgroundFXHandle )
+
+	int FXHandle = file.weaponOverviewBackgroundFXHandle
+
+	OnThreadEnd(
+		function() : ( FXHandle )
+		{
+			if ( EffectDoesExist( FXHandle ) )
+				EffectStop( FXHandle, true, false )
+		}
+	)
+
+	WaitForever()
+}
+
+
+void function UpdateCharacterModelDisplay( MenuModelData modelData, bool doTransitionFX )
+{
+	if ( !file.initializedMenuModels ) 
+		return
+
+	if ( clGlobal.currentMenuPilotModels.characterSkin == null ) 
+		return
+
+	entity model         = ModelData_GetModel( modelData )
+	string lastModelAnim = modelData.bodyAnim
+	asset lastModelAsset = model.GetModelName()
+
+	ItemFlavor ornull characterSkin = clGlobal.previewMenuPilotModels.characterSkin
+	if ( characterSkin == null )
+		characterSkin = clGlobal.currentMenuPilotModels.characterSkin
+	CharacterSkin_Apply( model, expect ItemFlavor( characterSkin ) )
+
+	if ( DigitalGarments_IsEnabled() )
+	{
+		ItemFlavor ornull garment = clGlobal.previewMenuPilotModels.garment
+		if ( garment == null )
+			garment = clGlobal.currentMenuPilotModels.garment
+
+		DigitalGarments_StartMenuGarmentWithFlav( model, expect ItemFlavor( garment ), eDigitalGarmentContext.MENU )
+	}
+
+	
+	
+	
+	
+
+	bool modelChanged = model.GetModelName() != lastModelAsset
+	
+	if ( modelChanged ) 
+	{
+		model = CreateMenuModel( modelData, model.GetModelName() )
+		entity mover = ModelData_GetMover( modelData )
+		if ( mover != null )
+		{
+			model.SetOrigin( mover.GetOrigin() )
+			model.SetAngles( mover.GetAngles() )
+			model.SetParent( mover )
+		}
+		CharacterSkin_Apply( model, expect ItemFlavor( characterSkin ) )
+
+		if ( DigitalGarments_IsEnabled() )
+		{
+			ItemFlavor ornull garment = clGlobal.previewMenuPilotModels.garment
+			if ( garment == null )
+				garment = clGlobal.currentMenuPilotModels.garment
+
+			DigitalGarments_StartMenuGarmentWithFlav( model, expect ItemFlavor( garment ), eDigitalGarmentContext.MENU )
+		}
+
+		if ( model.Anim_HasActivity( modelData.bodyAnim ) || model.Anim_HasSequence( modelData.bodyAnim ) )
+			ModelData_SetAnim( modelData, modelData.bodyAnim )
+		else if ( modelData == file.playCharacter )
+			ModelData_SetAnim( modelData, GetLobbyIdleActivity( eLobbyEntityIndex.PLAYER ) )
+		else
+			ModelData_SetAnim( modelData, "ACT_MP_MENU_LOBBY_SELECT_IDLE" )
+		
+	}
+
+	if ( ModelData_GetMover( modelData ) != null && !file.neverRotateModel )
+	{
+		
+		
+		TurntableUpdateEntityAngles( modelData )
+	}
+
+	if ( model == ModelData_GetModel( file.customizeCharacter ) && doTransitionFX )
+	{
+		vector flashColor = ItemFlavor_HasQuality( expect ItemFlavor( characterSkin ) ) ? ItemFlavor_GetQualityColor( expect ItemFlavor( characterSkin ) ) / 255 : MENU_MODELS_DEFAULT_HIGHLIGHT_COLOR / 255
+		thread FlashMenuModel( model, eMenuModelFlashType.DEFAULT, flashColor )
+	}
+}
+
+void function UIToClient_PartyMemberGetFocus( string partyMemberUID )
+{
+	if ( partyMemberUID in file.partyMemberUidCharacterDataMap )
+	{
+		file.partyMemberUidCharacterDataMap[partyMemberUID].isDirty = true
+		file.partyMemberUidCharacterDataMap[partyMemberUID].isFocused = true
+	}
+}
+
+
+void function UIToClient_PartyMemberLoseFocus( string partyMemberUID )
+{
+	if ( partyMemberUID in file.partyMemberUidCharacterDataMap )
+	{
+		file.partyMemberUidCharacterDataMap[partyMemberUID].isDirty = true
+		file.partyMemberUidCharacterDataMap[partyMemberUID].isFocused = false
+	}
+}
+
+
+void function UpdateMenuWithPartyMembers()
+{
+	thread TrackPartyMembersAndDisplayModelsThread()
+}
+
+void function TrackPartyMembersAndDisplayModelsThread()
+{
+	if ( file.isTrackPartyMembersAndDisplayModelsThreadRunning )
+		return
+	file.isTrackPartyMembersAndDisplayModelsThreadRunning = true
+
+	
+	while ( !file.initializedMenuModels )
+		WaitFrame()
+
+	OnThreadEnd( function() : () {
+		foreach ( string partyMemberUid, PartyMemberDisplayThreadData partyMemberDisplayThreadData in file.partyMemberUidCharacterDataMap )
+		{
+			if ( partyMemberDisplayThreadData.displayThreadActive )
+			{
+				Signal( partyMemberDisplayThreadData, "StopDisplayPartyMemberModelThread" )
+				Assert( partyMemberDisplayThreadData.displayThreadActive == false )
+			}
+		}
+	} )
+
+	bool didPartyMemberJoinOrLeave       = true
+	bool didPartyMemberReadyStatusChange = true
+
+	while ( true )
+	{
+		foreach ( string partyMemberUid, PartyMemberDisplayThreadData partyMemberDisplayThreadData in file.partyMemberUidCharacterDataMap )
+		{
+			partyMemberDisplayThreadData.partyMemberSeenThisUpdate = false
+		}
+
+		Party party           = GetParty()
+		
+		string localClientUid = PROTO_GetLocalClientUIDFromUIVM()
+
+		bool realMember = true
+
+#if DEV
+			if ( file.DEV_previewSelfAsParty )
+			{
+				realMember = false
+				party.members.clear()
+				for ( int i = 0; i < 2; i++ )
+				{
+					PartyMember fakeMember
+					fakeMember.name = (i == 0 ? "MR_VERY_FAKE" : "MRS_VERY_FAKE")
+					fakeMember.uid = string(i)
+					fakeMember.hardware = GetPlayerHardware()
+					party.members.append( fakeMember )
+				}
+			}
+#endif
+
+		foreach ( PartyMember partyMemberInfo in party.members )
+		{
+			if ( partyMemberInfo.uid == localClientUid )
+				continue
+
+			PartyMemberDisplayThreadData partyMemberDisplayThreadData
+			if ( partyMemberInfo.uid in file.partyMemberUidCharacterDataMap )
+			{
+				partyMemberDisplayThreadData = file.partyMemberUidCharacterDataMap[partyMemberInfo.uid]
+				partyMemberDisplayThreadData.partyMemberInfo = partyMemberInfo
+			}
+			else
+			{
+				partyMemberDisplayThreadData.partyMemberInfo = partyMemberInfo
+				file.partyMemberUidCharacterDataMap[partyMemberInfo.uid] <- partyMemberDisplayThreadData
+				file.partyMemberUidCharacterDataMap[partyMemberInfo.uid].isLeader = partyMemberInfo.uid == party.originatorUID
+				didPartyMemberJoinOrLeave = true
+			}
+
+			if ( realMember )
+			{
+				CommunityUserInfo ornull userInfoOrNull = GetUserInfo( partyMemberInfo.hardware, partyMemberInfo.uid )
+				if ( userInfoOrNull != null )
+					partyMemberDisplayThreadData.userInfo = expect CommunityUserInfo( userInfoOrNull )
+			}
+			partyMemberDisplayThreadData.userInfo.charData.resize( ePlayerStryderCharDataArraySlots.COUNT, 0 ) 
+
+			partyMemberDisplayThreadData.partyMemberSeenThisUpdate = true
+			if ( partyMemberDisplayThreadData.partyMemberFirstSeenTime == null )
+				partyMemberDisplayThreadData.partyMemberFirstSeenTime = Time()
+		}
+
+		array<string> partyMembersToRemove = []
+		foreach ( string partyMemberUid, PartyMemberDisplayThreadData partyMemberDisplayThreadData in file.partyMemberUidCharacterDataMap )
+		{
+			bool shouldDestroyModel = false
+			bool shouldModelBeShown = false 
+
+			if ( partyMemberDisplayThreadData.partyMemberSeenThisUpdate )
+			{
+				shouldModelBeShown = true
+
+				if ( partyMemberDisplayThreadData.isReady != partyMemberDisplayThreadData.partyMemberInfo.ready || partyMemberDisplayThreadData.isDirty )
+				{
+					partyMemberDisplayThreadData.isReady = partyMemberDisplayThreadData.partyMemberInfo.ready
+					partyMemberDisplayThreadData.isDirty = false
+					didPartyMemberReadyStatusChange = true
+				}
+
+				ItemFlavor ornull characterOrNull = null
+				ItemFlavor ornull skinOrNull      = null
+
+				ItemFlavor ornull garmentOrNull = null
+				int garmentTier = -1
+
+#if DEV
+					if ( file.DEV_previewSelfAsParty )
+					{
+						characterOrNull = LoadoutSlot_GetItemFlavor( LocalClientEHI(), Loadout_Character() )
+						skinOrNull = LoadoutSlot_GetItemFlavor( LocalClientEHI(), Loadout_CharacterSkin( expect ItemFlavor(characterOrNull) ) )
+
+						garmentOrNull = LoadoutSlot_GetItemFlavor( LocalClientEHI(), Loadout_DigitalGarment() )
+						garmentTier = LoadoutSlot_GetInteger( LocalClientEHI(), Loadout_DigitalGarmentTier() )
+					}
+#endif
+
+				if ( characterOrNull == null )
+				{
+					int characterGUID = partyMemberDisplayThreadData.userInfo.charData[ePlayerStryderCharDataArraySlots.CHARACTER]
+					if ( IsValidItemFlavorGUID( characterGUID ) )
+					{
+						ItemFlavor candidateFlavor = GetItemFlavorByGUID( characterGUID )
+						if ( ItemFlavor_GetType( candidateFlavor ) == eItemType.character )
+							characterOrNull = candidateFlavor
+					}
+				}
+
+				if ( garmentOrNull == null )
+				{
+					int garmentGUID = partyMemberDisplayThreadData.userInfo.charData[ ePlayerStryderCharDataArraySlots.DIGITAL_GARMENT ]
+					if ( IsValidItemFlavorGUID( garmentGUID ) )
+					{
+						ItemFlavor garmentFlav = GetItemFlavorByGUID( garmentGUID )
+						if ( ItemFlavor_GetType( garmentFlav ) == eItemType.digital_garment )
+						{
+							garmentOrNull = garmentFlav
+						}
+					}
+					else
+					{
+						garmentOrNull = GetDefaultItemFlavorForLoadoutSlot( Loadout_DigitalGarment() )
+					}
+
+					
+					int requestedTier = partyMemberDisplayThreadData.userInfo.charData[ ePlayerStryderCharDataArraySlots.DIGITAL_GARMENT_TIER ] - 2
+					if ( IsValidEnumValue( "eDigitalGarmentTier", requestedTier ) )
+					{
+						garmentTier = requestedTier
+					}
+					else
+					{
+						garmentTier = eDigitalGarmentTier.ROOKIE
+					}
+				}
+
+				
+				if ( characterOrNull == null && partyMemberDisplayThreadData.character == null
+				&& partyMemberDisplayThreadData.partyMemberFirstSeenTime != null && Time() > expect float(partyMemberDisplayThreadData.partyMemberFirstSeenTime) + 1.5 )
+				{
+#if DEV
+						if ( file.DEV_NextCharacterForParty.len() > 0 )
+						{
+							if ( IsValidItemFlavorCharacterRef( file.DEV_NextCharacterForParty ) )
+							{
+								characterOrNull = GetItemFlavorByCharacterRef( file.DEV_NextCharacterForParty )
+								skinOrNull = GetDefaultItemFlavorForLoadoutSlot( Loadout_CharacterSkin( expect ItemFlavor( characterOrNull ) ) )
+
+								garmentOrNull = LoadoutSlot_WaitForItemFlavor( LocalClientEHI(), Loadout_DigitalGarment() )
+								garmentTier = eDigitalGarmentTier.ROOKIE
+							}
+						}
+#endif
+					if ( characterOrNull == null )
+					{
+						array<ItemFlavor> allCharacters = GetAllCharacters()
+						allCharacters.randomize()
+						foreach ( ItemFlavor ornull randomCharacter in allCharacters )
+						{
+							if ( randomCharacter == null )
+								continue
+
+							if ( CharacterClass_GetIsShippingCharacter( expect ItemFlavor( randomCharacter ) ) )
+							{
+								characterOrNull = expect ItemFlavor( randomCharacter )
+								skinOrNull = GetDefaultItemFlavorForLoadoutSlot( Loadout_CharacterSkin( expect ItemFlavor( characterOrNull ) ) )
+
+								garmentOrNull = GetDefaultItemFlavorForLoadoutSlot( Loadout_DigitalGarment() )
+								garmentTier = eDigitalGarmentTier.ROOKIE
+								break
+							}
+						}
+
+						
+						if ( characterOrNull == null )
+						{
+							array<string> defaultCandidates = [
+								"character_bangalore", "character_bloodhound", "character_caustic",
+								"character_gibraltar", "character_lifeline", "character_mirage",
+								"character_octane", "character_pathfinder", "character_wraith"]
+
+							defaultCandidates.randomize()
+							foreach ( string candidate in defaultCandidates )
+							{
+								if ( IsValidItemFlavorCharacterRef( candidate ) )
+								{
+									characterOrNull = GetItemFlavorByCharacterRef( candidate )
+									skinOrNull = GetDefaultItemFlavorForLoadoutSlot( Loadout_CharacterSkin( expect ItemFlavor( characterOrNull ) ) )
+
+									garmentOrNull = GetDefaultItemFlavorForLoadoutSlot( Loadout_DigitalGarment() )
+									garmentTier = eDigitalGarmentTier.ROOKIE
+									break
+								}
+							}
+						}
+					}
+				}
+
+				if ( skinOrNull == null )
+				{
+					int skinGUID = partyMemberDisplayThreadData.userInfo.charData[ePlayerStryderCharDataArraySlots.CHARACTER_SKIN]
+					if ( IsValidItemFlavorGUID( skinGUID ) )
+					{
+						ItemFlavor skin = GetItemFlavorByGUID( skinGUID )
+						if ( ItemFlavor_GetType( skin ) == eItemType.character_skin )
+							skinOrNull = skin
+					}
+				}
+
+				if ( characterOrNull != null && partyMemberDisplayThreadData.character != characterOrNull )
+				{
+					shouldDestroyModel = true
+					partyMemberDisplayThreadData.character = characterOrNull
+					partyMemberDisplayThreadData.skin = null
+				}
+				if ( skinOrNull != null && partyMemberDisplayThreadData.skin != skinOrNull )
+				{
+					shouldDestroyModel = true
+					partyMemberDisplayThreadData.skin = skinOrNull
+				}
+
+				if ( garmentOrNull != null && partyMemberDisplayThreadData.garment != garmentOrNull )
+				{
+					shouldDestroyModel = true
+					partyMemberDisplayThreadData.garment = garmentOrNull
+					partyMemberDisplayThreadData.garmentTier = garmentTier
+				}
+			}
+			else
+			{
+				shouldDestroyModel = true
+				partyMembersToRemove.append( partyMemberDisplayThreadData.partyMemberInfo.uid )
+			}
+
+			if ( shouldDestroyModel && partyMemberDisplayThreadData.displayThreadActive )
+			{
+				Signal( partyMemberDisplayThreadData, "StopDisplayPartyMemberModelThread" )
+				Assert( !partyMemberDisplayThreadData.displayThreadActive )
+			}
+
+			if ( shouldModelBeShown && !partyMemberDisplayThreadData.displayThreadActive )
+			{
+				entity refEnt = null
+				string idleActivity
+				int slot = 0
+				foreach ( entity candidateRefEnt in file.teammateRefEnts )
+				{
+					if ( file.teammateRefEntsUsedMap[candidateRefEnt] )
+					{
+						slot++
+						continue 
+					}
+
+					file.teammateRefEntsUsedMap[candidateRefEnt] = true 
+					refEnt = candidateRefEnt
+					idleActivity = file.teammateRefEntIdleAnimMap[candidateRefEnt]
+					break
+				}
+				Assert( refEnt != null && IsValid( refEnt ), "Party too big for lobby model display!" )
+
+				partyMemberDisplayThreadData.posRef = refEnt
+				partyMemberDisplayThreadData.idleActivity = idleActivity
+				partyMemberDisplayThreadData.slot = slot
+
+				thread DisplayPartyMemberModelThread( partyMemberDisplayThreadData )
+				UpdateLobbyStageBasedOnChange()
+				Assert( partyMemberDisplayThreadData.displayThreadActive )
+			}
+		}
+
+		foreach ( string partyMemberToRemove in partyMembersToRemove )
+		{
+			delete file.partyMemberUidCharacterDataMap[partyMemberToRemove]
+			didPartyMemberJoinOrLeave = true
+		}
+
+		if ( didPartyMemberJoinOrLeave || didPartyMemberReadyStatusChange || file.uiscriptHasReset )
+		{
+
+				PlayPartyAnimationForPartyReadyStatusUpdated()
+
+
+			printt( "TellUIToUpdateInviteButtons" )
+			TellUIToUpdateInviteButtons()
+			didPartyMemberJoinOrLeave = false
+			didPartyMemberReadyStatusChange = false
+			file.uiscriptHasReset = false
+		}
+
+		WaitFrame()
+	}
+}
+
+void function TellUIToUpdateInviteButtons()
+{
+	string leftSpotUID      = ""
+	string leftSpotEAID     = ""
+	string leftSpotHardware = ""
+	string leftSpotUnspoofedUID = ""
+	string leftSpotName     = ""
+	bool leftSpotInMatch    = false
+
+	string rightSpotUID      = ""
+	string rightSpotEAID     = ""
+	string rightSpotHardware = ""
+	string rightSpotUnspoofedUID = ""
+	string rightSpotName     = ""
+	bool rightSpotInMatch    = false
+
+
+	string fourthSpotUID      = ""
+	string fourthSpotEAID     = ""
+	string fourthSpotHardware = ""
+	string fourthSpotUnspoofedUID = ""
+	string fourthSpotName     = ""
+	bool fourthSpotInMatch    = false
+
+
+	
+	foreach ( string partyMemberUid, PartyMemberDisplayThreadData partyMemberDisplayThreadData in file.partyMemberUidCharacterDataMap )
+	{
+		if ( partyMemberDisplayThreadData.posRef == file.teammateRefEnts[0] && file.teammateRefEntsUsedMap[file.teammateRefEnts[0]] )
+		{
+			leftSpotUID = partyMemberUid
+			leftSpotEAID = partyMemberDisplayThreadData.partyMemberInfo.uid
+			leftSpotHardware = partyMemberDisplayThreadData.partyMemberInfo.hardware
+			leftSpotUnspoofedUID = partyMemberDisplayThreadData.partyMemberInfo.unspoofedUID
+			leftSpotName = partyMemberDisplayThreadData.partyMemberInfo.name
+			leftSpotInMatch = PartyMemberInMatch( partyMemberDisplayThreadData.partyMemberInfo )
+		}
+		else if ( partyMemberDisplayThreadData.posRef == file.teammateRefEnts[1] && file.teammateRefEntsUsedMap[file.teammateRefEnts[1]] )
+		{
+			rightSpotUID = partyMemberUid
+			rightSpotEAID = partyMemberDisplayThreadData.partyMemberInfo.uid
+			rightSpotHardware = partyMemberDisplayThreadData.partyMemberInfo.hardware
+			rightSpotUnspoofedUID = partyMemberDisplayThreadData.partyMemberInfo.unspoofedUID
+			rightSpotName = partyMemberDisplayThreadData.partyMemberInfo.name
+			rightSpotInMatch = PartyMemberInMatch( partyMemberDisplayThreadData.partyMemberInfo )
+		}
+
+		else if ( partyMemberDisplayThreadData.posRef == file.teammateRefEnts[2] && file.teammateRefEntsUsedMap[file.teammateRefEnts[2]] )
+		{
+			fourthSpotUID = partyMemberUid
+			fourthSpotEAID = partyMemberDisplayThreadData.partyMemberInfo.uid
+			fourthSpotHardware = partyMemberDisplayThreadData.partyMemberInfo.hardware
+			fourthSpotUnspoofedUID = partyMemberDisplayThreadData.partyMemberInfo.unspoofedUID
+			fourthSpotName = partyMemberDisplayThreadData.partyMemberInfo.name
+			fourthSpotInMatch = PartyMemberInMatch( partyMemberDisplayThreadData.partyMemberInfo )
+		}
+
+	}
+
+	RunUIScript( "ClientToUI_PartyMemberJoinedOrLeft", leftSpotUID, leftSpotEAID, leftSpotHardware, leftSpotUnspoofedUID, leftSpotName, leftSpotInMatch,
+		                                               rightSpotUID, rightSpotEAID, rightSpotHardware, rightSpotUnspoofedUID, rightSpotName, rightSpotInMatch,
+													   fourthSpotUID, fourthSpotEAID, fourthSpotHardware, fourthSpotUnspoofedUID, fourthSpotName, fourthSpotInMatch )
+
+
+
+
+}
+
+bool function PartyMemberInMatch( PartyMember partyMemberInfo )
+{
+	CommunityUserInfo ornull userInfoOrNull = GetUserInfo( partyMemberInfo.hardware, partyMemberInfo.uid )
+	if ( userInfoOrNull != null )
+	{
+		CommunityUserInfo userInfo = expect CommunityUserInfo(userInfoOrNull)
+		return userInfo.charData[ePlayerStryderCharDataArraySlots.PLAYER_IN_MATCH] == 1
+	}
+	return false
+}
+
+void function DisplayPartyMemberModelThread( PartyMemberDisplayThreadData data )
+{
+	data.displayThreadActive = true
+	EndSignal( data, "StopDisplayPartyMemberModelThread" )
+
+	data.body = CreateClientSidePropDynamic( data.posRef.GetOrigin(), data.posRef.GetAngles(), $"mdl/dev/empty_model.rmdl" )
+	data.body.MakeSafeForUIScriptHack()
+
+	if ( data.slot in file.teammateModel )
+		file.teammateModel[data.slot] = data.body
+	else
+		file.teammateModel[data.slot] <- data.body
+
+	if ( data.skin != null )
+	{
+		CharacterSkin_Apply( data.body, expect ItemFlavor( data.skin ) )
+
+			if ( IsLobbyRefreshEnabled() )
+			{
+				array<string> animations = GetAvailableAnimationsForState( data.body, eCharacterActivityState.JOIN )
+				if ( animations.len() > 0 )
+					thread PlayAnimationOnCharacter ( data.body, eCharacterActivityState.JOIN )
+				else
+					thread PlayAnimationOnCharacter ( data.body, eCharacterActivityState.IDLE )
+			}
+			else
+
+			{
+				data.body.Anim_Play( data.idleActivity )
+			}
+	}
+
+	if ( data.garment != null )
+	{
+		DigitalGarments_StartMenuGarmentWithFullOverride( data.body, expect ItemFlavor( data.garment ), data.garmentTier, eDigitalGarmentContext.MENU )
+	}
+
+	data.isReady = data.partyMemberInfo.ready
+
+	OnThreadEnd( function() : ( data ) {
+		data.displayThreadActive = false
+		delete file.teammateModel[data.slot]
+
+		file.teammateRefEntsUsedMap[data.posRef] = false 
+		data.posRef = null
+		data.idleActivity = ""
+		data.isReady = data.partyMemberInfo.ready
+
+		if ( IsValid( data.body ) )
+		{
+			array<entity> models = GetEntityAndImmediateChildren( data.body )
+			foreach ( m in models )
+			{
+				if ( file.dimmedEnts.contains( m ) )
+				{
+					file.dimmedEnts.fastremovebyvalue( m )
+				}
+			}
+
+			DigitalGarments_StopMenu( data.body )
+
+			data.body.Destroy()
+			data.body = null
+		}
+	} )
+
+	bool wasInMatch = PartyMemberInMatch( data.partyMemberInfo )
+	bool firstTime  = true
+
+	while ( true )
+	{
+		bool inMatch = PartyMemberInMatch( data.partyMemberInfo ) && !data.isReady
+
+		if ( inMatch != wasInMatch || firstTime )
+		{
+			wasInMatch = inMatch
+			firstTime = false
+			TellUIToUpdateInviteButtons()
+		}
+
+		if ( inMatch )
+		{
+			array<entity> models = GetEntityAndImmediateChildren( data.body )
+			foreach ( m in models )
+			{
+				if ( !file.dimmedEnts.contains( m ) )
+				{
+					MenuModelHighlightInMatch( m )
+					file.dimmedEnts.append( m )
+				}
+			}
+		}
+		else
+		{
+			array<entity> models = GetEntityAndImmediateChildren( data.body )
+			foreach ( m in models )
+			{
+				if ( file.dimmedEnts.contains( m ) )
+				{
+					MenuModelHighlightClear( m )
+					file.dimmedEnts.fastremovebyvalue( m )
+				}
+			}
+		}
+
+		WaitFrame()
+	}
+}
+
+#if DEV
+void function DEV_SetCharacterForNextPartyMember( string character = "" )
+{
+	file.DEV_NextCharacterForParty = character
+}
+#endif
+
+#if DEV
+array< string > function DEV_CharGetAvailableCharacters()
+{
+	array< string > availableCharacters
+
+	array<ItemFlavor> allCharacters = GetAllCharacters()
+	foreach ( ItemFlavor ornull character in allCharacters )
+	{
+		if ( character == null )
+			continue
+
+		string characterRef = ItemFlavor_GetCharacterRef( expect ItemFlavor( character ) )
+		if ( characterRef.len() > 0 && characterRef != "character_ref" )
+		{
+			availableCharacters.append( characterRef )
+		}
+	}
+
+	return availableCharacters
+}
+#endif
+
+void function UIToClient_ResetWeaponRotation()
+{
+	ModelData_ResetRotation( file.customizeWeapon )
+}
+
+const vector EXTRA_LIGHT_RIG_ROTATION = <-10, -80, 0> 
+
+void function UIToClient_PreviewWeaponSkin( int skinFlavorGUID, int charmFlavorGUID, bool shouldHighlightWeapon, bool shouldAllowZoom = true, bool isCentered = false )
+{
+	if ( !file.initializedMenuModels ) 
+		return
+
+	bool isCharms  = file.currentPresentationType == ePresentationType.WEAPON_CHARMS
+	bool isSkins  = file.currentPresentationType == ePresentationType.WEAPON_SKIN
+	ItemFlavor weaponSkin   = GetItemFlavorByGUID( skinFlavorGUID )
+	ItemFlavor weaponFlavor = WeaponSkin_GetWeaponFlavor( weaponSkin )
+
+	entity weaponModel = ModelData_GetModel( file.customizeWeapon )
+	entity weaponMover = ModelData_GetMover( file.customizeWeapon )
+	ItemFlavor weapon = WeaponSkin_GetWeaponFlavor( weaponSkin )
+	ItemFlavor charmFlavor = GetItemFlavorByGUID( charmFlavorGUID )
+
+	
+	ModelData_SetSkinFlavor( file.customizeWeapon, weaponSkin )
+	WeaponCosmetics_Apply( weaponModel, weaponSkin, charmFlavor )
+	if( ( isCharms && !file.cameraZoomedToGunCharm ) || !isCharms )
+	{
+		entity refEnt = file.customizeWeaponRefEnt
+		vector universalSkinOffset = isCentered ? <-6, 0, 0> : <0, 0, 0> 
+		vector origin = refEnt.GetOrigin() + universalSkinOffset + MainWeapon_GetLoadoutSkinsOffset( weapon )
+
+		
+		file.cameraZoomModelInitialized = true
+
+		
+		float armoryScale = 1.0
+
+		if ( ShouldScaleWeaponAndCharmForPreview() )
+		{
+			Signal( level, "EndGunCharmScaleLerp" )
+			ScaleWeaponSkinAndCharm( weaponModel, charmFlavor, armoryScale )
+		}
+
+		weaponMover.SetOrigin( ModelData_GetBaseOrigin( file.customizeWeapon ) )
+		ModelData_SetBaseOrigin( file.customizeWeapon, origin )
+
+		vector modelOffset = < 0, 0, 0 >
+		int cameraTargetIndex = eCameraTargetNames.customize_weapon_camera_target
+		vector baseOffset   = GetWeaponOffsetFromCameraPositionToOrigin( file.cameraStartOriginsAngles[ cameraTargetIndex ]["origin"], ModelData_GetBaseOrigin( file.customizeWeapon ), WeaponItemFlavor_GetArmoryOffset( weaponFlavor ) )
+		file.weaponVectorScale = WeaponItemFlavor_GetArmoryVectorScale( weaponFlavor )
+		modelOffset = baseOffset * file.weaponVectorScale
+
+		SetWeaponSkinLocalOffset( weaponModel, false )
+
+		if( isCharms )
+			SetWeaponSkinLocalOffset( weaponModel, true )
+
+		
+		bool shouldZoomIn  = isCharms
+		bool shouldZoomOut = isSkins && file.cameraZoomedToGunCharm
+		if ( shouldZoomIn || shouldZoomOut )
+		{
+			if ( shouldZoomIn )
+				thread ZoomInCameraToWeaponCharm( weaponModel, weaponMover, armoryScale )
+			else
+				thread ZoomOutCameraToWeaponSkin( weaponModel, weaponSkin, charmFlavor, weaponMover, armoryScale, weaponFlavor )
+		}
+		else
+		{
+			weaponMover.SetOrigin( ModelData_GetBaseOrigin( file.customizeWeapon ) + modelOffset )
+		}
+		UpdateWeaponLights( weaponModel, WEAPON_LIGHT_RIG_OFFSET + EXTRA_LIGHT_RIG_ROTATION, weaponSkin )
+		UpdateReactiveWeaponModel( weaponSkin, weaponFlavor, weaponModel )
+
+		if ( ItemFlavor_GetQuality( weaponSkin ) == eRarityTier.MYTHIC )
+			weaponModel.SetPoseParameter( MYTHIC_301_LOBBY_POSE_PARAM, 1.0 )
+
+		if ( WeaponItemFlavor_GetStatsCategory( weapon ) == WEAPON_STAT_CATEGORY_ORDNANCE )
+		{
+			if ( ItemFlavor_GetGUID( weapon ) == THERMITE_WEAPON_GUID )
+				OnWeaponActivate_ThermiteGrenade( weaponModel )
+			else
+				Grenade_OnWeaponActivate( weaponModel )
+		}
+
+		asset animSeq = WeaponSkin_GetMenuAnimSeq( weaponSkin )
+		if ( animSeq != $"" )
+			weaponModel.Anim_Play( animSeq )
+	}
+	
+	if ( shouldHighlightWeapon )
+	{
+		vector flashColor = ItemFlavor_HasQuality( weaponSkin ) ? ItemFlavor_GetQualityColor( weaponSkin ) / 255 : MENU_MODELS_DEFAULT_HIGHLIGHT_COLOR / 255
+		thread FlashMenuModel( weaponModel, eMenuModelFlashType.DEFAULT, flashColor, false )
+	}
+
+	if ( !WeaponCharm_IsTheEmpty( charmFlavor ) )
+	{
+		entity charmEntity = GetCharmForWeaponEntity( weaponModel )
+		vector flashColor = ItemFlavor_HasQuality( charmFlavor ) ? ItemFlavor_GetQualityColor( charmFlavor ) / 255 : MENU_MODELS_DEFAULT_HIGHLIGHT_COLOR / 255
+		thread FlashMenuModel( charmEntity, eMenuModelFlashType.DEFAULT, flashColor )
+	}
+
+	if ( !shouldAllowZoom )
+	{
+		CameraZoomThreadEnd()
+	}
+}
+
+#if DEV
+void function DEV_ChangeCustomizeWeaponModelPosition( vector offset )
+{
+	entity weaponMover = ModelData_GetMover( file.customizeWeapon )
+	weaponMover.SetOrigin( ModelData_GetBaseOrigin( file.customizeWeapon ) + offset )
+}
+#endif
+
+#if DEV
+
+
+
+
+
+
+
+
+#endif
+
+#if DEV
+void function DEV_ChangeWeaponOverviewModelPosition( vector offset )
+{
+	entity weaponMover = ModelData_GetMover( file.weaponOverviewModelData )
+	weaponMover.SetOrigin( ModelData_GetBaseOrigin( file.weaponOverviewModelData ) + offset )
+}
+#endif
+
+#if DEV
+void function DEV_ChangeCameraFoV( float newFov )
+{
+	clGlobal.menuCamera.SetFOV( newFov )
+}
+#endif
+
+#if DEV
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#endif
+
+void function UpdateReactiveWeaponModel( ItemFlavor weaponSkin, ItemFlavor weaponFlavor, entity weaponModel )
+{
+	bool isReactive = WeaponSkin_DoesReactToKills( weaponSkin )
+
+	
+	string weaponName = WeaponItemFlavor_HasTakeover( weaponFlavor ) ? WeaponItemFlavor_GetTakeoverClassname( weaponFlavor ) : WeaponItemFlavor_GetClassname( weaponFlavor )
+	ShowDefaultBodygroupsOnFakeWeapon( weaponModel, weaponName )
+
+	if ( isReactive )
+		MenuWeaponModel_ApplyReactiveSkinBodyGroup( weaponSkin, weaponName, weaponModel )
+
+	MenuWeaponModel_ClearReactiveEffects( weaponModel )
+	if ( isReactive )
+	{
+		weaponModel.Anim_SetPaused( false )
+		MenuWeaponModel_Start3PReactiveEffects( weaponModel, weaponSkin, true )
+	}
+	else
+		weaponModel.Anim_SetPaused( true )
+}
+
+void function UIToClient_OverviewWeaponStopReactiveEffect()
+{
+	entity weaponModel = ModelData_GetModel( file.weaponOverviewModelData )
+	MenuWeaponModel_ClearReactiveEffects( weaponModel )
+}
+
+void function UpdateModelsforStoreItem( vector origin, vector moverAngles, vector modelAngles, asset modelAsset, float modelScale )
+{
+	ModelData_SetBaseOrigin( file.storeInspectModelData, origin )
+	ModelData_SetBaseAngles( file.storeInspectModelData, moverAngles )
+	entity model = CreateMenuModel( file.storeInspectModelData, modelAsset )
+	if ( IsValid( file.storeInspectModelData.mover ) )
+	{
+		file.storeInspectModelData.mover.Destroy()
+		ModelData_CreateMover( file.storeInspectModelData )
+	}
+	ModelData_SetBaseAngles( file.storeInspectModelData, modelAngles )
+	model.SetModelScale( modelScale )
+}
+
+void function UpdateStoreItemDisplay_ApexPack( ItemFlavor item )
+{
+	Assert( ItemFlavor_GetType( item ) == eItemType.account_pack )
+
+	entity refEnt = file.storeInspectRefEnt
+	vector origin = refEnt.GetOrigin() + <0, 0, -4.5>
+	vector angles = refEnt.GetAngles()
+
+	asset modelAsset = GRXPack_GetTickModel( item )
+	const float modelScale = 1.111111
+
+	UpdateModelsforStoreItem( origin, angles, AnglesCompose( angles, <0, 135, 0> ), modelAsset, modelScale )
+
+	string skin = GRXPack_GetTickModelSkin( item )
+	entity model = ModelData_GetModel( file.storeInspectModelData )
+	model.SetSkin( model.GetSkinIndexByName( skin ) )
+}
+
+void function UpdateStoreItemDisplay_Currency( ItemFlavor item )
+{
+	Assert( ItemFlavor_GetType( item ) == eItemType.account_currency || ItemFlavor_GetType( item ) == eItemType.account_currency_bundle )
+
+	
+	entity refEnt = file.storeInspectRefEnt
+	vector origin = refEnt.GetOrigin() + <0, 0, 26>
+	vector angles = refEnt.GetAngles()
+	const float modelScale = 2
+
+	asset modelAsset = $"mdl/dev/empty_model.rmdl"
+	int rarity       = 0
+	if ( ItemFlavor_HasQuality( item ) )
+		rarity = ItemFlavor_GetQuality( item )
+
+	if ( ItemFlavor_GetType( item ) == eItemType.account_currency )
+	{
+		if ( GRXCurrency_GetPreviewModel( item ) != $"" )
+			modelAsset = GRXCurrency_GetPreviewModel( item )
+	}
+	else
+	{
+		asset itemAsset = ItemFlavor_GetAsset( item )
+		Assert( itemAsset == $"settings/itemflav/currency_bundle/crafting_common.rpak" ||
+		itemAsset == $"settings/itemflav/currency_bundle/crafting_rare.rpak" ||
+		itemAsset == $"settings/itemflav/currency_bundle/crafting_epic.rpak" ||
+		itemAsset == $"settings/itemflav/currency_bundle/crafting_legendary.rpak" ||
+		itemAsset == $"settings/itemflav/currency_bundle/heirloom.rpak" )
+
+		switch ( rarity )
+		{
+			case eRarityTier.COMMON:
+				modelAsset = CURRENCY_MODEL_COMMON
+				break
+
+			case eRarityTier.RARE:
+				modelAsset = CURRENCY_MODEL_RARE
+				break
+
+			case eRarityTier.EPIC:
+				modelAsset = CURRENCY_MODEL_EPIC
+				break
+
+			case eRarityTier.LEGENDARY:
+				string alias = ItemFlavor_GetGRXAlias( item )
+				if ( alias == "exotic" || alias == "currency_bundle_exotic" )
+					modelAsset = CURRENCY_MODEL_EXOTIC
+				else
+					modelAsset = CURRENCY_MODEL_LEGENDARY
+				break
+
+			case eRarityTier.MYTHIC:
+				ItemFlavor currencyFlav = GRXCurrencyBundle_GetCurrencyFlav( item )
+				modelAsset = GRXCurrency_GetPreviewModel( currencyFlav )
+				break
+
+			default: Assert( false )
+		}
+	}
+
+	UpdateModelsforStoreItem( origin, angles, AnglesCompose( angles, <0, 135, 0> ), modelAsset, modelScale )
+}
+
+void function UpdateStoreItemDisplay_Character( ItemFlavor item )
+{
+	Assert( ItemFlavor_GetType( item ) == eItemType.character )
+
+	ItemFlavor characterSkin = CharacterClass_GetDefaultSkin( item )
+	UpdateStoreItemDisplay_CharacterSkin( characterSkin )
+}
+
+void function UpdateStoreItemDisplay_CharacterSkin( ItemFlavor item )
+{
+	Assert( ItemFlavor_GetType( item ) == eItemType.character_skin )
+
+	entity refEnt = file.storeInspectRefEnt
+	vector origin = refEnt.GetOrigin() + <0, 0, -38> + CharacterClass_GetItemInspectOffset( CharacterSkin_GetCharacterFlavor( item ) )
+	vector angles = refEnt.GetAngles()
+
+	asset modelAsset = CharacterSkin_GetBodyModel( item )
+	const float MODEL_SCALE_STORE_INSPECT = 1.555556
+	const float MODEL_SCALE_STORE_INSPECT_LOOT_POOL = 1.4
+
+	float modelScale = file.desiredPresentationType == ePresentationType.STORE_INSPECT_LOOT_POOL ? MODEL_SCALE_STORE_INSPECT_LOOT_POOL : MODEL_SCALE_STORE_INSPECT
+
+	UpdateModelsforStoreItem( origin, angles, angles, modelAsset, modelScale )
+
+	entity model = ModelData_GetModel( file.storeInspectModelData )
+	entity mover = ModelData_GetMover( file.storeInspectModelData )
+	CharacterSkin_Apply( model, item )
+	thread PlayAnim( model, "ACT_MP_MENU_LOOT_CEREMONY_IDLE", mover )
+}
+
+void function UpdateStoreItemDisplay_WeaponSkin( ItemFlavor item )
+{
+	Assert( ItemFlavor_GetType( item ) == eItemType.weapon_skin )
+
+	entity refEnt = file.storeInspectRefEnt
+	vector origin = refEnt.GetOrigin() + <0, 0, 26.6>
+	vector moverAngles = refEnt.GetAngles()
+	vector baseAngles = refEnt.GetAngles()
+
+	ItemFlavor weapon = WeaponSkin_GetWeaponFlavor( item )
+	asset modelAsset = WeaponSkin_GetViewModel( item )
+	ModelData_SetBaseOrigin( file.storeInspectModelData, origin )
+
+	float modelScale = 1.0
+	vector modelOffset = < 0,0,0 >
+	
+	entity cameraTarget = file.cameraTargets[ eCameraTargetNames.store_inspect_camera_target ]
+	vector baseOffset = GetWeaponOffsetFromCameraToOrigin( cameraTarget, < 0,0,0 >, ModelData_GetBaseOrigin( file.storeInspectModelData ), WeaponItemFlavor_GetStoreInspectOffset( weapon ) )
+	file.weaponVectorScale = WeaponItemFlavor_GetStoreInspectVectorScale( weapon )
+	modelOffset = baseOffset * file.weaponVectorScale
+	baseAngles += WeaponItemFlavor_GetStoreInspectAngleOffset( weapon )
+	UpdateModelsforStoreItem( origin + modelOffset, moverAngles, baseAngles, modelAsset, modelScale )
+
+	entity model = ModelData_GetModel( file.storeInspectModelData )
+	model.Anim_SetPaused( true )
+	WeaponCosmetics_Apply( model, item, null )
+
+	vector extraRotation = <11, -45, 0>
+	vector originOffset = GetAttachmentOriginOffset( model, "MENU_ROTATE", extraRotation )
+	model.SetLocalOrigin( originOffset )
+	model.SetLocalAngles( extraRotation )
+
+	UpdateWeaponLights( model, WEAPON_LIGHT_RIG_OFFSET, item )
+	UpdateReactiveWeaponModel( item, weapon, model )
+
+	if ( ItemFlavor_GetQuality( item ) == eRarityTier.MYTHIC )
+		model.SetPoseParameter( MYTHIC_301_LOBBY_POSE_PARAM, 1.0 )
+
+	if ( WeaponItemFlavor_GetStatsCategory( weapon ) == WEAPON_STAT_CATEGORY_ORDNANCE )
+	{
+		if ( ItemFlavor_GetGUID( weapon ) == THERMITE_WEAPON_GUID )
+			OnWeaponActivate_ThermiteGrenade( model )
+		else
+			Grenade_OnWeaponActivate( model )
+	}
+
+	asset animSeq = WeaponSkin_GetMenuAnimSeq( item )
+	if ( animSeq != $"" )
+		model.Anim_Play( animSeq )
+}
+
+void function UpdateStoreItemDisplay_Deathbox( ItemFlavor item )
+{
+	Assert( ItemFlavor_GetType( item ) == eItemType.artifact_component_deathbox )
+
+	entity refEnt = file.storeInspectRefEnt
+	vector origin = refEnt.GetOrigin() + <0, 0, 15>
+	vector angles = refEnt.GetAngles()
+
+	UpdateModelsforStoreItem( origin, angles, angles, Artifacts_GetDeathboxModel( item ), 1.0 )
+	entity model = ModelData_GetModel( file.storeInspectModelData )
+	model.SetLocalAngles( <10, -45, -8> )
+
+	string skinName = Deathbox_GetSkinName( item )
+	if ( skinName != "" )
+	{
+		int skinIdx = model.GetSkinIndexByName( skinName )
+		if ( skinIdx != -1 )
+			model.SetSkin( skinIdx )
+	}
+
+	MenuModel_Start3PDeathboxEffects( model, item )
+	MenuModel_UpdateDeathboxLights( model, origin, item )
+}
+
+
+vector function GetWeaponOffsetFromCameraToOrigin( entity cameraTarget, vector cameraOffset, vector position, vector baseOffset)
+{
+	vector cameraCurrentPos  = cameraTarget.GetOrigin() + cameraOffset
+	vector modelBasePosition = position + baseOffset
+	return cameraCurrentPos - modelBasePosition
+}
+
+
+
+vector function GetWeaponOffsetFromCameraPositionToOrigin( vector cameraPosition, vector position, vector baseOffset)
+{
+	vector modelBasePosition = position + baseOffset
+	return cameraPosition - modelBasePosition
+}
+
+
+void function UpdateStoreItemDisplay_WeaponVideo( ItemFlavor item )
+{
+	Assert( ItemFlavor_GetType( item ) == eItemType.weapon_skin || ItemFlavor_GetType( item ) == eItemType.weapon_addon )
+
+	entity refEnt        = file.storeInspectRefEnt
+	vector origin        = refEnt.GetOrigin() + <0, 0, 31>
+	vector angles        = refEnt.GetAngles()
+	vector placardAngles = AnglesCompose( angles, <0, 180, 0> )
+
+	const asset ruiAsset = $"ui/finisher_video.rpak"
+	const float ruiAspectRatio = 1920.0 / 1080.0
+	const float ruiHeight = 52
+	const float ruiWidth = ruiHeight * ruiAspectRatio
+
+	var topo         = CreateRUITopology_Worldspace( origin, placardAngles, ruiWidth, ruiHeight )
+	var rui          = RuiCreate( ruiAsset, topo, RUI_DRAW_VIEW_MODEL, 0 )
+	int videoChannel = ReserveVideoChannel()
+
+	RuiSetInt( rui, "channel", videoChannel )
+	StartVideoOnChannel( videoChannel, WeaponSkin_GetVideo( item ), true, 0.0 )
+
+	file.topo         = topo
+	file.rui          = rui
+	file.videoChannel = videoChannel
+}
+
+void function UpdateWeaponOverviewDisplay_WeaponSkin( ItemFlavor item )
+{
+	Assert( ItemFlavor_GetType( item ) == eItemType.weapon_skin )
+
+	ItemFlavor weapon = WeaponSkin_GetWeaponFlavor( item )
+
+	entity refEnt = file.weaponOverviewRefEnt
+	vector origin = refEnt.GetOrigin() + <-25, 0, 29.6>
+	vector angles = refEnt.GetAngles() + <4, -15, 15> + MainWeapon_GetLoadoutOverviewRotation( weapon )
+
+	asset modelAsset = WeaponSkin_GetViewModel( item )
+	float modelScale = 1.0
+
+	ModelData_SetBaseOrigin( file.weaponOverviewModelData, origin )
+
+	vector modelOffset = < 0,0,0 >
+	
+	entity cameraTarget = file.cameraTargets[ eCameraTargetNames.weapon_mastery_inspect_camera_target ]
+	vector baseOffset = GetWeaponOffsetFromCameraToOrigin( cameraTarget, < 0,0,0 >, ModelData_GetBaseOrigin( file.weaponOverviewModelData ), WeaponItemFlavor_GetOverviewOffset( weapon ) )
+	file.weaponVectorScale = WeaponItemFlavor_GetOverviewVectorScale( weapon )
+	modelOffset = baseOffset * file.weaponVectorScale
+
+	UpdateModelsforWeaponOverview( origin + modelOffset, angles, angles, modelAsset, modelScale )
+
+	entity model = ModelData_GetModel( file.weaponOverviewModelData )
+	model.Anim_SetPaused( true )
+	WeaponCosmetics_Apply( model, item, null )
+
+	vector extraRotation = <11, -45, 0>
+	vector originOffset = GetAttachmentOriginOffset( model, "MENU_ROTATE", extraRotation )
+	model.SetLocalOrigin( originOffset )
+	model.SetLocalAngles( extraRotation )
+
+	const vector extraLightRigRotation = <0, 0, 45> 
+	UpdateWeaponLights( model, WEAPON_LIGHT_RIG_OFFSET + extraLightRigRotation, item )
+	UpdateReactiveWeaponModel( item, weapon, model )
+
+	if ( ItemFlavor_GetQuality( item ) == eRarityTier.MYTHIC )
+		model.SetPoseParameter( MYTHIC_301_LOBBY_POSE_PARAM, 1.0 )
+
+	asset animSeq = WeaponSkin_GetMenuAnimSeq( item )
+	if ( animSeq != $"" )
+		model.Anim_Play( animSeq )
+}
+
+void function UpdateModelsforWeaponOverview( vector origin, vector moverAngles, vector modelAngles, asset modelAsset, float modelScale )
+{
+	ModelData_SetBaseOrigin( file.weaponOverviewModelData, origin )
+	ModelData_SetBaseAngles( file.weaponOverviewModelData, moverAngles )
+	entity model = CreateMenuModel( file.weaponOverviewModelData, modelAsset )
+	if ( IsValid( file.weaponOverviewModelData.mover ) )
+	{
+		file.weaponOverviewModelData.mover.Destroy()
+		ModelData_CreateMover( file.weaponOverviewModelData )
+	}
+	ModelData_SetBaseAngles( file.weaponOverviewModelData, modelAngles )
+	model.SetModelScale( modelScale )
+}
+
+void function UpdateModelsforMeleeInspect( vector origin, vector moverAngles, vector modelAngles, asset modelAsset, float modelScale )
+{
+	ModelData_SetBaseOrigin( file.meleeInspectModelData, origin )
+	ModelData_SetBaseAngles( file.meleeInspectModelData, moverAngles )
+	entity model = CreateMenuModel( file.meleeInspectModelData, modelAsset )
+	if ( IsValid( file.meleeInspectModelData.mover ) )
+	{
+		file.meleeInspectModelData.mover.Destroy()
+		ModelData_CreateMover( file.meleeInspectModelData )
+	}
+	ModelData_SetBaseAngles( file.meleeInspectModelData, modelAngles )
+	model.SetModelScale( modelScale )
+}
+
+void function UpdateMeleeInspectDisplay( ItemFlavor item )
+{
+	
+	
+
+	Assert( ItemFlavor_GetType( item ) == eItemType.melee_skin )
+
+	ItemFlavor meleeWeapon = Melee_GetWeaponForSkin( item )
+	entity refEnt = file.meleeInspectRefEnt
+	vector origin = refEnt.GetOrigin() + <-10, 0, 42> + MeleeWeapon_GetItemInspectOffset( meleeWeapon )
+	vector angles = refEnt.GetAngles()
+
+	asset modelAsset = MeleeSkin_GetMenuModel( item )
+
+	float inspectVectorScale = MeleeWeapon_GetInspectVectorScale( meleeWeapon )
+	if ( inspectVectorScale != 0.0 )
+	{
+		UpdateModelsforMeleeInspect( origin, angles, angles, modelAsset, 1.0 )
+
+		int cameraTargetIndex = eCameraTargetNames.customize_character_camera_target
+		vector cameraOrigin = file.cameraStartOriginsAngles[ cameraTargetIndex ]["origin"]
+		vector baseOffset = GetWeaponOffsetFromCameraPositionToOrigin( cameraOrigin, ModelData_GetBaseOrigin( file.meleeInspectModelData ), <0, 0, 0> )
+		vector modelOffset = baseOffset * inspectVectorScale
+		file.meleeInspectModelData.mover.SetOrigin( ModelData_GetBaseOrigin( file.meleeInspectModelData ) + modelOffset )
+	}
+	else
+	{
+		float modelScale = MeleeWeapon_GetItemInspectScale( meleeWeapon ) * 4.444444
+		UpdateModelsforMeleeInspect( origin, angles, angles, modelAsset, modelScale )
+	}
+
+	entity model = ModelData_GetModel( file.meleeInspectModelData )
+
+	vector extraRotation = MeleeWeapon_GetMenuModelRotation( meleeWeapon )
+	vector originOffset = GetAttachmentOriginOffset( model, "MENU_ROTATE", extraRotation )
+	model.SetLocalOrigin( originOffset )
+	model.SetLocalAngles( extraRotation )
+
+	if ( Artifacts_Loadouts_IsConfigPointerItemFlavor( item ) )
+	{
+		entity lcPlayer = GetLocalClientPlayer()
+
+		if ( lcPlayer.p.artifactConfig == null )
+			return
+
+		ArtifactConfig artifactConfig = expect ArtifactConfig( lcPlayer.p.artifactConfig )
+
+		int setIndex = eArtifactSetIndex._EMPTY
+		if ( !Artifacts_IsEmptyComponent( artifactConfig.theme ) )
+			setIndex = Artifacts_GetSetIndex( artifactConfig.theme )
+		else
+			setIndex = Artifacts_GetSetIndex( artifactConfig.blade )
+
+		Assert( setIndex != eArtifactSetIndex._EMPTY )
+
+		Artifacts_Loadouts_ApplyModelForSet( model, setIndex )
+		Artifacts_Loadouts_PreviewBladeAndPowerSource( model, artifactConfig.blade, artifactConfig.powerSource )
+		Artifacts_Loadouts_PreviewTheme( model, artifactConfig.theme )
+	}
+
+	asset animSeq = MeleeSkin_GetMenuInspectAnimSeq( item )
+	if ( animSeq != $"" )
+		model.Anim_Play( animSeq )
+	model.Anim_Stop()
+
+	string skinName = MeleeSkin_GetSkinName( item )
+	if ( skinName != "" )
+	{
+		int skinIdx = model.GetSkinIndexByName( skinName )
+		if ( skinIdx != -1 )
+			model.SetSkin( skinIdx )
+	}
+
+	if ( inspectVectorScale != 0.0 )
+		UpdateWeaponLights( model, WEAPON_LIGHT_RIG_OFFSET + WEAPON_LIGHT_RIG_OFFSET, meleeWeapon )
+}
+
+void function UpdateStoreItemDisplay_WeaponCharm( ItemFlavor item )
+{
+	Assert( ItemFlavor_GetType( item ) == eItemType.weapon_charm )
+
+	const vector WEAPON_CHARM_ANGLES = <-5, -140, -2>
+
+	entity refEnt = file.storeInspectRefEnt
+	vector angles = refEnt.GetAngles() + <-7, 1, -3>
+	vector origin = refEnt.GetOrigin() + <4, 0, 39.6> + -3.6 * AnglesToRight( angles )
+
+	const float modelScale = 9.333333
+
+	UpdateModelsforStoreItem( origin, angles, AnglesCompose( angles, WEAPON_CHARM_ANGLES ), $"mdl/techart/mshop/weapons/class/smg/alternator/alternator_base_v.rmdl", modelScale )
+
+	entity weaponEnt = ModelData_GetModel( file.storeInspectModelData )
+	weaponEnt.SetSkin( weaponEnt.GetSkinIndexByName( "

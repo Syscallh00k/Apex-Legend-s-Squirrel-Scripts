@@ -1,0 +1,885 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global function ToEHI
+global function FromEHI
+global function EHIToEncodedEHandle
+global function EncodedEHandleToEHI
+global function EHIHasValidScriptStruct
+global function GetEHIScriptStruct
+global function GetEHIScriptStructFromEncodedEHandle
+global function GetEHISignalDummy
+global function WaitForEHISignalDummy
+global function EHI_IsConnected
+global function EHI_GetName
+global function EEH_GetTeam
+global function EHI_GetTeam
+global function EEH_GetTeamMemberIndex
+global function EHI_GetTeamMemberIndex
+global function GetPlayerEHIArrayOfTeam
+global function GetPlayerSquadSafe
+global function EEHHasValidScriptStruct
+
+
+
+global function IsLocalClientEHIValid
+global function LocalClientEHI
+global function WaitForLocalClientEHI
+global function EHI_GetPlatformID
+
+
+
+global function ShEHI_LevelInit_Begin
+global function ShEHI_LevelInit_End
+
+
+
+
+
+global function ShEHI_OnPlayerCreated
+global function ShEHI_OnPlayerChangedTeam
+global function ShEHI_OnPlayerDisconnected
+global function UIToClient_UIVMIsShuttingDown
+global function UIToClient_UIVMJustStarted
+global function GetDisplayablePlayerName
+global function GetDisplayablePlayerNameFromEHI
+global function GetKillerNameFromEHI
+global function GetPlayerRankScoreFromEHI
+global function GetPlayerLadderPosFromEHI
+global function GetPlayerRankScorePrevSeasonFromEHI
+global function GetPlayerLadderPosPrevSeasonFromEHI
+
+global function GetPlayerArenasRankScoreFromEHI
+global function GetPlayerArenasLadderPosFromEHI
+
+
+
+
+
+
+
+global function GetPlayerNameUnlessAnonymized
+global function ShouldPlayerNameBeAnonymized
+global function GetCachedObsfuscatedNameByName
+global function GetEHIFromUID
+
+
+
+global function UIToClient_UpdateLocalPlayerTag
+
+
+
+
+
+
+
+
+struct FileStruct_LifetimeLevel
+{
+	table<EncodedEHandle, EHIScriptStruct> eehScriptStructMap = {}
+
+
+		EHI                   localClientEHI = EHI_null
+		table<string, string> obfuscatedNameMap
+
+
+
+		bool uiVMIsResetting = false
+
+
+	table signalDummy
+}
+
+
+FileStruct_LifetimeLevel fileLevel
+
+
+
+
+
+
+
+
+
+
+
+void function ShEHI_LevelInit_Begin()
+{
+
+		RegisterSignal( "OnLocalClientEHIValid" )
+		RegisterSignal( "EHISignalDummyCreated" )
+
+
+
+
+
+
+
+
+
+
+
+		AddCallback_GameStateEnter( eGameState.Playing, EHI_GameStatePlaying )
+
+}
+
+void function ShEHI_LevelInit_End()
+{
+
+
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+EHI function ToEHI( entity ent )
+{
+
+
+
+		if ( !IsValid( ent ) )
+			return EHI_null
+
+		return ent.GetEncodedEHandle()
+
+
+
+
+
+}
+
+entity function FromEHI( EHI ent )
+{
+
+
+
+		if ( ent == EHI_null )
+			return null
+
+		return GetEntityFromEncodedEHandle( ent )
+
+
+
+
+
+}
+
+EncodedEHandle function EHIToEncodedEHandle( EHI ent )
+{
+
+
+
+
+
+		return ent
+
+}
+
+EHI function EncodedEHandleToEHI( EncodedEHandle eeh )
+{
+
+
+
+		return eeh
+
+}
+
+bool function EHIHasValidScriptStruct( EHI ent )
+{
+	
+	
+
+
+
+
+		return (ent != EHI_null && ent in fileLevel.eehScriptStructMap)
+
+}
+
+EHIScriptStruct function GetEHIScriptStruct( EHI ent )
+{
+
+
+
+
+		Assert( ent != EHI_null )
+		return fileLevel.eehScriptStructMap[ent]
+
+}
+
+bool function EEHHasValidScriptStruct( EncodedEHandle ent )
+{
+	return (ent != EncodedEHandle_null && ent in fileLevel.eehScriptStructMap)
+}
+
+EHIScrScriptStructFromEncodedEHandle( ent ).team
+}
+
+int function EHI_GetTeam( EHI ent )
+{
+
+
+
+
+		Assert( ent != EHI_null )
+		return GetEHIScriptStruct( ent ).team
+
+}
+
+int function EEH_GetTeamMemberIndex( EncodedEHandle ent )
+{
+	Assert( ent != EncodedEHandle_null )
+	return GetEHIScriptStructFromEncodedEHandle( ent ).teamMemberIndex
+}
+
+int function EHI_GetTeamMemberIndex( EHI ent )
+{
+
+
+
+
+		Assert( ent != EHI_null )
+		return GetEHIScriptStruct( ent ).team = newTeam
+
+
+		int pID = -1
+		pID = player.e.ehiss.platformID
+
+		Assert( player.e.ehiss.ehi != EHI_null )
+		RunUIScript( "ClientToUI_OnPlayerCreatedOrUpdated", player.e.ehiss.ehi,
+			player.e.ehiss.isLocalClientPlayer,
+			player.e.ehiss.isConnected,
+			player.e.ehiss.name,
+			player.e.ehiss.tag,
+			player.e.ehiss.team,
+			player.e.ehiss.teamMemberIndex,
+			pID
+		)
+
+}
+
+
+
+
+void function ShEHI_OnPlayerDisconnected( entity player )
+{
+	if ( player. == LocalClientEHI()
+
+	int playerTeam = EHI_GetTeam( playerEHI )
+	int localPlayerTeam = EHI_GetTeam( LocalClientEHI() )
+	if ( AllianceProximity_IsUsingAlliances() )
+	{
+		
+		
+		
+		playerTeam = AllianceProximity_GetOriginalPlayerTeam_FromPlayerEHI( playerEHI )
+		localPlayerTeam = AllianceProximity_GetOriginalPlayerTeam_FromPlayerEHI( LocalClientEHI() )
+	}
+
+	if ( isSetToObsfuscatedName && !isPlayerEHISameAsLocalClientEHI && !IsFriendlyTeam( playerODE_CONVAR_NAME )
+}
+
+[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/sh_debug_colors.gnut.client
+[dump] scripts/vscripts/sh_debug_colors.gnut.client (1869 bytes)global const vector COLOR_RED 			= <255,   0,   0>
+global const vector COLOR_DARK_RED		= <139,   0,   0>
+global const vector COLOR_LIGHT_RED		= <255, 127, 127>
+global const vector COLOR_PINK			= <255, 105, 180>
+global const vector COLOR_LIGHT_PINK	= <255, 182, 193>
+global const vector COLOR_DARK_PINK		= <255,  20, 147>
+global const vector COLOR_SALMON		= <250, 128, 114>
+global const vector COLOR_MAROON		= <128,   0,   0>
+global const vector COLOR_BROWN			= <165,  42,  42>
+
+global const vector COLOR_YELLOW		= <255, 255,   0>
+global const vector COLOR_LIGHT_YELLOW	= <255, 255, 153>
+global const vector COLOR_DARK_YELLOW	= <153, 153,   0>
+
+global const vector COLOR_GOLDEN_ROD	= <218, 165,  32>
+global const vector COLOR_CORAL			= <255, 128,  80>
+global const vector COLOR_ORANGE		= <255, 165,   0>
+
+global const vector COLOR_BLUE			= <  0,   0, 255>
+global const vector COLOR_DARK_BLUE		= <  0,   0, 139>
+global const vector COLOR_LIGHT_BLUE	= <135, 206, 250>
+global const vector COLOR_NAVY			= <  0,   0, 128>
+global const vector COLOR_AQUA			= <176, 224, 230>
+global const vector COLOR_CYAN			= <  0, 255, 255>
+global const vector COLOR_DARK_CYAN		= <  0, 139, 139>
+
+global const vector COLOR_GREEN			= <  0, 255,   0>
+global const vector COLOR_DARK_GREEN	= <  0, 128,   0>
+global const vector COLOR_LIGHT_GREEN	= <100, 255, 170>
+
+global const vector COLOR_OLIVE			= <128, 128,   0>
+global const vector COLOR_DARK_OLIVE	= < 85, 107,  47>
+
+global const vector COLOR_MAGENTA		= <255,   0, 255>
+global const vector COLOR_PURPLE		= <128,   0, 128>
+global const vector COLOR_INDIGO		= < 75,   0, 130>
+global const vector COLOR_LAVENDER		= <230, 230, 250>
+
+global const vector COLOR_BLACK			= <105, 105, 105>
+global const vector COLOR_DARK_GRAY		= <128, 128, 128>
+global const vector COLOR_G[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/clui_utility.gnut.client
+[dump] scripts/vscripts/clui_utility.gnut.client (14000 bytes)JumpJetsRefueled_Init()
+
+
+
+		MpAbilityHoverboard_Init()
+
+
+
+		ShPassiveMantleBoost_Init()
+
+
+	MpAbilityCausticResearch_Init()
+
+
+
+
+
+
+		MpPassiveShoulderBash_Init()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+		ShPassiveKnockAdrenaline_Init()
+
+
+
+
+
+
+
+		AprilFools_Init()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+}
+
+bool function GetReplayDisabled()
+{
+	return GetGlobalNonRewindNetBool( "replayDisabled" )
+}
+
+bool function IsRoundWinningKillReplayEnabled()
+{
+	return GetGlobalNonRewindNetBool("roundWinningKillReplayEnabled")
+}
+
+bool function IsRoundWinningKillReplayPlaying()
+{
+	return GetGlobalNonRewindNetBool( "roundWinningKillReplayPlaying" )
+}
+
+float function GetRoundWinningKillReplayStartupWait()
+{
+	return GetCurrentPlaylistVarFloat( "round_winning_kill_replay_startup_wait", 2.1 )
+}
+
+float function GetRoundWinningKillReplayLength()
+{
+	return GetCurrentPlaylistVarFloat( "round_winning_kill_replay_lengt[LoadScriptFile] self 0x7ff67896f188  out 0x24c2dad080  path : maps/mp_lobby.bsp.0023.bsp_lump.client
+h", 5.9 )
+}
+
+float function GetRoundWinningKillReplayTotalLength()
+{
+	return GetRoundWinningKillReplayStartupWait() + GetRoundWinningKillReplayLength()
+}
+
+bool function IsValid_ThisFrame( entity ent )
+{
+	if ( ent == null )
+		return false
+
+	return expect bool( ent.IsValidInternal() )
+}
+
+
+bool function IsAlive( entity ent )
+{
+	if ( ent == null )
+		return false
+
+	if ( !ent.IsValidInternal() )
+		return false
+
+	return ent.IsEntAlive()
+}
+
+bool function IsAliveOrViewingPreGamePreview( entity ent )
+{
+	return IsAlive( ent ) || GetGameState() == eGameState.PreGamePreview
+}
+
+bool function ControlPanel_IsControlPanelModel( asset controlPanelModel )
+{
+	array<string> validModels
+	validModels.append( "mdl/communication/terminal_usable_imc_01.rmdl" )
+	validModels.append( "mdl/communication/terminal_usable_imc_02.rmdl" )
+	validModels.append( "mdl/props/terminal_usable_wall_01_animated/terminal_usable[dump] maps/mp_lobby.bsp.0023.bsp_lump.client (1 bytes)_wall_01_animated.rmdl" )
+	validModels.append( "mdl/props/terminal_usable_cpit_01_animated/terminal_usable_cpit_01_animated.rmdl" )
+	validModels.append( "mdl/props/pathfinder_beacon_radar/pathfinder_beacon_radar_animated.rmdl" )
+	validModels.append( "mdl/props/specter_shack_control/specter_shack_control.rmdl" )
+
+
+		validModels.append( "mdl/props/recon_beacon_dish/recon_beacon_dish.rmdl" )
+		validModels.append( "mdl/props/controller_console/controller_console.rmdl" )
+
+
+	return validModels.contains( string( controlPanelModel ) )
+}
+
+bool function ControlPanel_IsValidModel( entity controlPanel )
+{
+	return ControlPanel_IsControlPanelModel( controlPanel.GetModelName() )
+}
+
+
+bool function ControlPanel_CanUseFunction( entity playerUser, entity controlPanel, int useFlags )
+{
+	if ( Bleedout_IsBleedingOut( playerUser ) || playerUser.p.isInExtendedUse )
+		return false
+
+	bool canUseWhileParented = EntIsHoverVehicle( playerUser.GetParent() ) && StatusEffect_HasSeverity( playerUser, eStatusEffect.camera_view )	
+	if ( IsValid( playerUser.GetParent() ) && !canUseWhileParented )
+		return false
+
+	entity activeWeapon = playerUser.GetActiveWeapon( eActiveInventorySlot.mainHand )
+	if ( IsValid( activeWeapon ) )
+	{
+		if( activeWeapon.IsWeaponOffhand() )
+		{
+			var offhandAllowsPickups = activeWeapon.GetWeaponInfoFileKeyField( "offhand_allow_player_interact" )
+			if ( !offhandAllowsPickups || offhandAllowsPickups <= 0 )
+				return false
+		}
+	}
+
+
+		if ( TitanSword_Super_BlockAction( playerUser, "control_panel" ) )
+			return false
+
+
+	
+	if ( !IsPlayerInCryptoDroneCameraView( playerUser ) )
+	{
+		float verticalOffset = playerUser.GetOrigin().z - controlPanel.GetOrigin().z
+		if ( verticalOffset > 50 || verticalOffset < -50 )
+			return false
+	}
+
+	
+	int maxAngleToAxisAllowedDegrees = 60
+
+	vector playerEyePos = playerUser.EyePosition()
+	int attachmentIndex = controlPanel.LookupAttachment( "PANEL_SCREEN_MIDDLE" )
+
+	Assert( attachmentIndex != 0 )
+	vector controlPanelScreenPosition = controlPanel.GetAttachmentOrigin( attachmentIndex )
+	vector controlPanelScreenAngles   = controlPanel.GetAttachmentAngles( attachmentIndex )
+	vector controlPanelScreenForward  = AnglesToForward( controlPanelScreenAngles )
+
+	vector screenToPlayerEyes = Normalize( playerEyePos - controlPanelScreenPosition )
+
+	return DotProduct( screenToPlayerEyes, controlPanelScreenForward ) > deg_cos( maxAngleToAxisAllowedDegrees )
+}
+
+array<entity> function GetNearbyEnemiesArray( entity projectile, int playerTeam, float radius, bool includeNpcs, bool includeDecoys )
+{
+	array<entity> results
+
+	array<entity> targets = GetNearbyTargets( projectile, playerTeam, radius )
+	foreach ( target in targets )
+	{
+		if ( !IsAlive( target ) )
+			continue
+
+		if ( target.IsPhaseShifted() )
+			continue
+
+		results.append( target )
+	}
+
+	if( includeNpcs )
+	{
+		array <entity> npcs = GetNPCArrayEx( "any", TEAM_ANY, TEAM_ANY, projectile.GetOrigin(), radius )
+		foreach ( npc in npcs )
+		{
+			if ( !IsAlive( npc ) )
+				continue
+
+			if ( npc.IsPhaseShifted() )
+				continue
+
+			if ( !npc.DoesShareRealms( projectile ) )
+				continue
+
+			results.append( npc )
+		}
+	}
+
+	if( includeDecoys )
+	{
+		array<entity> decoys = GetPlayerDecoyArray()
+		foreach ( decoy in decoys )
+		{
+			float decoyDistance = Distance2DSqr( decoy.GetOrigin(), projectile.GetOrigin() )
+
+			if( decoyDistance > radius*radius )
+				continue
+
+			if ( !IsAlive( decoy ) )
+				continue
+
+			if ( decoy.IsPhaseShifted() )
+				continue
+
+			if ( decoy.GetTeam() == playerTeam && !IsTeamRabid( playerTeam ) )
+				continue
+
+			results.append( decoy )
+		}
+	}
+
+	return results
+}
+
+array<entity> function GetNearbyTargets( entity projectile, int playerTeam, float radius )
+{
+	array<entity> results = GetPlayerArrayEx( TEAM_ANY, playerTeam, projectile.GetCenter(), radius )
+
+	
+	{
+		int index = 0
+		while( index < results.len() )
+		{
+			entity ent = results[index]
+			if ( !ent.DoesShareRealms( projectile ) )
+			{
+				results.fastremove( index )
+			}
+			else
+			{
+				index += 1
+			}
+		}
+	}
+
+	return results
+}
+
+
+bool function CheckIfEnemyIsObstructing( entity player, entity target )
+{
+	if ( !IsValid( player ) )
+		return false
+
+	if ( !IsValid( target ) )
+		return false
+
+	bool enemyObstructing = false
+	const float TRACE_EXTENTS = 6
+	const vector TRACE_BOUND_MINS = <-TRACE_EXTENTS, -TRACE_EXTENTS, -TRACE_EXTENTS>
+	const vector TRACE_BOUND_MAXS = <TRACE_EXTENTS, TRACE_EXTENTS, TRACE_EXTENTS>
+	array<entity> ignoreEnts = [ player, target ]
+	TraceResults enemyTrace = TraceHull( player.EyePosition(), target.GetWorldSpaceCenter(), TRACE_BOUND_MINS, TRACE_BOUND_MAXS, ignoreEnts, TRACE_MASK_PLAYERSOLID, TRACE_COLLISION_GROUP_NONE, UP_VECTOR, player )
+	if ( enemyTrace.fraction < 1.0 )
+	{
+		if ( enemyTrace.hitEnt.IsPlayer() && !IsFriendlyTeam( enemyTrace.hitEnt.GetTeam(), player.GetTeam() ) )
+		{
+			
+			
+			enemyObstructing = true
+		}
+	}
+
+	return enemyObstructing
+}
+
+
+
+void function ArrayRemoveInvalid( array<entity> ents )
+{
+	for ( int i = ents.len() - 1; i >= 0; i-- )
+	{
+		if ( !IsValid( ents[ i ] ) )
+		{
+			ents.remove( i )
+		}
+	}
+}
+
+
+void function ArrayFastRemoveInvalid( array<entity> ents )
+{
+	for ( int i = ents.len() - 1; i >= 0; i-- )
+	{
+		if ( !IsValid( ents[ i ] ) )
+		{
+			ents.fastremove( i )
+		}
+	}
+}
+
+
+
+entity function FindScriptNameInChildren( entity ent, string scriptName, bool searchRecursively = true )
+{
+	if ( !IsValid(ent) )
+		return null
+	eleleteKey.append( key )
+
+		if ( !IsValid_ThisFrame( value ) )
+			deleteKey.append( key )
+	}
+
+	foreach ( key in deleteKey )
+	{
+		
+		if ( key in Table )
+			delete Table[ key ]
+	}
+}
+
+void function TableRemoveInvalidByValue( table<entity, entity> Table )
+{
+	array<entity> deleteKey = []
+
+	foreach ( key, entity value in Table )
+	{
+		if ( !IsValid_ThisFrame( value ) )
+			deleteKey.append( key )
+	}
+
+	foreach ( key in deleteKey )
+	{
+		delete Table[ key ]
+	}
+}
+
+void function TableRemoveDeadByKey( table<entity, entity> Table )
+{
+	array<entity> deleteKey = []
+
+	foreach ( key, value in Table )
+	{
+		if ( !IsAlive( key ) )
+			deleteKey.append( key )
+	}
+
+	foreach ( key in deleteKey )
+	{
+		delete Table[ key ]
+	}
+}
+
+
+void function FadeOutSoundOnEntityAfterDelay( entity ent, string soundAlias, float delay, float fadeTime )
+{
+	if ( !IsValid( ent ) )
+		return
+
+	ent.EndSignal( "OnDestroy" )
+	wait delay
+	FadeOutSoundOnEntity( ent, soundAlias, fadeTime )
+}
+
+void function __WarpInEffectShared( vector origin, vector angles, string sfx, entity vehicle, float preWaitOverride = -1.0 )
+{
+	float preWait   = 2.0
+	float sfxWait   = 0.1
+	float totalTime = WARPINFXTIME
+
+	if ( sfx == "" )
+		sfx = "dropship_warpin"
+
+	if ( preWaitOverride >= 0.0 )
+		wait preWaitOverride
+	else
+		wait preWait  
+
+
+		int fxIndex = GetParticleSystemIndex( FX_GUNSHIP_CRASH_EXPLOSION_ENTRANCE )
+		StartParticleEffectInWorld( fxIndex, origin, angles )
+
+
+
+
+
+
+
+
+
+
+
+	wait sfxWait
+
+	EmitSoundAtPosition( TEAM_UNASSIGNED, origin, sfx )
+
+
+
+
+
+
+	wait totalTime - preWait - sfxWait
+}
+
+
+void function __WarpOutEffectShared( entity dropship, asset pfx = $"veh_gunship_warp_OUT_FULL", string sfx = "dropship_warpout" )
+{
+	int attach    = dropship.LookupAttachment( "origin" )
+	vector origin = dropship.GetAttachmentOrigin( attach )
+	vector angles = dropship.GetAttachmentAngles( attach )
+
+
+		int fxIndex = GetParticleSystemIndex( pfx )
+		StartParticleEffectInWorld( fxIndex, origin, angles )
+
+
+
+
+
+
+
+
+
+
+
+
+		EmitSoundAtPosition( TEAM_UNASSIGNED, origin, sfx )
+
+
+
+
+}
+
+void function CamBlendFov( entity cam, float oldFov, float newFov, float transTime, float transAccel, float transDecel )
+{
+	if ( !IsValid( cam ) )
+		return
+
+	cam.EndSignal( "OnDestroy" )
+
+	float currentTime = Time()
+	float startTime   = currentTime
+	float endTime     = startTime + transTime
+
+	while ( endTime > currentTime )
+	{
+		float interp = Interpolate( startTime, endTime - startTime, transAccel, transDecel )
+		cam.SetFOV( GraphCapped( interp, 0.0, 1.0, oldFov, newFov ) )
+		wait(0.0)
+		currentTime = Time()
+	}
+}
+
+
+void function CamFollowEnt( entity cam, entity ent, float duration, vector offset = <0, 0, 0>, string att

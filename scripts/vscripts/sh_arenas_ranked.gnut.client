@@ -1,0 +1,1585 @@
+global function Sh_ArenasRanked_Init
+global function Sh_ArenasRanked_ItemRegistrationInit
+
+global function GetCurrentArenasRankedDivisionFromScoreAndLadderPosition
+global function GetCurrentArenasRankedDivisionFromScore
+global function GetNextArenasRankedDivisionFromScore
+global function GetPlayerArenasRankScore
+global function IsArenasRankedPersistenceValid
+global function IsArenasRankedInSeason
+global function GetArenasRankedPersistenceData
+
+global function ArenasRanked_GetTiers
+global function ArenasRanked_GetRankedDivisionDataForTier
+global function ArenasRanked_GetNextTierData
+global function ArenasRanked_GetLadderPosition
+
+global function ArenasRanked_GetHistoricalRankScore
+global function ArenasRanked_GetHistoricalFirstSplitRankScore
+global function ArenasRanked_GetHistoricalRankedDivisionFromScore
+global function ArenasRanked_GetHistoricalLadderPosition
+global function ArenasRanked_GetHistoricalLadderOnlyDivision
+
+global function ArenasRanked_PeriodHasLadderOnlyDivision
+
+global function ArenasRanked_UpdateEHIRankScore
+global function ArenasRanked_UpdateEHIRankedLadderPosition
+global function ArenasRanked_GetNumPlayersOnLadder
+global function ArenasRanked_GetStryderLadderNameForLatestRankedPeriod 
+
+global function ArenasRanked_GetHistoricalRankedDivisionFromScoreAndLadderPosition
+global function ArenasRanked_GetTierOfThresholdForRankedPartyDifferences
+global function ArenasRanked_GetPlacementWinsAsArray
+
+global function ArenasRanked_GetFinalRankedPeriod
+
+
+global function PopulateRuiWithArenasRankedBadgeDetails
+global function CreateNestedArenasRankedRui
+
+
+
+global function ArenasRanked_IsPlayerAbandoning
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global function ArenasRanked_GetNumPlacementMatchesRequired
+global function ArenasRanked_GetNumPlacementMatchesCompleted
+global function ArenasRanked_HasFinishedPlacementMatches
+
+
+
+
+
+
+global function ShArenasRanked_RegisterNetworkFunctions
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const ARENAS_RANKED_SEASON_10_GUIDSTRING = "SAID00926519318"
+const ARENAS_RANKED_SEASON_15_GUIDSTRING = "SAID00058416642"
+
+global const int ARENAS_RANKED_MIN_SCORE = 1 
+global const int ARENAS_RANKED_PLACEMENT_SCORE = 0
+global const int ARENAS_RANKED_NUM_PLACEMENT_MATCHES = 10
+global const int ARENAS_RANKED_SPLIT_NUM_PLACEMENT_MATCHES = 5
+
+const int ARENAS_RANKED_ABANDON_AP_LOSS = 15
+
+const string ARENAS_RANKED_RECHECK_SEASONS_STARTING_WITH = "SAID00781342567" 
+
+global struct ArenasRankedPostGameScoringStruct
+{
+	bool wasAbandoned
+	bool lossForgiveness
+	int  kills
+	int  damage
+	int  placement
+	int  placementScore
+	int  penaltyPointsForAbandoning
+	int  tierDerankingProtectionAdjustment
+	int  lossProtectionAdjustment
+	int  currentScore
+	int  previousScore
+}
+
+struct ArenasRankedResetStruct
+{
+	string previousDivisionName
+	string currentDivisionName
+}
+
+struct
+{
+	bool                                               initialized = false
+	bool                                               itemRegistrationInitialized = false
+	array<SharedRankedTierData>                        rankedTiers
+	array<SharedRankedDivisionData>                    rankedDivisions
+	SharedRankedDivisionData ornull                    ladderOnlyDivision = null
+	int                                                numPlayersOnLadder = 0
+	table<string, int >                                historicalNumPlayersOnLadder
+	table<string, SharedRankedDivisionData >           historicalLadderOnlyDivision
+	table< string, array < SharedRankedTierData > >    historicalRankedTiers
+	table< string, array< SharedRankedDivisionData > > historicalRankedDivisions
+
+	SharedRankedDivisionData& topRankedDivisionData
+
+	table<string, string > stryderLadderNameToPeriodGUIDStringTable
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+} file
+
+void function Sh_ArenasRanked_Init()
+
+{
+	if ( !file.initialized ) 
+	{
+		RegisterSignal( "ArenasRanked_NotifyRankedPeriodScoreChanged" ) 
+		file.initialized = true
+	}
+
+
+
+
+
+
+
+
+
+
+
+
+}
+
+
+void function Sh_ArenasRanked_ItemRegistrationInit()
+
+{
+	if ( !file.itemRegistrationInitialized ) 
+	{
+		AddCallback_OnItemFlavorRegistered( eItemType.calevent_arenas_ranked_period, OnArenasRankedRegistered )
+		AddCallbackOrMaybeCallNow_OnAllItemFlavorsRegistered( ArenasRanked_AllItemFlavorsRegistered )
+		file.itemRegistrationInitialized = true
+	}
+}
+
+
+void function OnArenasRankedRegistered( ItemFlavor calEventArenasRanked )
+{
+	array< SharedRankedTierData > tierData 
+	array< SharedRankedDivisionData  > divisionData
+
+	foreach ( var tierBlock in IterateSettingsAssetArray( ItemFlavor_GetAsset( calEventArenasRanked ), "tiers" ) )
+	{
+		SharedRankedTierData tier
+		tier.name                  = GetSettingsBlockString( tierBlock, "name" )
+		tier.icon                  = GetSettingsBlockAsset( tierBlock, "icon" )
+		tier.bgImage               = GetSettingsBlockAsset( tierBlock, "bgImage" )
+		tier.levelUpRuiAsset       = GetSettingsBlockStringAsAsset( tierBlock, "levelUpRuiAsset" )
+		tier.iconRuiAsset          = GetSettingsBlockStringAsAsset( tierBlock, "iconRuiAsset" )
+		tier.promotionAnnouncement = string( GetSettingsBlockStringAsAsset( tierBlock, "promotionAnnouncement" ) )
+
+		tier.scoreMin = 99999999
+		foreach ( var divBlock in IterateSettingsArray( GetSettingsBlockArray( tierBlock, "divisions" ) ) )
+		{
+			SharedRankedDivisionData data
+			data.divisionName      = GetSettingsBlockString( divBlock, "name" )
+			data.emblemText        = GetSettingsBlockString( divBlock, "emblemText" )
+			data.scoreMin          = GetSettingsBlockInt( divBlock, "scoreMin" )
+			data.emblemDisplayMode = SharedRanked_GetEmblemDisplayModeFromEmblemText( data.emblemText )
+			data.tier              = tier
+
+			if ( data.scoreMin < tier.scoreMin )
+				tier.scoreMin = data.scoreMin
+
+			divisionData.append( data )
+		}
+
+		foreach ( var rewardBlock in IterateSettingsArray( GetSettingsBlockArray( tierBlock, "rewards" ) ) )
+		{
+			SharedRankedReward data
+			data.previewName        = GetSettingsBlockString( rewardBlock, "previewName" )
+			data.previewIcon        = GetSettingsBlockAsset( rewardBlock, "previewIcon" )
+			data.previewIconShowBox = GetSettingsBlockBool( rewardBlock, "previewIconShowBox" )
+			data.previewImage       = GetSettingsBlockAsset( rewardBlock, "previewImage" )
+			data.rewardAsset        = GetSettingsBlockAsset( rewardBlock, "flavor" )
+
+			tier.rewards.append( data )
+		}
+
+		tier.index = tierData.len()
+
+		tierData.append( tier )
+	}
+
+	divisionData.sort( SharedRanked_CompareDivision )
+	for ( int i = 0; i < divisionData.len(); i++ )
+	{
+		SharedRankedDivisionData data = divisionData[i]
+		data.index = i
+	}
+
+	int ladderOnlyTiers = 0
+
+	foreach ( var tierBlock in IterateSettingsAssetArray( ItemFlavor_GetAsset( calEventArenasRanked ), "ladderOnlyTier" ) ) 
+	{
+		Assert( ladderOnlyTiers == 0 ) 
+		++ladderOnlyTiers
+
+		SharedRankedTierData ladderOnlyTier
+		ladderOnlyTier.name                  = GetSettingsBlockString( tierBlock, "name" )
+		ladderOnlyTier.icon                  = GetSettingsBlockAsset( tierBlock, "icon" )
+		ladderOnlyTier.bgImage               = GetSettingsBlockAsset( tierBlock, "bgImage" )
+		ladderOnlyTier.levelUpRuiAsset       = GetSettingsBlockStringAsAsset( tierBlock, "levelUpRuiAsset" )
+		ladderOnlyTier.iconRuiAsset          = GetSettingsBlockStringAsAsset( tierBlock, "iconRuiAsset" )
+		ladderOnlyTier.promotionAnnouncement = string( GetSettingsBlockStringAsAsset( tierBlock, "promotionAnnouncement" ) )
+		ladderOnlyTier.isLadderOnlyTier      = true
+		ladderOnlyTier.index                 = tierData.len()
+
+		int ladderOnlyDivisions = 0
+
+		string rpGUIDString = ItemFlavor_GetGUIDString( calEventArenasRanked )
+
+		foreach ( var divBlock in IterateSettingsArray( GetSettingsBlockArray( tierBlock, "divisions" ) ) )
+		{
+			Assert( ladderOnlyDivisions == 0 ) 
+			++ladderOnlyDivisions
+
+			SharedRankedDivisionData data
+			data.divisionName         = GetSettingsBlockString( divBlock, "name" )
+			data.emblemText           = GetSettingsBlockString( divBlock, "emblemText" )
+			data.scoreMin             = GetSettingsBlockInt( divBlock, "scoreMin" )
+			data.emblemDisplayMode    = SharedRanked_GetEmblemDisplayModeFromEmblemText( data.emblemText )
+			Assert( data.emblemDisplayMode == emblemDisplayMode.DISPLAY_LADDER_POSITION )
+			data.tier                 = ladderOnlyTier
+			data.isLadderOnlyDivision = true
+			data.index                = divisionData.len()
+			ladderOnlyTier.scoreMin   = data.scoreMin
+
+			file.historicalNumPlayersOnLadder[ rpGUIDString ]  <- GetSettingsBlockInt( divBlock, "numPlayersOnLadder" )
+			file.historicalLadderOnlyDivision[ rpGUIDString  ] <- data
+		}
+
+		Assert( ladderOnlyDivisions == 1 ) 
+
+		foreach ( var rewardBlock in IterateSettingsArray( GetSettingsBlockArray( tierBlock, "rewards" ) ) )
+		{
+			SharedRankedReward data
+			data.previewName        = GetSettingsBlockString( rewardBlock, "previewName" )
+			data.previewIcon        = GetSettingsBlockAsset( rewardBlock, "previewIcon" )
+			data.previewIconShowBox = GetSettingsBlockBool( rewardBlock, "previewIconShowBox" )
+			data.previewImage       = GetSettingsBlockAsset( rewardBlock, "previewImage" )
+			data.rewardAsset        = GetSettingsBlockAsset( rewardBlock, "flavor" )
+
+			ladderOnlyTier.rewards.append( data )
+		}
+	}
+
+	string rankedPeriodGUID = ItemFlavor_GetGUIDString( calEventArenasRanked )
+	file.historicalRankedTiers[ rankedPeriodGUID ] <- tierData
+	file.historicalRankedDivisions[ rankedPeriodGUID ] <- divisionData
+
+	if ( SharedRankedPeriod_HasSplits( calEventArenasRanked ) )
+	{
+		string stryderFirstSplitLadderName = ArenasRanked_GetStryderLadderNameForHistoricalRankedPeriod( calEventArenasRanked, true )
+		file.stryderLadderNameToPeriodGUIDStringTable[ stryderFirstSplitLadderName ] <- rankedPeriodGUID
+		string stryderSecondSplitLadderName = ArenasRanked_GetStryderLadderNameForHistoricalRankedPeriod( calEventArenasRanked, false )
+		file.stryderLadderNameToPeriodGUIDStringTable[ stryderSecondSplitLadderName ] <- rankedPeriodGUID
+	}
+	else
+	{
+		string stryderLadderName = ArenasRanked_GetStryderLadderNameForHistoricalRankedPeriod( calEventArenasRanked, false )
+		file.stryderLadderNameToPeriodGUIDStringTable[ stryderLadderName ] <- rankedPeriodGUID
+	}
+}
+
+
+void function ArenasRanked_AllItemFlavorsRegistered()
+{
+	string latestRankedPeriodGUID = ARENAS_RANKED_SEASON_15_GUIDSTRING
+	file.rankedTiers     = file.historicalRankedTiers[ latestRankedPeriodGUID ]
+	file.rankedDivisions = file.historicalRankedDivisions[ latestRankedPeriodGUID ]
+
+	if ( latestRankedPeriodGUID in file.historicalLadderOnlyDivision )
+	{
+		file.ladderOnlyDivision    = file.historicalLadderOnlyDivision[ latestRankedPeriodGUID  ]
+		file.topRankedDivisionData = file.historicalLadderOnlyDivision[ latestRankedPeriodGUID  ]
+		file.numPlayersOnLadder    = file.historicalNumPlayersOnLadder[ latestRankedPeriodGUID ]
+	}
+	else
+	{
+		file.topRankedDivisionData = file.rankedDivisions.top()
+	}
+}
+
+ItemFlavor function ArenasRanked_GetFinalRankedPeriod()
+{
+	return GetItemFlavorByGUID( ConvertItemFlavorGUIDStringToGUID( ARENAS_RANKED_SEASON_15_GUIDSTRING ) )
+}
+
+
+int function ArenasRanked_GetNumPlayersOnLadder()
+{
+	ItemFlavor latestRankedPeriod = ArenasRanked_GetFinalRankedPeriod()
+	string playlistOverrideVar    = SharedRanked_GetNumPlayerOnLaddersOverridePlaylistVar( latestRankedPeriod )
+	return GetCurrentPlaylistVarInt( playlistOverrideVar, file.numPlayersOnLadder )
+}
+
+
+SharedRankedTierData function ArenasRanked_GetHighestHistoricalTierAcrossSplitsForPlayer( entity player, ItemFlavor rankedPeriod )
+{
+	Assert( SharedRankedPeriod_HasSplits( rankedPeriod ) )
+
+	string rankedPeriodGUID = ItemFlavor_GetGUIDString( rankedPeriod )
+
+	int firstSplitRankedScore                 = ArenasRanked_GetHistoricalFirstSplitRankScore( player, rankedPeriodGUID )
+	int firstSplitLadderPosition              = ArenasRanked_GetHistoricalLadderPosition( player, rankedPeriodGUID, true )
+	SharedRankedTierData firstSplitRankedTier = ArenasRanked_GetHistoricalRankedDivisionFromScoreAndLadderPosition( firstSplitRankedScore, firstSplitLadderPosition, rankedPeriodGUID ).tier
+
+	int secondSplitRankedScore                 = ArenasRanked_GetHistoricalRankScore ( player, rankedPeriodGUID )
+	int secondSplitLadderPosition              = ArenasRanked_GetHistoricalLadderPosition( player, rankedPeriodGUID, false )
+	SharedRankedTierData secondSplitRankedTier = ArenasRanked_GetHistoricalRankedDivisionFromScoreAndLadderPosition( secondSplitRankedScore, secondSplitLadderPosition, rankedPeriodGUID ).tier
+
+	SharedRankedTierData highestTierAchieved = ArenasRanked_GetHigherOfTwoTiers( firstSplitRankedTier, secondSplitRankedTier )
+
+	return highestTierAchieved
+}
+
+
+bool function ArenasRanked_NeedToCheckWithStryderForEndRankedSplitOrPeriod( entity player, string rankedPeriodGUID )
+{
+	if ( !GetCurrentPlaylistVarBool( "arenas_ranked_end_series_stryder_check", true ) )
+		return false
+
+	int numberOfRankedGames = GetStat_Int( player, ResolveStatEntry( CAREER_STATS.arenas_rankedperiod_games_played, rankedPeriodGUID ) )
+	if ( numberOfRankedGames == 0 )
+		return false
+
+	return true
+}
+
+
+SharedRankedTierData function ArenasRanked_GetHigherOfTwoTiers( SharedRankedTierData firstTier, SharedRankedTierData secondTier )
+
+{
+	SharedRankedTierData highestTierAchieved = firstTier.index > secondTier.index ? firstTier : secondTier
+	return highestTierAchieved
+}
+
+
+string function ArenasRanked_GetStryderLadderNameForLatestRankedPeriod()
+
+{
+	ItemFlavor latestPeriod = ArenasRanked_GetFinalRankedPeriod()
+
+	string baseLadderName = ItemFlavor_GetCalEventRef( latestPeriod )
+
+	if ( !SharedRankedPeriod_HasSplits( latestPeriod ) )
+		return baseLadderName
+
+	if ( SharedRankedPeriod_IsFirstSplitActive( latestPeriod ) )
+		return baseLadderName + "_split_1"
+	else 
+		return baseLadderName + "_split_2"
+
+	unreachable
+}
+
+
+string function ArenasRanked_GetStryderLadderNameForHistoricalRankedPeriod( ItemFlavor rankedPeriod, bool isFirstSplit )
+{
+	Assert( ItemFlavor_GetType( rankedPeriod ) == eItemType.calevent_arenas_ranked_period )
+
+	string baseLadderName = ItemFlavor_GetCalEventRef( rankedPeriod )
+
+	if ( !SharedRankedPeriod_HasSplits( rankedPeriod ) )
+		return baseLadderName
+
+	if ( isFirstSplit )
+		return baseLadderName + "_split_1"
+	else
+		return baseLadderName + "_split_2"
+
+	unreachable
+}
+
+
+string function ArenasRanked_GetSeasonGUIDStringFromStryderLadderName( string stryderLadderName )
+{
+	return file.stryderLadderNameToPeriodGUIDStringTable[ stryderLadderName ]
+}
+
+
+bool function ArenasRanked_PeriodHasLadderOnlyDivision( string rankedPeriodGUIDString )
+{
+	return rankedPeriodGUIDString in file.historicalLadderOnlyDivision
+}
+
+
+SharedRankedDivisionData function ArenasRanked_GetHistoricalLadderOnlyDivision( string rankedPeriodGUIDString )
+{
+	Assert( rankedPeriodGUIDString in file.historicalLadderOnlyDivision )
+	return file.historicalLadderOnlyDivision[ rankedPeriodGUIDString  ]
+}
+
+
+int function ArenasRanked_GetHistoricalNumPlayersOnLadder( string rankedPeriodGUIDString )
+{
+	Assert( rankedPeriodGUIDString in file.historicalNumPlayersOnLadder )
+	ItemFlavor historicalRankedPeriod = GetItemFlavorByGUID( ConvertItemFlavorGUIDStringToGUID( rankedPeriodGUIDString ) )
+	string playlistOverrideVar        = SharedRanked_GetNumPlayerOnLaddersOverridePlaylistVar( historicalRankedPeriod )
+	return  GetCurrentPlaylistVarInt( playlistOverrideVar, file.historicalNumPlayersOnLadder[ rankedPeriodGUIDString ] )
+}
+
+
+
+void function ShArenasRanked_RegisterNetworkFunctions() {}
+
+
+
+SharedRankedDivisionData function GetCurrentArenasRankedDivisionFromScoreAndLadderPosition( int score, int ladderPosition )
+{
+	int numPlayersOnLadder = ArenasRanked_GetNumPlayersOnLadder()
+	if ( (ladderPosition != SHARED_RANKED_INVALID_LADDER_POSITION) && (numPlayersOnLadder > 0) && (ladderPosition <= numPlayersOnLadder) )
+	{
+		SharedRankedDivisionData ladderDivisionData = expect SharedRankedDivisionData ( file.ladderOnlyDivision )
+#if DEV
+			if ( ladderDivisionData.scoreMin > score ) 
+				return GetCurrentArenasRankedDivisionFromScore( score )
+#endif
+
+		Assert( ladderDivisionData.scoreMin <= score )
+		return (ladderDivisionData)
+	}
+
+	return GetCurrentArenasRankedDivisionFromScore( score )
+
+}
+
+
+SharedRankedDivisionData function GetCurrentArenasRankedDivisionFromScore( int score )
+{
+	if ( score <= ARENAS_RANKED_PLACEMENT_SCORE )
+	{
+		Assert( file.rankedDivisions.len() > 0 )
+		Assert( file.rankedDivisions[ 0 ].scoreMin == ARENAS_RANKED_PLACEMENT_SCORE )
+		return file.rankedDivisions[ 0 ]
+	}
+
+	bool foundRank = false
+	SharedRankedDivisionData data
+
+	for ( int i = 0; i < file.rankedDivisions.len(); i++ )
+	{
+		if ( file.rankedDivisions[i].scoreMin > score )
+			break
+
+		foundRank = true
+
+		data = file.rankedDivisions[ i ]
+	}
+
+	Assert( foundRank )
+eLoadout0, var squadmateLoadout1 )
+{
+	if ( IsLobby() )
+		return
+
+	var playerRui		= Hud_GetRui( playerLoadout )
+
+	array<var> squadmateRuis
+	squadmateRuis.append( Hud_GetRui( squadmateLoadout0 ) )
+	squadmateRuis.append( Hud_GetRui( squadmateLoadout1 ) )
+
+	Arenas_PopulatePlayerLoadouts( playerRui, squadmateRuis )
+}
+
+void function UIToClient_ArenasBuyMenuShow()
+{
+
+}
+
+void function UIToClient_ArenasBuyMenuHide()
+{
+
+}
+
+void function UIToClient_ArenasBuyMenuOpen()
+{
+	entity localPlayer = GetLocalClientPlayer()
+	if ( !IsValid( localPlayer ) )
+		return
+
+	EmitSoundOnEntity( localPlayer, SOUND_STORE_OPEN )
+	Arenas_OnBuyMenuOpen()
+	Remote_ServerCallFunction( "ClientCallback_Arenas_OnBuyMenuOpen" )
+}
+
+void function UIToClient_ArenasBuyMenuClose()
+{
+	entity localPlayer = GetLocalClientPlayer()
+	if ( !IsValid( localPlayer ) )
+		return
+
+	EmitSoundOnEntity( localPlayer, SOUND_STORE_CLOSE )
+	thread Arenas_OnBuyMenuClose()
+	Remote_ServerCallFunction( "ClientCallback_Arenas_OnBuyMenuClose" )
+}
+
+
+void function Arenas_PopulateTeamRuis( var rui, int team, array<entity> teamPlayers, string side )
+{
+	int INTRO_MAX_SLOTS = 3
+
+
+
+
+
+
+
+
+	if ( side == "L" && !( IsPrivateMatch() && GetLocalClientPlayer().IsObserver() ) )
+	{
+		
+		entity player = GetLocalViewPlayer()
+		teamPlayers.removebyvalue( player )
+		teamPlayers.insert( 0, player )
+	}
+
+	for ( int i=0; i<INTRO_MAX_SLOTS; i++ )
+	{
+		if ( teamPlayers.len() > i )
+		{
+			entity player = teamPlayers[ i ]
+			PopulateCharacterRui( rui, player, i, side )
+		}
+		else
+		{
+			PopulateCharacterRui( rui, null, i, side )
+		}
+	}
+}
+
+void function PopulateCharacterRui( var rui, entity player, int i, string side )
+{
+	bool loadoutReady = LoadoutSlot_IsReady( ToEHI( player ), Loadout_Character() )
+	if ( loadoutReady && GetGameState() >= eGameState.PickLoadout )
+	{
+		ItemFlavor character = LoadoutSlot_GetItemFlavor( ToEHI( player ), Loadout_Character() )
+		RuiSetImage( rui, "portraitImage_" + side + (i+1), CharacterClass_GetGalleryPortrait( character ) )
+		RuiSetBool( rui, "portraitImageVisible_" + side + (i+1), true )
+		RuiSetString( rui, "portraitText_" + side + (i+1), player.GetPlayerName() )
+		RuiTrackInt( rui, "portraitTeamMemberIndex_" + side + (i+1), player, RUI_TRACK_PLAYER_TEAM_MEMBER_INDEX )
+		RuiTrackInt( rui, "respawnStatus_" + side + (i+1), player, RUI_TRACK_SCRIPT_NETWORK_VAR_INT, GetNetworkedVariableIndex( "respawnStatus" ) )
+	}
+	else
+	{
+		RuiSetBool( rui, "portraitImageVisible_" + side + (i+1), false )
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/sh_kepler.gnut.client
+[dump] scripts/vscripts/sh_kepler.gnut.client (7151 bytes)
+
+
+
+global function Sh_Kepler_Init
+global function Kepler_IsPlayerInVariant
+global function Kepler_IsPlayerEligibleForItemFlavor
+global function Kepler_GetAssetForScenario
+global function Kepler_GetAssetForScenarioKey
+global function Kepler_GetScenarioFromKey
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global const string KEPLER_CONVAR_KILL_SWITCH = "kepler_isEnabled"
+
+
+global enum eKeplerScenario
+{
+	NPP_VARIANT_23_1,
+	FTUE_LANDING_FLOW_24_0,
+	RETURNING_PLAYER_PASS_24_0,
+	ANYB_ROLLOUT_28_1,
+	RPP_MATCH_MAKING_29_0,
+
+	COUNT
+}
+
+table<int, string> keplerActiveScenarios = {
+	[eKeplerScenario.NPP_VARIANT_23_1] = "23-1-npp-variant",
+	[eKeplerScenario.FTUE_LANDING_FLOW_24_0] = "24-0-ftue-landing-flow",
+	[eKeplerScenario.RETURNING_PLAYER_PASS_24_0] = "24-0-rpp-inclusion",
+	[eKeplerScenario.ANYB_ROLLOUT_28_1] = "28-1-anyb-rollout",
+	[eKeplerScenario.RPP_MATCH_MAKING_29_0] = "29-0-rpx-bot-matches",
+}
+
+struct KeplerVariantData
+{
+	string variantName
+	array<asset> controlledAssets
+}
+
+struct KeplerScenarioData
+{
+	ItemFlavor& flavor
+	string scenarioKey
+	array<KeplerVariantData> variants
+}
+
+struct FileStruct_Kepler
+{
+	table<string, KeplerScenarioData> loadedScenarios
+	bool isInitialized = false
+
+
+
+
+}
+
+FileStruct_Kepler& file
+
+void function AddControlledAssetToVariant( var variant, KeplerVariantData variantData, string field )
+{
+	asset controlledAsset = GetSettingsBlockAsset( variant, field )
+	if ( controlledAsset != $"" )
+	{
+		variantData.controlledAssets.append( controlledAsset )
+	}
+}
+
+
+void function InitializeScenarioData( asset scenarioAsset, ItemFlavor flavor )
+{
+	var settingsBlock = GetSettingsBlockForAsset( scenarioAsset )
+
+	KeplerScenarioData scenario
+	scenario.scenarioKey = GetSettingsBlockString( settingsBlock, "scenarioKey" )
+	scenario.flavor = flavor
+
+	var variantArray = GetSettingsBlockArray( settingsBlock, "variants" )
+	foreach ( var variant in IterateSettingsArray( variantArray ) )
+	{
+		KeplerVariantData variantData
+		variantData.variantName = GetSettingsBlockString( variant, "variantName" )
+
+		
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+		
+		AddControlledAssetToVariant( variant, variantData, "controlledChallengeTile" )
+		AddControlledAssetToVariant( variant, variantData, "controlledCollection" )
+		AddControlledAssetToVariant( variant, variantData, "controlledImage" )
+
+		scenario.variants.append( variantData )
+	}
+
+	var challengeArray = GetSettingsBlockArray( settingsBlock, "scenarioChallenges" )
+	foreach ( var challengeBlock in IterateSettingsArray( challengeArray ) )
+	{
+		asset challenge = GetSettingsBlockAsset( challengeBlock, "scenarioChallenge" )
+
+		ItemFlavor newChallenge = expect ItemFlavor(RegisterItemFlavorFromSettingsAsset( challenge ))
+
+		Assert( ItemFlavor_GetType( newChallenge ) == eItemType.challenge )
+	}
+
+	file.loadedScenarios[scenario.scenarioKey] <- scenario
+}
+
+void function Sh_Kepler_Init()
+{
+
+	Assert( keplerActiveScenarios.len() <= KEPLER_MAX_SCENARIO_COUNT, format( "Kepler scenario max count is %i which cannot account for our %i scenarios", KEPLER_MAX_SCENARIO_COUNT, keplerActiveScenarios.len() ) )
+
+
+	if ( !GetConVarBool( KEPLER_CONVAR_KILL_SWITCH ) )
+	{
+		return
+	}
+
+	AddCallback_RegisterRootItemFlavors( void function()
+	{
+		foreach ( asset scenario in GetBaseItemFlavorsFromArray( "keplerScenarios" ) )
+		{
+			ItemFlavor ornull flavor = RegisterItemFlavorFromSettingsAsset( scenario )
+			InitializeScenarioData( scenario, expect ItemFlavor( flavor ) )
+		}
+
+		file.isInitialized = true
+		printf( "Kepler initialized with %d scenarios", file.loadedScenarios.len() )
+	} )
+
+
+
+
+}
+
+bool function Kepler_IsPlayerEligibleForItemFlavor( entity player, ItemFlavor itemFlavor )
+{
+	AssertLocalOrServerValidPlayer( player )
+
+	bool isReferencedByAnyScenario = false
+
+	asset itemAsset = GetSettingsAssetForUniqueId( itemFlavor.guid )
+	if( itemAsset == $"" )
+	{
+		Warning( "Checking Kepler eligibility of unknown item flavor" )
+		return true
+	}
+
+	foreach ( int scenario, string scenarioKey in keplerActiveScenarios )
+	{
+		if ( !( scenarioKey in file.loadedScenarios ) )
+		{
+			Warning( "Active scenario %s does not have a loaded Bakery asset", scenarioKey )
+			continue
+		}
+
+		KeplerScenarioData scenarioData = file.loadedScenarios[scenarioKey]
+		foreach (KeplerVariantData variant in scenarioData.variants )
+		{
+			foreach ( asset controlledAsset in variant.controlledAssets )
+			{
+				if ( controlledAsset == itemAsset )
+				{
+					isReferencedByAnyScenario = true
+					if ( Kepler_IsPlayerInVariant( player, scenario, variant.variantName ) )
+					{
+						return true
+					}
+				}
+			}
+		}
+	}
+
+	return !isReferencedByAnyScenario
+}
+
+int function Kepler_GetScenarioFromKey( string scenarioKey )
+{
+	foreach( int scenario, string key in keplerActiveScenarios )
+	{
+		if ( scenarioKey == key )
+			return scenario
+	}
+
+#if DEV
+	Assert( false, "The scenario key " + scenarioKey + " is invalid" )
+#endif
+	return -1
+}
+
+asset ornull function Kepler_GetAssetForScenarioKey( entity player, string scenarioKey )
+{
+	if ( !( scenarioKey in file.loadedScenarios ) )
+	{
+		Warning( "Active scenario %s does not have a loaded Bakery asset", scenarioKey )
+		return null
+	}
+
+	KeplerScenarioData scenarioData = file.loadedScenarios[scenarioKey]
+
+	foreach ( KeplerVariantData variant in scenarioData.variants )
+	{
+		if ( Kepler_IsPlayerInVariant( player, Kepler_GetScenarioFromKey( scenarioKey ), variant.variantName ) )
+		{
+			if ( variant.controlledAssets.len() > 0 )
+			{
+#if DEV
+					if ( variant.controlledAssets.len() > 1 )
+					{
+						Warning( "Scenario \"%s\" has multiple controlled assets and is trying to fetch only one", scenarioKey )
+					}
+#endif
+				return variant.controlledAssets[0]
+			}
+
+			break
+		}
+	}
+
+	return null
+}
+
+asset ornull function Kepler_GetAssetForScenario( entity player, int scenario )
+{
+	string scenarioKey = keplerActiveScenarios[scenario]
+
+	return Kepler_GetAssetForScenarioKey( player, scenarioKey )
+}
+
+bool function AllowCheckForVariant( int scenario, string variantName )
+{
+	Assert( scenario >= 0 && scenario < eKeplerScenario.COUNT, "Checking variant for invalid Kepler scenario, are you using eKeplerScenario?" )
+	Assert( variantName != "", "Checking for empty Kepler variant name" )
+
+	if ( !GetConVarBool( KEPLER_CONVAR_KILL_SWITCH ) )
+	{
+		return false
+	}
+
+	Assert( file.isInitialized, "Attempting to check Kepler variants before Kepler has been initialized" )
+
+	if ( !( scenario in keplerActiveScenarios ) )
+	{
+		Assert( false, "Attempting to look up a Kepler scenario that has not been defined as active" );
+		return false
+	}
+
+	return true
+}
+
+
+
+bool function Kepler_IsPlayerInVariant( entity player, int scenario, string variantName )
+{
+	AssertLocalOrServerValidPlayer( player )
+
+	if ( !AllowCheckForVariant( scenario, variantName ) )
+	{
+		return false
+	}
+
+#if DEV
+	string variantOverride = GetConVarString( "kepler_forceVariant" )
+	if ( variantOverride != "" )
+	{
+		return variantOverride == variantName
+	}
+#endif
+
+	string scenarioKey = keplerActiveScenarios[scenario]
+
+
+	return Kepler_IsPlayerInVariant_Internal( scenarioKey, variantName )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/sh_bonus_meter.gnut.client
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                       [LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/sh_stats_gamemode_wildcard.gnut.client
+[dump] scripts/vscripts/sh_stats_gamemode_wildcard.gnut.client (2643 bytes)
+global function StatsRegister_Wildcard
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function StatsRegister_Wildcard()
+{
+	CAREER_STATS.gamemode_wildcard_placements_win   = RegisterAccumulatedStat_Int( null, "gamemode_wildcard_placements_win", eChallengeGameMode.UNHINGED, CHALLENGES_CALC_DEPENDS )
+	CAREER_STATS.gamemode_wildcard_placements_top_5 = RegisterAccumulatedStat_Int( null, "gamemode_wildcard_placements_top_5", eChallengeGameMode.UNHINGED, CHALLENGES_CALC_DEPENDS )
+
+		CAREER_STATS.gamemode_wildcard_endorsement_equipped = RegisterAccumulatedStat_Int( null, "gamemode_wildcard_endorsement_equipped", eChallengeGameMode.UNHINGED, CHALLENGES_CALC_DEPENDS )
+
+
+		
+		CAREER_STATS.gamemode_wildcard_event_bat_placements_top_5 = RegisterAccumulatedStat_Int( null, "gamemode_wildcard_event_bat_placements_top_5", eChallengeGameMode.UNHINGED, CHALLENGES_CALC_DEPENDS )
+		CAREER_STATS.gamemode_wildcard_event_bat_pick_up_bat = RegisterAccumulatedStat_Int( null, "gamemode_wildcard_event_bat_pick_up_bat", eChallengeGameMode.UNHINGED, CHALLENGES_CALC_DEPENDS )
+
+
+		
+		CAREER_STATS.gamemode_wildcard_event_flatline_placements_top_5 = RegisterAccumulatedStat_Int( null, "gamemode_wildcard_event_flatline_placements_top_5", eChallengeGameMode.UNHINGED, CHALLENGES_CALC_DEPENDS )
+		CAREER_STATS.gamemode_wildcard_event_flatline_pick_up_flatline = RegisterAccumulatedStat_Int( null, "gamemode_wildcard_event_flatline_pick_up_flatline", eChallengeGameMode.UNHINGED, CHALLENGES_CALC_DEPENDS )
+
+
+
+
+
+
+
+
+
+
+
+		CAREER_STATS.gamemode_wildcard_event_beamstick_damage_with_drones = RegisterAccumulatedStat_Int( null, "gamemode_wildcard_event_beamstick_damage_with_drones", eChallengeGameMode.UNHINGED, CHALLENGES_CALC_DEPENDS )
+		CAREER_STATS.gamemode_wildcard_event_beamstick_damage_blocked_in_shield_mode = RegisterAccumulatedStat_Int( null, "gamemode_wildcard_event_beamstick_damage_blocked_in_shield_mode", eChallengeGameMode.UNHINGED, CHALLENGES_CALC_DEPENDS )
+
+
+		CAREER_STATS.gamemode_wildcard_event_vortex_shield_damage_blocked = RegisterAccumulatedStat_Int( null, "gamemode_wildcard_event_vortex_shield_damage_blocked", eChallengeGameMode.UNHINGED, CHALLENGES_CALC_DEPENDS )
+		CAREER_STATS.gamemode_wildcard_event_vortex_shield_emp_enemies_hit = RegisterAccumulatedStat_Int( null, "gamemode_wildcard_event_vortex_shield_emp_enemies_hit", eChallengeGameMode.UNHINGED, CHALLENGES_CALC_DEPENDS )
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                        [LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/clui_ranked.nut.client
+[dump] scripts/vscripts/clui_ranked.nut.client (16142 bytes)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global function CLUI_Ranked_Init
+global function PopulateRuiWithRankedBadgeDetails
+global function PopulateRuiWithPreviousSeasonRankedBadgeDetails
+global function CreateNestedRankedRui
+global function SharedRanked_FillInRuiEmblemText
+global function Ranked_PartyMeetsRankedDifferenceRequirements
+global function Ranked_GetCurrentRankedPlaylistName
+global function Ranked_PartyMeetsRankedSquadRankRequirements
+global function Ranked_PartyAboveSoloQueueRankThreshold
+global function Ranked_HasSoloQueueRankScoreThreshold
+
+
+
+global function ShRanked_RegisterNetworkFunctions
+global function ServerToClient_Ranked_UpdatePlayerPrevRankedScore
+global function ServerToClient_Ranked_UpdatePlayerPrevLadderPos
+
+
+struct
+{
+
+
+
+
+
+} file
+
+void function CLUI_Ranked_Init()
+{
+
+		if ( !GameModeVariant_IsActive( eGameModeVariants.SURVIVAL_RANKED ) )
+			return
+
+		AddCallback_OnScoreboardCreated[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/_odl_smoke.gnut.client
+[dump] scripts/vscripts/_odl_smoke.gnut.client (10241 bytes)global function Odl_SmokeTestInit
+
+
+global function Odl_ClientSmokeTestCallback
+global function Odl_ClientEndCurrentTest
+global function Odl_ClientAddSpawnPoint
+global function Odl_ClientValidateAllSkins
+
+
+
+
+
+
+#if DEV
+global function OdlStressSwitchChar
+global function OdlStressDoForceReload
+global function OdlStressDoRandomSkin
+global function OdlRemoveTesterEnts
+global function OdlStressTestCreateTesterEnt
+global function OdlSetPostLoadWaitFrames
+
+global function OdslStressTestAllTesterEnts
+
+global function OdslKillTest
+
+
+
+
+
+
+
+
+
+
+global function Odl_ValidateAllSkins
+
+global struct ODLTestingParams
+{
+	int testNetworkId
+	bool doForceReload
+	bool randomSkin
+	int entCount
+	int postLoadWaitFrames
+	int postLoadWaitFramesMax
+	float reselectPercentage
+	int maxReselect
+}
+
+global table<string, table> ALL_ODL_TEST_PARAMS =
+{
+	["basic_force_reload_stress_test"] = {
+		enabled = false
+		testNetworkId = 0,
+		doForceReload = true,
+		randomSkin = false,
+		doFullResetAtEnd = false,
+		entCount = 1,
+		postLoadWaitFrames = 0
+		postLoadWaitFramesMax = 0
+		reselectPercentage = 0
+		maxReselect = 0
+	},
+	["lod_streaming_stress_basic"] = {
+		enabled = false
+		testNetworkId = 1,
+		doForceReload = true,
+		randomSkin = false,
+		doFullResetAtEnd = false,
+		entCount = 1,
+		postLoadWaitFrames = 1
+		postLoadWaitFramesMax = 10
+		reselectPercentage = 0
+		maxReselect = 0
+	},
+	["small_group_load_stress_test"] = {
+		enabled = false
+		testNetworkId = 2,
+		doForceReload = true,
+		doFullResetAtEnd = false,
+		randomSkin = true,
+		entCount = 6,
+		postLoadWaitFrames = 0
+		postLoadWaitFramesMax = 10
+		reselectPercentage = 0
+		maxReselect = 0
+	},
+	["reselect_stress_basic"] = {
+		enabled = false
+		testNetworkId = 3,
+		doForceReload = false,
+		doFullResetAtEnd = true,
+		randomSkin = true,
+		entCount = 6,
+		postLoadWaitFrames = 0
+		postLoadWaitFramesMax = 0
+		reselectPercentage = 0.1
+		maxReselect = 5
+	},
+	["reselect_stress_50"] = {
+		enabled = false
+		testNetworkId = 4,
+		doForceReload = false,
+		doFullResetAtEnd = true,
+		randomSkin = true,
+		entCount = 6,
+		postLoa

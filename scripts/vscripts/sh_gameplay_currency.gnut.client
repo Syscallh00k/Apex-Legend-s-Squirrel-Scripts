@@ -1,0 +1,378 @@
+
+
+
+
+
+
+
+
+
+global function Gameplay_Currency_Init
+global function Gameplay_Currency_CashEconomy_Enabled
+global function Gameplay_Currency_Get_PlayerCash
+global function Gameplay_Currency_Get_TeamCash
+global function Gameplay_Currency_CanPlayerAffordCost
+global function Gameplay_Currency_DripFeed_Enabled
+global function Gameplay_Currency_CashDisplayHUD_Enabled
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+struct
+{
+
+
+
+
+
+
+
+
+		int oldCashVal = 0
+
+}file
+
+
+
+
+
+
+
+void function Gameplay_Currency_Init()
+{
+
+		
+		if ( !Gameplay_Currency_CashEconomy_Enabled() )
+			return
+
+
+
+		
+		Currency_Utility_RegisterNetworking()
+
+}
+
+
+void function Currency_Utility_RegisterNetworking()
+{
+	RegisterNetworkedVariable( "currency_current_cash", SNDC_PLAYER_GLOBAL, SNVT_BIG_INT, 0 )
+
+
+		RegisterNetVarIntChangeCallback( "currency_current_cash", Currency_OnCurrentCashChanged )
+
+}
+
+
+
+
+
+
+
+
+
+
+bool function Gameplay_Currency_CashEconomy_Enabled()
+{
+	return GetCurrentPlaylistVarBool( "currency_casheconomy_enabled", false )
+}
+
+
+
+
+
+bool function Gameplay_Currency_DripFeed_Enabled()
+{
+	return GetCurrentPlaylistVarBool( "currency_drip_feed_enabled", false )
+}
+
+int function Currency_Utility_DripFeed_Amount()
+{
+	return GetCurrentPlaylistVarInt( "currency_drip_feed_amount", 200 )
+}
+
+float function Currency_Utility_DripFeed_Interval()
+{
+	return GetCurrentPlaylistVarFloat( "currency_drip_feed_interval", 60.0 )
+}
+
+
+
+
+bool function Gameplay_Currency_CashDisplayHUD_Enabled()
+{
+	return Gameplay_Currency_CashEconomy_Enabled() && GetCurrentPlaylistVarBool( "currency_casheconomy_displayhud_enabled", false )
+}
+
+
+
+
+
+
+
+
+
+
+int function Gameplay_Currency_Get_PlayerCash( entity player )
+{
+	if ( !Gameplay_Currency_CashEconomy_Enabled() )
+	{
+		return 0
+	}
+
+
+
+
+
+
+
+
+	return player.GetPlayerNetInt( "currency_current_cash" )
+}
+
+
+
+
+int function Gameplay_Currency_Get_TeamCash( entity player )
+{
+	int teamCash = 0
+
+	array< entity > teamPlayers = GetPlayerArrayOfTeam( player.GetTeam() )
+
+	foreach ( teamMember in teamPlayers )
+	{
+		int teamMemberCash = Gameplay_Currency_Get_PlayerCash( player )
+
+		teamCash += teamMemberCash
+	}
+
+	return teamCash
+}
+
+
+
+
+bool function Gameplay_Currency_CanPlayerAffordCost( entity player, int cost )
+{
+	if ( !Gameplay_Currency_CashEconomy_Enabled() )
+		return false
+
+	if ( Gameplay_Currency_Get_PlayerCash( player ) < cost )
+		return false
+
+	return true
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function Currency_OnCurrentCashChanged( entity player, int newCashVal )
+{
+	if( !IsValid( player ) )
+		return
+
+	if( player != GetLocalViewPlayer() )
+		return
+
+	
+	
+	
+
+	if ( newCashVal == file.oldCashVal )
+		return
+
+	if ( newCashVal > file.oldCashVal )
+		Currency_CL_Message_CashChange( file.oldCashVal, newCashVal - file.oldCashVal )
+
+	file.oldCashVal = newCashVal
+
+	
+	
+	
+
+
+
+
+}
+
+
+
+void function Currency_CL_Message_CashChange( int amount, int difference )
+{
+	string milesAlias = "UI_TropicsAI_AreaCompletionStinger"
+
+	if ( difference > 0 )
+	{
+		AnnouncementMessageRight( GetLocalViewPlayer(), Localize( "#CURRENCY_CASH_AWARDED", difference ), "", <214[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscr

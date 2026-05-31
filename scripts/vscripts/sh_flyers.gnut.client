@@ -1,0 +1,417 @@
+global function ShFlyers_Init
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global function ServerToClient_PlayLootRarityFXOnDeathboxDrop
+global function Flyer_ServerToClient_DisplayFlyerDeathboxPrompt
+
+
+global function Flyers_GetAllFlyers
+global function AreFlyersEnabled
+
+global const FLYER_MODEL = $"mdl/Creatures/flyer/flyer_kingscanyon_animated.rmdl"
+const FLYER_1000X_MODEL = $"mdl/Creatures/flyer/flyer_kingscanyon_animated.rmdl"
+const FLYER_500X_MODEL = $"mdl/Creatures/flyer/flyer_kingscanyon_animated.rmdl"
+const FLYER_MODEL_STATIC = $"mdl/Creatures/flyer/flyer_kingscanyon_animated.rmdl"
+const asset DEATHBOX_DROP_FX = $"P_loot_flyer"
+
+const TIME_BEFORE_FLYER_DROPS_LOOT = 3.0
+const TIME_FOR_CAGED_FLYER_DAMAGED_STATE_TRANSITIONS = 10.0
+const TIME_FOR_CAGED_FLYER_TRIGGER_VACATED_STATE_TRANSITIONS = 10.0
+float TIME_FOR_CAGED_FLYER_STAY_IN_CAUTIOUS_STATE = 5.0 
+const TIME_FOR_CAGED_FLYER_STAY_IN_ANGRY_STATE = 10.0
+const DIST_THRESHOLD_FOR_ANGRY_CAGED_FLYER = 275
+
+const bool FLYER_WITH_DEATHBOX_FLYING_IDLE_ALWAYS = false
+const float FLYER_WITH_DEATHBOX_FLYING_IDLE_RADIUS = 1500
+const int FLYER_WITH_DEATHBOX_HEALTH = 250
+const int CAGED_FLYER_HEALTH = 100
+
+
+const float FLYER_LOOT_LEGENDARY_TIER_PROBABILTY = 0.02
+const float FLYER_LOOT_EPIC_TIER_PROBABILITY = 0.38
+const int FLYER_LOOT_CAP_ON_EPIC_OR_HIGHER_ITEM_COUNT = 3
+
+const float FLYER_LOOT_TIER_OVERRIDE = -1.0
+const int FLYER_PERCHED_APPROACH_DISTANCE_THRESHOLD = 1024
+const int FLYER_FLYING_APPROACH_DISTANCE_THRESHOLD = 450
+
+const int FLYER_LOOT_ITEMS_FLOOR = 6
+const int FLYER_LOOT_ITEMS_CEILING = 12
+
+global const string DEATHBOX_FLYER_SCRIPT_NAME = "deathboxFlyer"
+global const string CAGED_FLYER_SCRIPT_NAME = "cagedFlyer"
+
+
+
+
+
+
+
+
+
+#if DEV
+struct TestFlyerSpawnDataStruct
+{
+	vector origin
+	vector angles
+	bool   startsInFlight
+}
+#endi[LoadScriptFile] self 0x7ff67896f188  out 0x24cf3d8ee0  path : scripts/vscripts/worldsystems/sh_deathbox.nut.client
+[dump] scripts/vscripts/worldsystems/sh_deathbox.nut.client (31747 bytes)global function DeathboxInit
+
+global function IsDeathbox
+global function GetAllDeathboxes
+global function GetAllDeathBoxesOfTeam
+global function DeathBoxBannerAvailable
+global function ShouldPickupDNAFromDeathBox
+
+global function IsPlayerCloseEnoughToDeathBoxToLoot
+global function IsPlayerWithinStandardDeathBoxUseDistance
+global function IsPlayerOutsideStandardDeathBoxUseDistanceButRemoteInteractAllowed
+global function IsValidAndUsableDeathBoxEnt
+global function IsLootEntAccessibleViaDeathBox
+
+global function Deathbox_GetLootEnts
+global function Deathbox_IsLootEntInsideDeathbox
+global function DoesDeathBoxSupportAddingLoot
+
+global function Deathbox_GetLootByType
+global function Deathbox_GetLootByType_Single
+global function Deathbox_GetUsefulShields
+
+global function IsPlayingBannerPickupAnim
+global function CanInterruptBannerPickupEarly
+global function CanUseFastBannerPickup
+
+global function Deathbox_FindBestEdgeForVFX_WorldSpace
+global function Deathbox_FindBestEdgeForVFX_LocalSpace
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global function Deathbox_Latest_Get
+
+
+global function Deathbox_GetOwnerEHI
+global function Deathbox_GetDeathboxPlayerIsLookingAt
+global function Deathbox_GetExtendedUseSettings
+global function Deathbox_CreateRui
+global function Deathbox_ShouldFocus
+global function Deathbox_ManageLoot_Thread
+global function Deathbox_GetHighlightFillAlpha
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+struct OverrideDeathBoxRUI_NetworkOptimizedStruct
+{
+	string name
+	string hardware
+	string playerID
+	int    characterIndex
+	int    skinIndex
+	int    frameIndex
+	int    stanceIndex
+	int    firstBadgeIndex
+	int    firstBadgeDataInt
+	int    secondBadgeIndex
+	int    secondBadgeDataInt
+	int    thirdBadgeIndex
+	int    thirdBadgeDataInt
+
+	bool isValid = false
+}
+
+struct {
+	array<entity> allDeathBoxes
+
+
+		entity focusedDeathbox = null
+		bool   focusedDeathBoxHandled = false
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+} file
+
+void function DeathboxInit()
+{
+
+		AddCreateCallback( "prop_death_box", OnDeathboxCreated )
+		AddDestroyCallback( "prop_death_box", OnDeathboxDestroyed )
+
+
+
+
+
+
+
+
+
+	RegisterNetworkedVariable( "characterIndex", SNDC_DEATH_BOX, SNVT_BIG_INT, -1 )
+	RegisterNetworkedVariable( "overrideRUIType", SNDC_DEATH_BOX, SNVT_BIG_INT, 0 )
+	RegisterNetworkedVariable( "skinIndex", SNDC_DEATH_BOX, SNVT_BIG_INT, -1 )
+	RegisterNetworkedVariable( "frameIndex", SNDC_DEATH_BOX, SNVT_BIG_INT, -1 )
+	RegisterNetworkedVariable( "stanceIndex", SNDC_DEATH_BOX, SNVT_BIG_INT, -1 )
+	RegisterNetworkedVariable( "firstBadgeIndex", SNDC_DEATH_BOX, SNVT_BIG_INT, -1 )
+	RegisterNetworkedVariable( "firstBadgeDataInt", SNDC_DEATH_BOX, SNVT_BIG_INT, -1 )
+	RegisterNetworkedVariable( "secondBadgeIndex", SNDC_DEATH_BOX, SNVT_BIG_INT, -1 )
+	RegisterNetworkedVariable( "secondBadgeDataInt", SNDC_DEATH_BOX, SNVT_BIG_INT, -1 )
+	RegisterNetworkedVariable( "thirdBadgeIndex", SNDC_DEATH_BOX, SNVT_BIG_INT, -1 )
+	RegisterNetworkedVariable( "thirdBadgeDataInt", SNDC_DEATH_BOX, SNVT_BIG_INT, -1 )
+
+	RegisterNetworkedVariable( "highlightFar", SNDC_DEATH_BOX, SNVT_BOOL, false )
+	RegisterNetworkedVariable( "maxLootTier", SNDC_DEATH_BOX, SNVT_INT, 0 )
+
+	Remote_RegisterClientFunction( "ServerToClient_PlayLootRarityFXOnDeathboxDrop", "entity" )
+
+	RegisterNetworkedVariable( "lootRarity", SNDC_DEATH_BOX, SNVT_INT, -1 )
+	RegisterNetworkedVariable( "ownerEHI", SNDC_DEATH_BOX, SNVT_BIG_INT, -1 )
+
+	RegisterNetworkedVariable( "latestDeathbox", SNDC_PLAYER_GLOBAL, SNVT_ENTITY )
+
+
+		Remote_RegisterClientFunction( "ServerCallback_PromptMarkMyLastDeathbox" )
+
+
+
+
+
+
+
+
+
+
+
+
+
+}
+
+
+#if INTELLIJ_OUTLINE_SECTION_MARKER
+void function _____________Getters___________________________(){}
+#endif
+
+bool function IsDeathbox( entity ent )
+{
+	if ( !IsValid( ent ) )
+		return false
+
+	return ent.GetNetworkedClassName() == "prop_death_box"
+}
+
+array<entity> function GetAllDeathboxes()
+{
+	return file.allDeathBoxes
+}
+
+array<entity> function GetAllDeathBoxesOfTeam( int team )
+{
+	array<entity> teamDeathBoxes
+	foreach ( entity deathbox in file.allDeathBoxes )
+	{
+		Assert( IsValid( deathbox ), "Invalid deathox in allDeathboxes list!" )
+
+		entity boxOwner = deathbox.GetOwner()
+
+		if( !IsValid( boxOwner ) )
+			continue
+
+		int boxTeam = boxOwner.GetTeam()
+		if( boxTeam != team )
+			continue
+
+		teamDeathBoxes.append( deathbox )
+	}
+
+	return teamDeathBoxes
+}
+
+
+
+
+EHI ornull function Deathbox_GetOwnerEHI( entity box )
+{
+	EHI eHandle = box.GetNetInt( "ownerEHI" )
+
+	if ( eHandle == -1 )
+		return null
+
+	return eHandle
+}
+
+
+
+
+
+
+
+
+
+entity function Deathbox_Latest_Get( entity player )
+{
+	entity result = player.GetPlayerNetEnt( "latestDeathbox" )
+	return result
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+array< entity > function Deathbox_GetLootByType( entity box, int desiredLootType )
+{
+	array< entity > items = Deathbox_GetLootEnts( box )
+	array< entity > matchingItems
+
+	foreach ( entity item in items )
+	{
+		LootData data = SURVIVAL_Loot_GetLootDataByIndex( item.GetSurvivalInt() )
+		if ( data.lootType == desiredLootType )
+		{
+			matchingItems.append( item )
+		}
+	}
+
+	return matchingItems
+}
+
+
+entity function Deathbox_GetLootByType_Single( entity box, int desiredLootType )
+{
+	entity result
+
+	array< entity > items = Deathbox_GetLootEnts( box )
+	foreach( entity item in items )
+	{
+		LootData data = SURVIVAL_Loot_GetLootDataByIndex( item.GetSurvivalInt() )
+		if ( data.lootType == desiredLootType )
+		{
+			result = item
+			break
+		}
+	}
+
+	return result
+}
+
+
+entity function Deathbox_GetUsefulShields( entity player, entity box )
+{
+	entity result
+
+	if( !IsValid( box ) )
+		return result
+
+	entity item = Deathbox_GetLootByType_Single( box, eLootType.ARMOR )
+
+	if( !IsVal

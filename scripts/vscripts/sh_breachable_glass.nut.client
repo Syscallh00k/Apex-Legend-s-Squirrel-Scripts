@@ -1,0 +1,1632 @@
+
+
+global function IsBreachableGlass
+global function BreachableGlass_IsReinforced
+global function BreachableGlass_Init
+global function BreachableGlass_GetMeleeDamage
+
+
+global function CheckIfShouldReplaceWithBreachableGlass
+global function ServerToClient_GlassReinforceBlocked
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const string SIG_BREACHABLE_GLASS_REBUILT = "BreachableGlass_Rebuilt"
+const string SIG_BREACH_GLASS_USE_FAIL = "BreachableGlass_UseFail"
+const string SIG_BREACHABLE_GLASS_SELF_HEAL = "BreachableGlass_SelfHeal"
+const string SIG_BREACHABLE_GLASS_DECAY = "BreachableGlass_Decay"
+global const string SIG_BREACHABLE_GLASS_BREAK = "BreachableGlass_Break"
+
+global const string BREACH_GLASS_SCRIPTNAME = "breachable_glass"
+
+global enum eGlassSize
+{
+	SMALL,
+	MEDIUM,
+	LARGE,
+	_COUNT
+}
+
+global enum eGlassShape
+{
+	NARROW,
+	SQUARE,
+	WIDE,
+	_COUNT
+}
+
+struct
+{
+	table< entity, float > hardlightRegenDebounceTracker
+	table< entity, bool > hardLightFirstReset
+	table< entity, float > reinforceBlockEndTimes
+	table< entity, entity > reinforcedGlassOwner
+	table< entity, array< entity > > playerReinforcedGlass
+	table< int, bool > initializedRealms
+} file
+
+struct
+{
+	float breachableGlassRestoreTime = 70.0
+
+
+
+
+
+
+
+
+
+
+	float meleeDamage = 200.0
+	bool reinforceEnabled = true
+	float reinforceUseDuration = 0.45
+
+	bool controllerOnlyReinforce = true
+	bool shieldBoysCanReinforce = false
+	bool onlyCatalystMaxReinforce = false
+
+	bool reinforceBlockedAfterDestruction = true
+	float reinforcementBlockDuration = 4.0
+	float playerReinforceCooldown = 0.0
+
+	bool wattsonHardlightRegenEnabled = true
+	float wattsonHardlightRegenRadius = 13 * METERS_TO_INCHES
+	float wattsonHardlightRegenDebounceDuration = 6.0
+
+	bool empDestroysBreachGlass = true
+
+	bool blackholeDestroysBreachGlass = true
+
+	bool hardlightSelfHealEnabled = true
+	float hardlightSelfHealTime = 70.0
+	float hardlightSelfHealRate = 10.0
+
+	bool reinforcedGlassDecayEnabled = true
+	float reinforcedGlassDecayDistanceSqr = 150.0 * METERS_TO_INCHES
+	int reinforcedGlassMaxPerPlayer = 4
+	float globalHealthDecay = 4000.0
+
+	float healthOverride = 200.0
+	float reinforcedHealthOverride = 1250.0
+	float maxReinforcedHealthOverride = 1600.0
+
+	float useDistance = 150.0
+
+	float mediumSizeThreshold = 150000.0 
+	float largeSizeThreshold = 300000.0 
+
+	bool disableBreachGlassDamage = false 
+	bool blockBreachGlassSpawn = false 
+} tunings
+
+const asset REINFORCED_IMPACT_PFX = $"P_impact_breachglass_reinforced_CP"
+
+const array< asset > BREAK_VFXS = [
+	
+	$"P_breachglass_exp_sm_tall", 
+	$"P_breachglass_exp_sm", 
+	$"P_breachglass_exp_sm_wide", 
+
+	
+	$"P_breachglass_exp_med_tall", 
+	$"P_breachglass_exp_med", 
+	$"P_breachglass_exp_med_wide", 
+
+	
+	$"P_breachglass_exp_lg_tall", 
+	$"P_breachglass_exp_lg", 
+	$"P_breachglass_exp_lg_wide" 
+];
+
+const array< asset > REBUILD_VFXS = [
+	
+	$"P_breachglass_rebuild_sm", 
+	$"P_breachglass_rebuild_sm", 
+	$"P_breachglass_rebuild_sm_wide", 
+
+	
+	$"P_breachglass_rebuild_med", 
+	$"P_breachglass_rebuild_med", 
+	$"P_breachglass_rebuild_med_wide", 
+
+	
+	$"P_breachglass_rebuild_lg", 
+	$"P_breachglass_rebuild_lg", 
+	$"P_breachglass_rebuild_lg_wide" 
+];
+
+
+
+const asset REBUILD_MATERIAL = $"material/models/world/windows/window_breachglass_rebuild_01.rson"
+const asset REINFORCED_MATERIAL = $"material/models/world/windows/window_breachglass_reinforced_01.rson"
+const asset BREACH_GLASS_SETTINGS = $"settings/breachable_glass.rpak"
+
+
+bool function IsBreachableGlass( entity ent )
+{
+	if ( !IsValid( ent ) )
+		return false
+
+	return ent.IsBreachableGlass()
+}
+
+bool function BreachableGlass_IsReinforced( entity glassEnt )
+{
+	return glassEnt.GetHealth() > tunings.healthOverride
+}
+
+void function BreachableGlass_Init()
+{
+	BreachableGlass_InitTunings()
+
+	PerkInfo reinforceHardlight
+	reinforceHardlight.perkId          = ePerkIndex.BREACH_GLASS_REINFORCE
+	Perks_RegisterClassPerk( reinforceHardlight )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+		AddCreateCallback( BREACH_GLASS_SCRIPTNAME, BreachableGlass_OnSpawned )
+
+
+	
+	BreachGlass_UpdateTunings( tunings.breachableGlassRestoreTime, tunings.maxReinforcedHealthOverride, tunings.healthOverride )
+
+	BreachableGlass_RegisterNetworking()
+
+	PrecacheParticleSystem( REINFORCED_IMPACT_PFX )
+
+	foreach ( asset vfx in BREAK_VFXS )
+	{
+		PrecacheParticleSystem( vfx )
+	}
+
+	foreach ( asset vfx in REBUILD_VFXS )
+	{
+		PrecacheParticleSystem( vfx )
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+float function BreachableGlass_GetMeleeDamage()
+{
+	return tunings.meleeDamage
+}
+
+void function BreachableGlass_RegisterNetworking()
+{
+	Remote_RegisterClientFunction( "ServerToClient_GlassReinforceBlocked", "vector", -MAX_WORLD_COORD, MAX_WORLD_COORD, 32, "float", 0.0, 16000.0, 32 )
+}
+
+bool function CanPlayerBarricade( entity player )
+{
+	if ( !IsValidPlayer( player ) || player.p.isInExtendedUse )
+		return false
+
+	if ( !tunings.reinforceEnabled )
+		return false
+
+	if ( tunings.shieldBoysCanReinforce )
+	{
+		if ( PlayerHasPassive( player, ePassives.PAS_AXIOM ) || PlayerHasPassive( player, ePassives.PAS_ADS_SHIELD ) )
+		{
+			return true
+		}
+	}
+
+	if ( tunings.controllerOnlyReinforce )
+	{
+		return Perks_DoesPlayerHavePerk( player, ePerkIndex.BREACH_GLASS_REINFORCE ) || ((Unhinged_IsModeActive() || IsMixTapeModeActive()) && CharacterClass_GetRoleFromEntity( player ) == eCharacterClassRole.DEFENSE)
+	}
+
+	return true
+}
+
+bool function IsMixTapeModeActive()
+{
+	if ( GameModeVariant_IsActive( eGameModeVariants.FREEDM_GUNGAME ) )
+		return true
+
+	if ( GameModeVariant_IsActive( eGameModeVariants.FREEDM_TDM ) )
+		return true
+
+	if ( GameMode_IsActive( eGameModes.CONTROL ) )
+		return true
+
+	return false
+}
+
+bool function BreachableGlass_GlassCanBeUsed( entity player, entity ent, int useFlags )
+{
+	if ( !CanPlayerBarricade( player ) )
+		return false
+
+	if ( !BreachGlass_IsInsideRing( ent ) )
+		return false
+
+	int maxHealth = GetBreachGlassHealthForPlayer( player )
+
+	return ent.GetHealth() < maxHealth
+}
+
+bool function BreachableGlass_GlassReinforceIsBlocked( entity ent, entity player )
+{
+	if ( ent in file.reinforceBlockEndTimes && Time() < file.reinforceBlockEndTimes[ent] )
+		return true
+
+	if ( IsValidPlayer( player ) )
+	{
+		float reinforceCooldown = StatusEffect_GetTimeRemaining( player, eStatusEffect.breachglass_reinforce_cooldown )
+
+		if ( reinforceCooldown > 0.0 )
+			return true
+	}
+
+	return false
+}
+
+void function BreachableGlass_OnUsableEntUsed( entity ent, entity player, int useInputFlags )
+{
+	if ( !IsValidPlayer( player ) || player.p.isInExtendedUse )
+		return
+
+	if ( IsBitFlagSet( useInputFlags, USE_INPUT_ALT ) )
+	{
+
+		if ( BreachableGlass_GlassReinforceIsBlocked( ent, player ) )
+		{
+
+				EmitSoundOnEntity( ent, "menu_deny" )
+
+		}
+		else
+		{
+			BreachableGlass_DoExtendedUseForBarricade( ent, player, useInputFlags )
+		}
+	}
+}
+
+bool function BreachGlass_IsInsideRing( entity glass )
+{
+
+	return Cl_SURVIVAL_PosInsideDeathField( glass.GetOrigin() )
+
+
+
+
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+int function GetBreachGlassHealthForPlayer( entity player )
+{
+	if ( PlayerHasPassive( player, ePassives.PAS_LOCKDOWN ) && tunings.onlyCatalystMaxReinforce )
+	{
+		return int( tunings.maxReinforcedHealthOverride )
+	}
+
+	return int( tunings.reinforcedHealthOverride )
+}
+
+int function BreachableGlass_GetGlassSizeType( entity brush )
+{
+	float glassVolume = BreachableGlass_GetGlassVolume( brush )
+
+	if ( glassVolume > tunings.mediumSizeThreshold && glassVolume < tunings.largeSizeThreshold )
+	{
+		return eGlassSize.MEDIUM
+	}
+	else if ( glassVolume > tunings.largeSizeThreshold )
+	{
+		return eGlassSize.LARGE
+	}
+
+	return eGlassSize.SMALL
+}
+
+int function BreachableGlass_GetGlassShapeType( entity brush )
+{
+	vector shape = brush.GetBreachGlassShape()
+
+	if ( shape.z == 0.0 )
+		return eGlassShape.WIDE
+
+	float ratio = shape.x / shape.z
+
+	if ( ratio > 1.5 )
+	{
+		return eGlassShape.WIDE
+	}
+	else if ( ratio < 0.7 )
+	{
+		return eGlassShape.NARROW
+	}
+
+	return eGlassShape.SQUARE
+}
+
+int function BreachableGlass_GetVFXIdx( entity brush )
+{
+	int sizeType = BreachableGlass_GetGlassSizeType( brush )
+	int shapeType = BreachableGlass_GetGlassShapeType( brush )
+
+	return sizeType * eGlassShape._COUNT + shapeType
+}
+
+float function BreachableGlass_GetGlassVolume( entity brush )
+{
+	vector shape = brush.GetBreachGlassShape()
+
+	return shape.x * shape.y * shape.z
+}
+
+void function BreachableGlass_DoExtendedUseForBarricade( entity ent, entity player, int useInputFlags )
+{
+	ExtendedUseSettings settings
+	settings.duration = tunings.reinforceUseDuration 
+	settings.successSound = ""
+	settings.useInputFlag = IN_USE_ALT
+
+	settings.additional_EndSignals_Player = ["BleedOut_OnStartDying"]
+
+	
+	settings.maxUseDist2 = (tunings.useDistance * 1.5) * (tunings.useDistance * 1.5)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+		settings.loopSound = "Barricade_PreActivate_LP_1P"
+		settings.holdHint = "%use_alt%"
+
+
+	thread ExtendedUse( ent, player, settings )
+}
+
+void function BreachableGlass_OnSpawned( entity ent )
+{
+	if ( tunings.blockBreachGlassSpawn )
+	{
+		ent.Destroy()
+		return
+	}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	ent.AddUsableValue( USABLE_USE_DISTANCE_OVERRIDE )
+	ent.SetUsableDistanceOverride( tunings.useDistance )
+	AddEntityCallback_GetUseEntOverrideText( ent, BreachableGlass_UseTextOverride )
+
+
+	ent.SetPassThroughThickness( -1 )
+
+	SetCallback_CanUseEntityCallback( ent, BreachableGlass_GlassCanBeUsed )
+	AddCallback_OnUseEntity_ClientServer( ent, BreachableGlass_OnUsableEntUsed )
+}
+
+void function BreachableGlass_InitTunings()
+{
+	tunings.breachableGlassRestoreTime = GetCurrentPlaylistVarFloat( "breachable_glass_restore_time", tunings.breachableGlassRestoreTime )
+
+
+
+
+
+
+
+
+
+
+	tunings.meleeDamage = GetCurrentPlaylistVarFloat( "breachable_glass_melee_damage", tunings.meleeDamage )
+	tunings.reinforceEnabled = GetCurrentPlaylistVarBool( "breachglass_reinforce_enabled", tunings.reinforceEnabled )
+	tunings.reinforceUseDuration = GetCurrentPlaylistVarFloat( "breachable_glass_reinforce_use_duration", tunings.reinforceUseDuration )
+
+	tunings.wattsonHardlightRegenEnabled = GetCurrentPlaylistVarBool( "breachglass_wattson_hardlight_reinforce_enabled", tunings.wattsonHardlightRegenEnabled )
+	tunings.wattsonHardlightRegenDebounceDuration = GetCurrentPlaylistVarFloat( "breachable_glass_wattson_regen_debounce_duration", tunings.wattsonHardlightRegenDebounceDuration )
+
+	tunings.controllerOnlyReinforce = GetCurrentPlaylistVarBool( "breachglass_controller_only_reinforce", tunings.controllerOnlyReinforce )
+	tunings.shieldBoysCanReinforce = GetCurrentPlaylistVarBool( "breachglass_shield_boys_can_reinforce", tunings.shieldBoysCanReinforce )
+	tunings.onlyCatalystMaxReinforce = GetCurrentPlaylistVarBool( "breachglass_only_catalyst_max_reinforce", tunings.onlyCatalystMaxReinforce )
+
+	tunings.reinforceBlockedAfterDestruction = GetCurrentPlaylistVarBool( "breachglass_block_reinforce_after_destruction", tunings.reinforceBlockedAfterDestruction )
+	tunings.reinforcementBlockDuration = GetCurrentPlaylistVarFloat( "breachglass_reinforce_block_duration", tunings.reinforcementBlockDuration )
+	tunings.playerReinforceCooldown = GetCurrentPlaylistVarFloat( "breachglass_player_reinforce_cooldown", tunings.playerReinforceCooldown )
+
+	tunings.empDestroysBreachGlass = GetCurrentPlaylistVarBool( "breachglass_emp_destroys_glass", tunings.empDestroysBreachGlass )
+	tunings.blackholeDestroysBreachGlass = GetCurrentPlaylistVarBool( "breachglass_blackhole_destroys_glass", tunings.blackholeDestroysBreachGlass )
+
+	tunings.hardlightSelfHealEnabled = GetCurrentPlaylistVarBool( "breachglass_self_heal_enabled", tunings.hardlightSelfHealEnabled )
+	tunings.hardlightSelfHealTime = GetCurrentPlaylistVarFloat( "breachable_glass_self_heal_time", tunings.hardlightSelfHealTime )
+	tunings.hardlightSelfHealRate = GetCurrentPlaylistVarFloat( "breachable_glass_self_heal_rate", tunings.hardlightSelfHealRate )
+
+	tunings.reinforcedGlassDecayEnabled = GetCurrentPlaylistVarBool( "breachglass_reinforced_decay_enabled", tunings.reinforcedGlassDecayEnabled )
+	tunings.reinforcedGlassDecayDistanceSqr = GetCurrentPlaylistVarFloat( "breachable_glass_reinforced_decay_distance", tunings.reinforcedGlassDecayDistanceSqr )
+	tunings.reinforcedGlassDecayDistanceSqr = tunings.reinforcedGlassDecayDistanceSqr * tunings.reinforcedGlassDecayDistanceSqr 
+
+	tunings.reinforcedGlassMaxPerPlayer = GetCurrentPlaylistVarInt( "breachable_glass_reinforced_max_per_player", tunings.reinforcedGlassMaxPerPlayer )
+
+	tunings.globalHealthDecay = GetCurrentPlaylistVarFloat( "breachable_glass_global_health_decay_rate", tunings.globalHealthDecay )
+
+	tunings.healthOverride = GetCurrentPlaylistVarFloat( "breachable_glass_health_override", tunings.healthOverride )
+	tunings.reinforcedHealthOverride = GetCurrentPlaylistVarFloat( "breachable_glass_reinforced_health_override", tunings.reinforcedHealthOverride )
+	tunings.maxReinforcedHealthOverride = GetCurrentPlaylistVarFloat( "breachable_glass_max_reinforced_health_override", tunings.maxReinforcedHealthOverride )
+	tunings.useDistance = GetCurrentPlaylistVarFloat( "breachable_glass_use_distance", tunings.useDistance )
+
+	tunings.disableBreachGlassDamage = GetCurrentPlaylistVarBool( "breachglass_disable_damage", tunings.disableBreachGlassDamage )
+	tunings.blockBreachGlassSpawn = GetCurrentPlaylistVarBool( "breachglass_block_spawn", tunings.blockBreachGlassSpawn )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+entity function CheckIfShouldReplaceWithBreachableGlass( entity victim, entity weapon, vector damagePosition )
+{
+	
+	if ( !victim.IsWorld() )
+		return victim
+
+	int realm = IsValid( weapon ) ? weapon.GetRealms()[0] : victim.GetRealms()[0]
+
+	array< entity > entitiesAroundDamage = GetBreachGlassInSphere( damagePosition, 16.0, realm )
+
+	if ( entitiesAroundDamage.len() > 0 )
+		return entitiesAroundDamage[0]
+
+	return victim
+}
+
+void function ServerToClient_GlassReinforceBlocked( vector origin, float blockEndTime )
+{
+	entity player = GetLocalClientPlayer()
+
+	if ( !IsValidPlayer( player ) )
+		return
+
+	int realm = player.GetRealms()[0]
+
+	entity glassEnt = null
+
+	float radius = 1.0
+	array< entity > nearbyEnts = GetBreachGlassInSphere( origin, radius, realm )
+
+	if ( nearbyEnts.len() == 0 )
+		return
+
+	glassEnt = nearbyEnts[0]
+
+	if ( glassEnt in file.reinforceBlockEndTimes )
+		file.reinforceBlockEndTimes[glassEnt] = blockEndTime
+	else
+		file.reinforceBlockEndTimes[glassEnt] <- blockEndTime
+}
+
+string function BreachableGlass_UseTextOverride( entity ent )
+{
+	if ( !BreachableGlass_GlassReinforceIsBlocked( ent, GetLocalViewPlayer() ) )
+	{
+		return Localize( "#BREACHGLASS_USE_REINFORCE" )
+	}
+
+	float reinforceCooldown = StatusEffect_GetTimeRemaining( GetLocalViewPlayer(), eStatusEffect.breachglass_reinforce_cooldown )
+
+	if ( ent in file.reinforceBlockEndTimes )
+	{
+		float timeUntilReinforce = file.reinforceBlockEndTimes[ent] - Time()
+
+		reinforceCooldown = max( timeUntilReinforce, reinforceCooldown )
+	}
+
+	if ( reinforceCooldown > 0.0 )
+	{
+		string hintText = Localize( "#BREACHGLASS_USE_REINFORCE_COOLDOWN", int( reinforceCooldown ) )
+
+		return hintText
+	}
+
+	return Localize( "#BREACHGLASS_USE_NO_REINFORCE" )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                 

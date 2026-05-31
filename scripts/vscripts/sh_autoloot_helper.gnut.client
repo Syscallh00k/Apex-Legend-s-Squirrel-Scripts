@@ -1,0 +1,253 @@
+
+global function AutoLootHelper_Init
+global function AutoLootHelper_IsEnabled
+global function AutoLootHelper_IsAutoLootEnabledForItem
+global function AutoLootHelper_CanPlayerAutoLootItem
+global function AutoLootHelper_IsDeathBoxAutoLootEnabled
+global function AutoLootHelper_IsRemoteDeathBoxAutoLootEnabled
+global function AutoLootHelper_IsBlackMarketAutoLootEnabled
+global function AutoLootHelper_AutoLootItemsFreeInBlackMarket
+global function AutoLootHelper_ReplaceOffhandWeaponOnAutoLoot
+
+
+
+
+
+const float AUTOLOOT_DISTANCE_DEFAULT = 64.0
+
+struct
+{
+	bool autoLootHelper = false
+
+	bool ammo = false
+	bool health = false
+	bool ordnance = false
+
+
+	bool selfResKit = false
+
+
+
+
+
+
+	bool tinyXPCache = false
+
+
+	bool deathboxAutoLoot = false
+	bool remoteDeathBoxAutoLoot = false
+	bool blackMarketAutoLoot = false
+	bool autoLootItemsFreeInBlackMarket = false
+} enabled
+
+struct
+{
+	float _default = AUTOLOOT_DISTANCE_DEFAULT
+
+
+	float tinyXPCache = AUTOLOOT_DISTANCE_DEFAULT
+
+} distance
+
+struct
+{
+	bool restricted = false  
+} ammo
+
+struct
+{
+	float lootBinItemUsableDelay = 0.5
+	bool replaceOffhandWeaponOnAutoLoot = false
+} misc
+
+bool function AutoLootHelper_IsEnabled()
+{
+	return enabled.autoLootHelper
+}
+
+void function AutoLootHelper_Init()
+{
+	enabled.autoLootHelper = GetCurrentPlaylistVarBool( "autoloot_helper_enabled", false)
+
+	if ( !enabled.autoLootHelper )
+		return
+
+	enabled.ammo = GetCurrentPlaylistVarBool( "autoloot_helper_autoloot_ammo", enabled.ammo  )
+	enabled.health = GetCurrentPlaylistVarBool( "autoloot_helper_autoloot_health", enabled.health )
+	enabled.ordnance = GetCurrentPlaylistVarBool( "autoloot_helper_autoloot_ordnance", enabled.ordnance )
+
+	enabled.deathboxAutoLoot = GetCurrentPlaylistVarBool( "autoloot_helper_deathbox_autoloot", enabled.deathboxAutoLoot )
+	enabled.remoteDeathBoxAutoLoot = GetCurrentPlaylistVarBool( "autoloot_helper_remote_deathbox_autoloot", enabled.remoteDeathBoxAutoLoot )
+	enabled.blackMarketAutoLoot = GetCurrentPlaylistVarBool( "autoloot_helper_blackMarket_autoloot", enabled.blackMarketAutoLoot )
+	enabled.autoLootItemsFreeInBlackMarket = GetCurrentPlaylistVarBool( "autoloot_helper_autoloot_items_free_in_black_market", enabled.autoLootItemsFreeInBlackMarket )
+
+	enabled.selfResKit = GetCurrentPlaylistVarBool( "autoloot_helper_autoloot_selfResKit", enabled.selfResKit )
+
+
+
+
+
+
+	enabled.tinyXPCache = GetCurrentPlaylistVarBool( "autoloot_helper_autoloot_tinyXPCache", enabled.tinyXPCache )
+
+
+	distance._default = GetCurrentPlaylistVarFloat( "autoloot_helper_distance_default", distance._default )
+
+
+	distance.tinyXPCache = GetCurrentPlaylistVarFloat( "autoloot_helper_distance_xpCache", distance.tinyXPCache )
+
+
+	ammo.restricted = GetCurrentPlaylistVarBool( "autoloot_helper_ammo_autoloot_restricted", ammo.restricted )
+	misc.lootBinItemUsableDelay = GetCurrentPlaylistVarFloat( "autoloot_helper_lootbin_item_usable_delay", misc.lootBinItemUsableDelay )
+	misc.replaceOffhandWeaponOnAutoLoot = GetCurrentPlaylistVarBool( "autoloot_helper_replace_offhand_weapon_on_autoloot", misc.replaceOffhandWeaponOnAutoLoot )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+bool function AutoLootHelper_IsAutoLootEnabledForItem( LootData data )
+{
+	if ( !enabled.autoLootHelper )
+		return false
+
+	switch ( data.lootType )
+	{
+		case eLootType.AMMO:
+			return enabled.ammo
+		case eLootType.HEALTH:
+			return enabled.health
+		case eLootType.ORDNANCE:
+			return enabled.ordnance
+
+		case eLootType.SELF_RES_KIT:
+			return enabled.selfResKit
+
+
+
+
+
+
+		case eLootType.EVO_CACHE:
+			return XPCache_IsTinyXPCache( data ) ? enabled.tinyXPCache : false
+
+		default:
+			break
+	}
+
+	return false
+}
+
+bool function AutoLootHelper_CanPlayerAutoLootItem( entity player, LootData data )
+{
+	if ( !IsValidPlayer( player ) )
+		return false
+
+	if ( !AutoLootHelper_IsAutoLootEnabledForItem( data ) )
+		return false
+
+	if ( data.lootType == eLootType.AMMO )
+		return CanPlayerAutoLootAmmoItem( player, data )
+
+	return true
+}
+
+bool function CanPlayerAutoLootAmmoItem( entity player, LootData ammoData )
+{
+	if ( !IsValidPlayer( player ) )
+		return false
+
+	if ( !ammo.restricted )
+		return true
+
+	int ammoType = AmmoType_GetTypeFromRef( ammoData.ref )
+
+	foreach( entity weapon in SURVIVAL_GetPrimaryWeaponsIncludingSling( player ) )
+	{
+		
+		if ( weapon.HasMod( "crate" ) && weapon.GetWeaponClassName().find( BOW_WEAPON_NAME_CRATE ) == -1 )
+			continue
+
+		int weaponAmmoType = weapon.GetWeaponAmmoPoolType()
+		if ( weaponAmmoType == ammoType )
+			return true
+
+		string weaponClassName = weapon.GetWeaponClassName()
+		if ( IsWeaponKeyFieldDefined( weaponClassName, "secondary_ammo_pool_type" ) )
+		{
+			LootData weaponData = SURVIVAL_Loot_GetLootDataByRef( weaponClassName )
+			if ( weaponData.ammoType == ammoData.ref || weaponData.secondaryAmmoType == ammoData.ref )
+				return true
+		}
+	}
+
+	return false
+}
+
+bool function AutoLootHelper_IsDeathBoxAutoLootEnabled()
+{
+	return enabled.deathboxAutoLoot
+}
+
+bool function AutoLootHelper_IsRemoteDeathBoxAutoLootEnabled()
+{
+	return enabled.remoteDeathBoxAutoLoot
+}
+
+bool function AutoLootHelper_IsBlackMarketAutoLootEnabled()
+{
+	return enabled.blackMarketAutoLoot
+}
+
+bool function AutoLootHelper_AutoLootItemsFreeInBlackMarket()
+{
+	return enabled.autoLootItemsFreeInBlackMarket
+}
+
+bool function AutoLootHelper_ReplaceOffhandWeaponOnAutoLoot()
+{
+	return misc.replaceOffhandWeaponOnAutoLoot
+}
+

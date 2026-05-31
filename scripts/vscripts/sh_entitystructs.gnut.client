@@ -1,0 +1,109 @@
+
+
+
+
+
+
+
+
+
+
+global typedef EncodedEHandle int
+global const EncodedEHandle EncodedEHandle_null = 0
+
+
+
+
+
+
+
+
+global typedef EHI EncodedEHandle
+global const EHI EHI_null = EncodedEHandle_null
+
+
+
+
+global struct EHIScriptStruct
+{
+	EHI ehi
+
+	
+	bool isPlayer = false
+	bool isConnected = false
+	string name = ""
+	string tag = ""
+	int  team = TEAM_INVALID
+	int  teamMemberIndex
+	int platformID = -1
+
+		bool   isLocalClientPlayer = false
+
+
+	
+
+
+
+
+
+	table<int, array<void functionref( EHI, ItemFlavor )> > itemFlavorLoadoutSlotChangedCallbacksMap
+
+
+		array<int> netVarsLastSeenValuesMap
+		string obfuscatedID = ""
+		string uid
+		string unspoofedUid
+		string playerEAID
+		string hardware
+
+
+
+
+
+	
+
+
+
+
+	
+
+
+
+
+
+
+	
+	int rankScore = -1 
+	int rankedLadderPosition = -1 
+	int highestRankScore = -1
+	int highestLadderPosition = -2 
+
+	int rankScorePrevSeason = -1 
+	int rankedLadderPositionPrevSeason = -1 
+
+	float teamSkillPercentile = 0.0
+
+
+		int arenasRankScore = 0 
+		int arenasRankedLadderPosition = -1 
+
+
+
+
+
+
+
+
+
+	array< ItemFlavor > legendaryItemsOwnedByPlayer = []
+}
+
+
+
+
+
+global typedef EHISignalDummy EHIScriptStruct
+
+
+
+

@@ -1,0 +1,101 @@
+global function ShFeatureUnlockToken_LevelInit
+global function FeatureUnlockToken_GetRewardAssetFromItemFlav
+global function FeatureUnlockToken_GetAnimationAssetFromItemFlav
+global function FeatureUnlockToken_GetSoundAnimationEventFromItemFlav
+global function FeatureUnlockToken_GetTitleFromItemFlav
+global function FeatureUnlockToken_GetHeaderFromItemFlav
+global function FeatureUnlockToken_GetDescriptionFromItemFlav
+global function FeatureUnlockToken_GetCategory
+
+
+global enum eFeatureUnlockTokenCategory
+{
+	RANKED
+}
+
+
+
+
+
+
+
+
+void function ShFeatureUnlockToken_LevelInit()
+{
+	AddCallback_RegisterRootItemFlavors( OnRegisterRootItemFlavors )
+}
+
+
+
+void function OnRegisterRootItemFlavors()
+{
+	foreach ( asset featureUnlockTokenAsset in GetBaseItemFlavorsFromArray( "featureUnlockTokens" ) )
+	{
+		if ( featureUnlockTokenAsset == $"" )
+		{
+			continue
+		}
+		ItemFlavor ornull image2DOrNull = RegisterItemFlavorFromSettingsAsset( featureUnlockTokenAsset )
+		if ( image2DOrNull == null )
+		{
+			printt( "Failed to register ItemFlavor from Settings Asset ", featureUnlockTokenAsset )
+		}
+	}
+}
+
+
+
+
+
+
+
+
+asset function FeatureUnlockToken_GetRewardAssetFromItemFlav ( ItemFlavor flavor )
+{
+	Assert( ItemFlavor_GetType( flavor ) == eItemType.feature_unlock_token )
+
+	return GetGlobalSettingsAsset( ItemFlavor_GetAsset( flavor ), "image2D" )
+}
+
+asset function FeatureUnlockToken_GetAnimationAssetFromItemFlav ( ItemFlavor flavor )
+{
+	Assert( ItemFlavor_GetType( flavor ) == eItemType.feature_unlock_token )
+
+	return CastStringToAsset( GetGlobalSettingsString( ItemFlavor_GetAsset( flavor ), "unlockAnimationPath" ) )
+}
+
+string function FeatureUnlockToken_GetSoundAnimationEventFromItemFlav ( ItemFlavor flavor )
+{
+	Assert( ItemFlavor_GetType( flavor ) == eItemType.feature_unlock_token )
+
+	return GetGlobalSettingsString( ItemFlavor_GetAsset( flavor ), "soundAnimationEvent" )
+}
+
+string function FeatureUnlockToken_GetTitleFromItemFlav ( ItemFlavor flavor )
+{
+	Assert( ItemFlavor_GetType( flavor ) == eItemType.feature_unlock_token )
+
+	return GetGlobalSettingsString( ItemFlavor_GetAsset( flavor ), "titleText" )
+}
+
+string function FeatureUnlockToken_GetHeaderFromItemFlav ( ItemFlavor flavor )
+{
+	Assert( ItemFlavor_GetType( flavor ) == eItemType.feature_unlock_token )
+
+	return GetGlobalSettingsString( ItemFlavor_GetAsset( flavor ), "headerText" )
+}
+
+string function FeatureUnlockToken_GetDescriptionFromItemFlav ( ItemFlavor flavor )
+{
+	Assert( ItemFlavor_GetType( flavor ) == eItemType.feature_unlock_token )
+
+	return GetGlobalSettingsString( ItemFlavor_GetAsset( flavor ), "descText" )
+}
+
+int function FeatureUnlockToken_GetCategory( ItemFlavor itemFlav )
+{
+	Assert( ItemFlavor_GetType( itemFlav ) == eItemType.feature_unlock_token )
+
+	int category = eFeatureUnlockTokenCategory[GetGlobalSettingsString( ItemFlavor_GetAsset( itemFlav ), "featureCategory" )]
+	return category
+}

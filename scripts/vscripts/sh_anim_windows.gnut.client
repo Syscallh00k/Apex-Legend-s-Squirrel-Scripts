@@ -1,0 +1,2350 @@
+global function ShAnimWindows_LevelInit
+
+
+global function ShowEntityAndChildren
+global function HideEntityAndChildren
+
+global function ClientCodeCallback_AnimWindowStream
+global function ClientCodeCallback_AnimWindowStart
+global function ClientCodeCallback_AnimWindowTransition
+global function ClientCodeCallback_AnimWindowStop
+
+
+
+
+
+
+global function RegisterScriptAnimWindowCallbacks
+global function TryResolveScriptAnimWindowWeapon
+
+
+
+
+
+
+global corecacheModel( GetSettingsBlockAsset( settingsBlock, "modelName" ) )
+	}
+	else if ( selectModelFrom == eAnimWindowCreatePropModelSelectionStrategy.SCRIPT_KEY )
+	{
+		switch ( GetSettingsBlockString( settingsBlock, "modelScriptKey" ) )
+		{
+			case "wraith_kunai":
+				PrecacheModel( WRAITH_KUNAI_MDL )
+				break
+
+
+			case "fuse_launcher":
+				foreach ( string key, asset model in FUSE_MYTHIC_SKINS_AND_LAUNCHERS )
+					PrecacheModel( model )
+				break
+
+		}
+	}
+}
+
+bool function AnimWindow_CreateProp_StreamHint( var settingsBlock )
+{
+
+	asset ornull model = null
+	int selectModelFrom = eAnimWindowCreatePropModelSelectionStrategy[GetSettingsBlockString( settingsBlock, "selectModelFrom" )]
+	if ( selectModelFrom == eAnimWindowCreatePropModelSelectionStrategy.HARD_CODED )
+	{
+		model = GetSettingsBlockAsset( settingsBlock, "modelName" )
+	}
+	else if ( selectModelFrom == eAnimWindowCreatePropModelSelectionStrategy.SCRIPT_KEY )
+	{
+		switch ( GetSettingsBlockString( settingsBlock, "modelScriptKey" ) )
+		{
+			case "wraith_kunai":
+			{
+				model = WRAITH_KUNAI_MDL
+				break
+			}
+		}
+	}
+
+	if ( model == null )
+	{
+		return true
+	}
+
+	expect asset(model)
+
+	
+	int odlHandle = ODL_FindAsset( model )
+	if ( odlHandle != -1 )
+	{
+		if( !ODL_IsLoaded( odlHandle ) )
+		{
+			ODL_HintNeeded( odlHandle, true )
+			return false
+		}
+	}
+
+	
+	if ( !StreamModelIsResident( model ) )
+	{
+		StreamModelHint( model )
+		return false
+	}
+
+
+	return true
+}
+
+void function AnimWindow_CreateProp_Start( ScriptAnimWindow window, var settingsBlock )
+{
+	int selectModelFrom = eAnimWindowCreatePropModelSelectionStrategy[GetSettingsBlockString( settingsBlock, "selectModelFrom" )]
+	asset model         = EMPTY_MODEL
+	if ( selectModelFrom == eAnimWindowCreatePropModelSelectionStrategy.HARD_CODED )
+	{
+		model = GetSettingsBlockAsset( settingsBlock, "modelName" )
+	}
+	else if ( selectModelFrom == eAnimWindowCreatePropModelSelectionStrategy.COPY_PARENT )
+	{
+		model = window.ent.GetModelName()
+	}
+
+
+
+
+
+		entity prop = CreateClientSidePropDynamic( window.ent.GetOrigin(), window.ent.GetAngles(), model )
+		prop.SetParent( window.ent )
+		prop.MakeSafeForUIScriptHack()
+		prop.SetUseLobbyAnimEventFlags( window.ent.IsUsingLobbyAnimEventFlags() )
+
+		if ( selectModelFrom == eAnimWindowCreatePropModelSelectionStrategy.SCRIPT_KEY )
+		{
+			SetModelOnPropByScriptKey( prop, GetSettingsBlockString( settingsBlock, "modelScriptKey" ), window.ent )
+		}
+
+		
+		
+		
+
+		SetTeam( prop, window.ent.GetTeam() )
+		prop.kv.renderamt = window.ent.kv.renderamt
+		prop.CopyHighlightState( window.ent )
+		
+			
+
+
+	
+	var bodyGroupArr       = GetSettingsBlockArray( settingsBlock, "propBodygroups" )
+	int bodygroupArraySize = GetSettingsArraySize( bodyGroupArr )
+	for ( int index = 0; index < bodygroupArraySize; index++ )
+	{
+		var bodyGroupElem = GetSettingsArrayElem( bodyGroupArr, index )
+		string bodyGroup  = GetSettingsBlockString( bodyGroupElem, "bodygroup" )
+		int subModelIndex = GetSettingsBlockInt( bodyGroupElem, "index" )
+
+		int bodyGroupIndex = prop.FindBodygroup( bodyGroup )
+		if ( bodyGroupIndex != -1 )
+			prop.SetBodygroupModelByIndex( bodyGroupIndex, subModelIndex )
+	}
+
+	if ( GetSettingsBlockBool( settingsBlock, "useExplicitSkinCamo" ) )
+	{
+		string skinName = GetSettingsBlockString( settingsBlock, "skinName" )
+		int camoIndex = GetSettingsBlockInt( settingsBlock, "camoIndex" )
+		AbilityCosmetics_Apply( prop, skinName, camoIndex )
+	}
+	else if ( selectModelFrom == eAnimWindowCreatePropModelSelectionStrategy.COPY_PARENT )
+	{
+		prop.SetSkin( window.ent.GetSkin() )
+		prop.SetCamo( window.ent.GetCamo() )
+	}
+	else if ( selectModelFrom != eAnimWindowCreatePropModelSelectionStrategy.SCRIPT_KEY )
+	{
+		string characterSkinName = window.ent.GetSkinNameByIndex( window.ent.GetSkin() )
+		int characterCamo        = window.ent.GetCamo()
+		AbilityCosmetics_Apply( prop, characterSkinName, characterCamo )
+	}
+
+	string scriptCallbackKey = GetSettingsBlockString( settingsBlock, "scriptCallbackKey" )
+	if ( scriptCallbackKey != "" )
+	{
+		Assert( scriptCallbackKey in file.createPropScriptCallbackMap )
+		file.createPropScriptCallbackMap[scriptCallbackKey]( window, settingsBlock, prop )
+	}
+
+#if DEV
+		disableoverwrite( windowPropMap )
+#endif
+	windowPropMap[window.stringID] <- prop
+
+	bool syncCycle = GetSettingsBlockBool( settingsBlock, "syncCycle" )
+	if ( syncCycle )
+		window.ent.AnimSyncScriptProp_Begin( prop, window.startCycle, window.endCycle, window.windowName )
+
+	AnimWindow_CreateProp_Transition( window, settingsBlock )
+}
+
+
+void function AnimWindow_CreateProp_Transition( ScriptAnimWindow window, var settingsBlock )
+{
+	string scriptCallbackKey = GetSettingsBlockString( settingsBlock, "scriptCallbackKey" )
+	asset animSeq            = GetSettingsBlockAsset( settingsBlock, "animSequence" )
+	string attachmentName    = GetSettingsBlockString( settingsBlock, "attachPoint" )
+	float scale              = GetSettingsBlockFloat( settingsBlock, "scale" )
+
+	Assert( window.stringID in windowPropMap )
+	entity prop = windowPropMap[window.stringID]
+
+	if ( !IsValid( prop ) )
+		return
+
+	prop.SetParent( window.ent, attachmentName, false )
+	prop.RenderWithViewModels( window.ent.IsRenderingWithViewModels() )
+	prop.SetModelScale( scale * window.ent.GetModelScale() )
+
+
+	
+	
+	entity parentEnt = window.ent
+	if ( !parentEnt.IsPlayer() )
+	{
+		entity proxyOwner = parentEnt.GetOwner()
+		if ( IsValid( proxyOwner ) && proxyOwner.IsPlayer() )
+		{
+			parentEnt = proxyOwner
+		}
+	}
+	if ( scriptCallbackKey == MELEE_SKIN_KEY )
+	{
+		string meleeSkinName = ""
+		if ( parentEnt.IsPlayer() )
+		{
+			meleeSkinName = MeleeSkin_GetSkinNameFromPlayer( parentEnt )
+			printt( "Execution uses player melee skin: " + meleeSkinName )
+		}
+		else 
+		{
+
+				ItemFlavor ornull meleeSkinFlavor = parentEnt.e.animWindowMeleeSkinItemFlavor
+
+				if ( meleeSkinFlavor != null )
+				{
+					expect ItemFlavor( meleeSkinFlavor )
+					meleeSkinName = MeleeSkin_GetSkinName( meleeSkinFlavor )
+					printt( "Glad card uses melee skin: " + meleeSkinName )
+				}
+
+		}
+		if ( meleeSkinName != "" && meleeSkinName != "default" )
+		{
+			int skindex = prop.GetSkinIndexByName( meleeSkinName )
+
+			var animArr       = GetSettingsBlockArray( settingsBlock, "additionalAnims" )
+			int animArraySize = GetSettingsArraySize( animArr )
+
+			if ( animArraySize > 0 && skindex > 1 && skindex - 2 < animArraySize )
+			{
+				var animElem = GetSettingsArrayElem( animArr, skindex - 2 )
+				asset anim   = GetSettingsBlockAsset( animElem, "animSequence" )
+
+				animSeq = anim
+			}
+		}
+	}
+
+	if ( animSeq != $"" )
+	{
+		prop.Anim_Play( animSeq )
+
+		float curCycle = window.ent.GetCycle()
+
+		float cycleValue = 0
+		if ( window.endCycle > window.startCycle )
+			cycleValue = (curCycle - window.startCycle) / (window.endCycle - window.startCycle)
+		cycleValue = Clamp( cycleValue, 0.0, 1.0 )
+		prop.SetCycle( cycleValue )
+	}
+	else
+	{
+		prop.Anim_Stop()
+	}
+}
+
+
+void function AnimWindow_CreateProp_Stop( ScriptAnimWindow window, var settingsBlock )
+{
+	Assert( window.stringID in windowPropMap )
+	entity prop = windowPropMap[window.stringID]
+	delete windowPropMap[window.stringID]
+
+	bool syncCycle = GetSettingsBlockBool( settingsBlock, "syncCycle" )
+	if ( syncCycle )
+		window.ent.AnimSyncScriptProp_End( prop, window.windowName )
+
+	if ( IsValid( prop ) )
+		prop.Destroy()
+}
+
+
+void function SetModelOnPropByScriptKey( entity propEnt, string key, entity parentEnt )
+{
+	switch( key )
+	{
+		case "bloodhound_raven":
+			propEnt.SetModel( BLOODHOUND_BIRD_MDL )
+			break
+
+		case "lifeline_drone":
+			propEnt.SetModel( LIFELINE_DRONE_MDL )
+			propEnt.SetSkin( LIFELINE_DRONE_ONLINE_SKIN )
+			break
+
+		case "wraith_kunai":
+			propEnt.SetModel( WRAITH_KUNAI_MDL )
+
+			bool usesNewKunai = false;
+			ItemFlavor ornull meleeSkinFlavor = parentEnt.e.animWindowMeleeSkinItemFlavor
+			if ( meleeSkinFlavor != null )
+			{
+				expect ItemFlavor( meleeSkinFlavor )
+				asset meleeWeaponAsset = GetGlobalSettingsAsset( ItemFlavor_GetAsset( meleeSkinFlavor ), "parentItemFlavor" )
+				ItemFlavor meleeWeapon = GetItemFlavorByAsset( meleeWeaponAsset )
+				string skinname        = MeleeWeapon_GetMainWeaponClassname( meleeWeapon )
+				usesNewKunai = skinname == "mp_weapon_wraith_kunai_rt01_primary"
+			}
+
+			if ( usesNewKunai )
+			{
+				propEnt.SetSkin( WRAITH_KUNAI_SKIN_NEW )
+			}
+			else
+			{
+				propEnt.SetSkin( WRAITH_KUNAI_SKIN )
+			}
+			break
+
+
+
+		case "fuse_launcher":
+			int skinIndex = parentEnt.GetSkin()
+			string characterSkinName = parentEnt.GetSkinNameByIndex( skinIndex )
+			propEnt.SetModel( FUSE_MYTHIC_SKINS_AND_LAUNCHERS[ characterSkinName ] )
+			break
+
+
+		default:
+			Assert( false, "Unknown script key for CreateProp anim window: " + key )
+			break
+	}
+}
+
+
+
+
+
+
+
+table<string, var> windowSoundHandleMap = {}
+
+
+
+void function AnimWindow_PlaySound_Precache( var settingsBlock )
+{
+	
+}
+
+
+void function AnimWindow_PlaySound_Start( ScriptAnimWindow window, var settingsBlock )
+{
+	string soundEventName = GetSettingsBlockString( settingsBlock, "soundEventName" )
+
+
+
+
+		entity viewPlayer = GetLocalViewPlayer()
+		if ( IsValid( viewPlayer ) && !viewPlayer.DoesShareRealms( window.ent ) )
+		{
+			windowSoundHandleMap[window.stringID] <- null
+			return
+		}
+		var soundHandle = EmitSoundOnEntity( window.ent, soundEventName )
+
+#if DEV
+			disableoverwrite( windowSoundHandleMap )
+#endif
+		windowSoundHandleMap[window.stringID] <- soundHandle
+
+}
+
+
+void function AnimWindow_PlaySound_Transition( ScriptAnimWindow window, var settingsBlock )
+{
+	
+}
+
+
+void function AnimWindow_PlaySound_Stop( ScriptAnimWindow window, var settingsBlock )
+{
+
+
+
+		entity viewPlayer = GetLocalViewPlayer()
+		if ( windowSoundHandleMap[window.stringID] )
+			StopSound( windowSoundHandleMap[window.stringID] )
+		delete windowSoundHandleMap[window.stringID]
+
+}
+
+
+
+
+
+
+
+
+void function AnimWindow_PlayHighlight_Precache( var settingsBlock )
+{
+}
+
+void function AnimWindow_PlayHighlight_Start( ScriptAnimWindow window, var settingsBlock )
+{
+
+
+
+		window.ent.Highlight_SetVisibilityType( HIGHLIGHT_VIS_ALWAYS )
+
+		string highlightContext = GetSettingsBlockString( settingsBlock, "highlightContext" )
+		window.ent.Highlight_SetCurrentContext( HighlightContext_GetId( highlightContext ) )
+
+		window.ent.Highlight_SetFadeInTime( GetSettingsBlockFloat( settingsBlock, "fadeInTime" ) )
+		window.ent.Highlight_SetFadeOutTime( GetSettingsBlockFloat( settingsBlock, "fadeOutTime" ) )
+		window.ent.Highlight_SetLifeTime( GetSettingsBlockFloat( settingsBlock, "lifeTime" ) )
+
+		void functionref( int, string, string ) trySetOverrideParam = void function( int idx, string hasKey, string paramKey ) : ( window, settingsBlock ) {
+			if ( GetSettingsBlockBool( settingsBlock, hasKey ) )
+			{
+				window.ent.Highlight_OverrideParam( idx, GetSettingsBlockVector( settingsBlock, paramKey ) )
+			}
+		}
+		trySetOverrideParam( 0, "hasOverrideParam0", "overrideParam0" )
+		trySetOverrideParam( 1, "hasOverrideParam1", "overrideParam1" )
+
+		window.ent.Highlight_StartOn()
+
+}
+
+void function AnimWindow_PlayHighlight_Transition( ScriptAnimWindow window, var settingsBlock )
+{
+}
+
+void function AnimWindow_PlayHighlight_Stop( ScriptAnimWindow window, var settingsBlock )
+{
+}
+
+
+
+
+
+
+
+
+
+
+typedef AnimWindow_PlayFX_HandleOrNull int ornull
+
+table<string, AnimWindow_PlayFX_HandleOrNull> windowFXHandleMap = {}
+
+
+void function AnimWindow_PlayFX_Precache( var settingsBlock )
+{
+	asset particleAsset = GetSettingsBlockStringAsAsset( settingsBlock, "particleSystemName" )
+	PrecacheParticleSystem( particleAsset )
+}
+
+enum eControlPointType {
+	ATTACH,
+	COLOR,
+	VECTOR
+}
+void function AnimWindow_PlayFX_Start( ScriptAnimWindow window, var settingsBlock )
+{
+	asset particleAsset     = GetSettingsBlockStringAsAsset( settingsBlock, "particleSystemName" )
+	int particleSystemIndex = GetParticleSystemIndex( particleAsset )
+
+	bool shouldFollow = GetSettingsBlockBool( settingsBlock, "followAttach" )
+	string attachment = GetSettingsBlockString( settingsBlock, "attachPoint" )
+
+	AnimWindow_PlayFX_HandleOrNull fxHandleOrNull = null
+
+	int attachID
+	if ( attachment != "" )
+	{
+		attachID = window.ent.LookupAttachment( attachment )
+		if ( attachID <= 0 )
+			Warning( "Attachment %s not found on model %s while trying to create script anim window %s", attachment, string(window.ent.GetModelName()), string(window.settingsAsset) )
+	}
+
+	if ( shouldFollow )
+	{
+		if ( attachment != "" )
+		{
+			if ( attachID > 0 )
+			{
+
+
+
+					fxHandleOrNull = StartParticleEffectOnEntity( window.ent, particleSystemIndex, FX_PATTACH_POINT_FOLLOW, attachID )
+
+			}
+		}
+		else
+		{
+
+
+
+				fxHandleOrNull = StartParticleEffectOnEntityWithPos( window.ent, particleSystemIndex, FX_PATTACH_CUSTOMORIGIN_FOLLOW, ATTACHMENTID_INVALID, <0, 0, 0>, <0, 0, 0> )
+
+		}
+	}
+	else
+	{
+		if ( attachment != "" )
+		{
+			if ( attachID > 0 )
+			{
+				vector origin = window.ent.GetAttachmentOrigin( attachID )
+				vector angles = window.ent.GetAttachmentAngles( attachID )
+
+
+
+					fxHandleOrNull = StartParticleEffectInWorldWithHandle( particleSystemIndex, origin, angles )
+
+			}
+		}
+		else
+		{
+			vector origin = window.ent.GetOrigin()
+			vector angles = window.ent.GetAngles()
+
+
+
+				fxHandleOrNull = StartParticleEffectInWorldWithHandle( particleSystemIndex, origin, angles )
+
+		}
+	}
+
+
+		if ( GetCurrentPlaylistVarBool( "anim_fx_window_sound", true ) && fxHandleOrNull )
+		{
+			EffectSetSoundEnabled( expect int( fxHandleOrNull ), true )
+		}
+
+
+	if ( fxHandleOrNull != null )
+	{
+
+			expect int( fxHandleOrNull )
+
+		var controlPointArray     = GetSettingsBlockArray( settingsBlock, "controlPoints" )
+		int controlPointArraySize = GetSettingsArraySize( controlPointArray )
+		for ( int index = 0; index < controlPointArraySize; index++ )
+		{
+			var controlPointElem    = GetSettingsArrayElem( controlPointArray, index )
+			string controlPointType = GetSettingsBlockString( controlPointElem, "controlPointType" )
+			int controlPointIndex   = GetSettingsBlockInt( controlPointElem, "controlPointIndex" )
+			Assert( controlPointType in eControlPointType )
+			int cpType = eControlPointType[ controlPointType ]
+			switch ( cpType )
+			{
+				case eControlPointType.ATTACH:
+					string attachName = GetSettingsBlockString( controlPointElem, "attachmentName" )
+					Assert( attachName != "" )
+					if ( attachName != "" )
+					{
+						attachID = window.ent.LookupAttachment( attachName )
+						if ( attachID <= 0 )
+							Warning( "Attachment %s not found on model %s while trying to create script anim window %s", attachName, string(window.ent.GetModelName()), string(window.settingsAsset) )
+						else
+
+								EffectAddTrackingForControlPoint( fxHandleOrNull, controlPointIndex, window.ent, FX_PATTACH_POINT_FOLLOW, attachID, <0.0, 0.0, 0.0> )
+
+
+
+					}
+					break
+
+				case eControlPointType.COLOR:
+					vector color = ( GetSettingsBlockVector( controlPointElem, "controlPointColor" ) * 255.0 )
+					EffectSetControlPointVector( fxHandleOrNull, controlPointIndex, color )
+					break
+
+				case eControlPointType.VECTOR:
+					vector cpVec = GetSettingsBlockVector( controlPointElem, "controlPointVector" )
+					EffectSetControlPointVector( fxHandleOrNull, controlPointIndex, cpVec )
+			}
+		}
+	}
+
+#if DEV
+		disableoverwrite( windowFXHandleMap )
+#endif
+
+	windowFXHandleMap[window.stringID] <- fxHandleOrNull
+}
+
+
+void function AnimWindow_PlayFX_Transition( ScriptAnimWindow window, var settingsBlock )
+{
+	
+	
+	
+	
+	
+	
+	bool playInTransitionEvent = GetSettingsBlockBool( settingsBlock, "playInTransitionEvent" )
+	if ( playInTransitionEvent )
+	{
+		AnimWindow_PlayFX_Stop( window, settingsBlock )
+		AnimWindow_PlayFX_Start( window, settingsBlock )
+	}
+}
+
+
+void function AnimWindow_PlayFX_Stop( ScriptAnimWindow window, var settingsBlock )
+{
+	AnimWindow_PlayFX_HandleOrNull fxHandleOrNull = windowFXHandleMap[window.stringID]
+	delete windowFXHandleMap[window.stringID]
+
+	if ( fxHandleOrNull != null )
+	{
+		bool shouldPlayEndCap = GetSettingsBlockBool( settingsBlock, "playEndCap" )
+
+
+
+
+
+
+
+			if ( shouldPlayEndCap )
+				EffectStop( expect int( fxHandleOrNull ), false, true )
+			else
+				EffectStop( expect int( fxHandleOrNull ), true, false )
+
+	}
+}
+
+
+
+
+
+
+
+void function AnimWindow_SetConVar_Start( ScriptAnimWindow window, var settingsBlock )
+{
+	string conVarName = GetSettingsBlockString( settingsBlock, "conVarName" )
+	float startValue  = GetSettingsBlockFloat( settingsBlock, "startValue" )
+
+	SetConVarFloat( strip( conVarName ), startValue )
+}
+
+
+void function AnimWindow_SetConVar_Stop( ScriptAnimWindow window, var settingsBlock )
+{
+	string conVarName = GetSettingsBlockString( settingsBlock, "conVarName" )
+	float endValue    = GetSettingsBlockFloat( settingsBlock, "endValue" )
+
+	if ( endValue == -1.0 )
+		SetConVarToDefault( strip( conVarName ) )
+	else
+		SetConVarFloat( strip( conVarName ), endValue )
+}
+
+
+
+
+
+
+
+void function AnimWindow_Callback_Start( ScriptAnimWindow window, var settingsBlock )
+{
+	string callbackName = GetSettingsBlockString( settingsBlock, "callbackName" )
+	string parameter    = GetSettingsBlockString( settingsBlock, "callbackParameter" )
+
+	Assert( callbackName in file.scriptAnimWindowStartCallbacks, "%s callback name doesn't contain a start callback function to call" )
+	file.scriptAnimWindowStartCallbacks[callbackName]( window.ent, parameter )
+}
+
+
+void function AnimWindow_Callback_Stop( ScriptAnimWindow window, var settingsBlock )
+{
+	string callbackName = GetSettingsBlockString( settingsBlock, "callbackName" )
+	string parameter    = GetSettingsBlockString( settingsBlock, "callbackParameter" )
+
+	Assert( callbackName in file.scriptAnimWindowStopCallbacks, "%s callback name doesn't contain a stop callback function to call" )
+	file.scriptAnimWindowStopCallbacks[callbackName]( window.ent, parameter )
+}
+
+
+void function RegisterScriptAnimWindowCallbacks( string callbackName, void functionref( entity, string ) startCallbackFunc, void functionref( entity, string ) stopCallbackFunc )
+{
+	Assert( !(callbackName in file.scriptAnimWindowStartCallbacks), "Tried to add Script Anim Window Start Callback that was already added" )
+	file.scriptAnimWindowStartCallbacks[ callbackName ] <- startCallbackFunc
+
+	Assert( !(callbackName in file.scriptAnimWindowStopCallbacks), "Tried to add Script Anim Window Stop Callback that was already added" )
+	file.scriptAnimWindowStopCallbacks[ callbackName ] <- stopCallbackFunc
+}
+
+entity function TryResolveScriptAnimWindowWeapon( entity ent )
+{
+	entity weapon
+	if ( ent.IsWeaponX() )
+		weapon = ent
+	else if ( ent.IsPlayer() )
+		weapon = ent.GetActiveWeapon( 0 )
+	else if( ent.IsViewModel() )
+		weapon = ViewModel_GetWeapon( ent )
+	return weapon
+}
+
+
+
+
+
+
+
+void function AnimWindow_FadeAlphaOverTime_Start( ScriptAnimWindow window, var settingsBlock )
+{
+	float fadeDuration = GetSettingsBlockFloat( settingsBlock, "fadeDuration" )
+	int alphaStart     = GetSettingsBlockInt( settingsBlock, "alphaStart" )
+	int alphaEnd       = GetSettingsBlockInt( settingsBlock, "alphaEnd" )
+
+	window.ent.kv.renderamt = alphaStart
+
+	
+	thread FadeModelAlphaOverTime( window.ent, fadeDuration, alphaStart, alphaEnd )
+}
+
+
+void function AnimWindow_FadeAlphaOverTime_Stop( ScriptAnimWindow window, var settingsBlock )
+{
+	
+	window.ent.kv.renderamt = GetSettingsBlockInt( settingsBlock, "alphaEnd" )
+}
+
+
+
+
+
+
+
+void function AnimWindow_SetSkin_Start( ScriptAnimWindow window, var settingsBlock )
+{
+	int selectModelFrom = eAnimWindowSkinSelectionStrategy[GetSettingsBlockString( settingsBlock, "selectFlavorFrom" )]
+
+	ItemFlavor ornull skin = null
+
+
+#if DEV
+			
+			asset settingsAsset = window.settingsAsset
+			string stringID     = window.stringID
+			entity ent          = window.ent
+#endif
+
+		if ( selectModelFrom == eAnimWindowSkinSelectionStrategy.HARD_CODED )
+		{
+			asset skinAsset = GetSettingsBlockAsset( settingsBlock, "flavor" )
+			if ( IsValidItemFlavorSettingsAsset( skinAsset ) )
+				skin = GetItemFlavorByAsset( skinAsset )
+		}
+		else if ( selectModelFrom == eAnimWindowSkinSelectionStrategy.DEFAULT )
+		{
+			Assert( window.ent.e.animWindowCosmeticItemFlavor != null )
+			ItemFlavor ornull cosmeticFlavor = window.ent.e.animWindowCosmeticItemFlavor
+			expect ItemFlavor( cosmeticFlavor )
+
+			LoadoutEntry ornull loadoutEntry = null
+			switch ( ItemFlavor_GetType( cosmeticFlavor ) )
+			{
+				case eItemType.character:
+					loadoutEntry = Loadout_CharacterSkin( cosmeticFlavor )
+					break
+
+				case eItemType.loot_main_weapon:
+					loadoutEntry = Loadout_WeaponSkin( cosmeticFlavor )
+					break
+			}
+
+			if ( loadoutEntry != null )
+				skin = GetDefaultItemFlavorForLoadoutSlot( expect LoadoutEntry( loadoutEntry ) )
+		}
+		else if ( selectModelFrom == eAnimWindowSkinSelectionStrategy.PLAYER_EQUIPPED )
+		{
+			Assert( window.ent.e.animWindowCosmeticItemFlavor != null )
+			Assert( window.ent.e.animWindowSkinItemFlavor != null )
+
+			ItemFlavor ornull cosmeticFlavor = window.ent.e.animWindowCosmeticItemFlavor
+			expect ItemFlavor( cosmeticFlavor )
+			ItemFlavor ornull skinFlavor = window.ent.e.animWindowSkinItemFlavor
+			expect ItemFlavor( skinFlavor )
+
+			switch ( ItemFlavor_GetType( cosmeticFlavor ) )
+			{
+				case eItemType.character:
+					Assert( CharacterSkin_GetCharacterFlavor( skinFlavor ) == cosmeticFlavor )
+					skin = skinFlavor
+					break
+
+				case eItemType.loot_main_weapon:
+					Assert( WeaponSkin_GetWeaponFlavor( skinFlavor ) == cosmeticFlavor )
+					skin = skinFlavor
+					break
+			}
+		}
+
+
+	if ( skin == null )
+		return
+
+	expect ItemFlavor( skin )
+
+	if ( GetSettingsBlockBool( settingsBlock, "isStreamHint" ) )
+	{
+		asset ornull assetToStreamHint = null
+		switch ( ItemFlavor_GetType( skin ) )
+		{
+			case eItemType.character_skin:
+				assetToStreamHint = CharacterSkin_GetBodyModel( skin )
+				break
+
+			default:
+				Assert( false, "NYI" )
+				break
+		}
+
+		if ( assetToStreamHint == null )
+			return
+
+
+
+
+			StreamModelHint( expect asset( assetToStreamHint ) )
+
+	}
+	else
+	{
+		float cycleValue    = window.ent.GetCycle()
+		string sequenceName = window.ent.GetCurrentSequenceName()
+		CharacterSkin_Apply( window.ent, skin )
+		window.ent.Anim_Play( sequenceName )
+		window.ent.SetCycle( cycleValue )
+	}
+}
+
+
+
+
+
+
+void function AnimWindow_SetPropSkin_Start( ScriptAnimWindow window, var settingsBlock )
+{
+	string skinName = GetSettingsBlockString( settingsBlock, "skinName" )
+	int camoIndex   = GetSettingsBlockInt( settingsBlock, "camoIndex" )
+
+	printt( "PROP SKIN: " + window.ent.GetModelName() + " SKIN: " + skinName )
+	AbilityCosmetics_Apply ( window.ent, skinName, camoIndex )
+}
+
+
+
+
+
+
+
+void function AnimWindow_SetLodOriginAttachment_Thread( entity ent, int attachmentId )
+{
+	EndSignal( ent, "OnDestroy" )
+	EndSignal( ent, "StopLodOriginAttachment" )
+
+	OnThreadEnd( void function() : (ent) {
+		ent.DisableLodOriginOverride()
+	} )
+
+	while( true )
+	{
+		vector attachmentOrigin = ent.GetAttachmentOrigin( attachmentId )
+		ent.SetLodOriginOverride( attachmentOrigin )
+		WaitFrame()
+	}
+}
+
+
+void function AnimWindow_SetLodOriginAttachment_Start( ScriptAnimWindow window, var settingsBlock )
+{
+
+		string attachment = GetSettingsBlockString( settingsBlock, "attachment" )
+		int attachmentId  = window.ent.LookupAttachment( attachment )
+
+		thread AnimWindow_SetLodOriginAttachment_Thread( window.ent, attachmentId )
+
+}
+
+
+void function AnimWindow_SetLodOriginAttachment_Stop( ScriptAnimWindow window, var settingsBlock )
+{
+
+		Signal( window.ent, "StopLodOriginAttachment" )
+
+}
+
+
+
+
+
+
+void function AnimWindow_HideEnt_Start( ScriptAnimWindow window, var settingsBlock )
+{
+	entity ent = window.ent
+	Assert( IsValid( ent ) )
+
+	ent.kv.rendermode = 4
+	ent.kv.renderamt = 0
+
+	bool hideChildren = GetSettingsBlockBool( settingsBlock, "hideChildren" )
+	if ( hideChildren )
+	{
+		array<entity> hierachy = GetEntityAndAllChildren( ent )
+		foreach ( entity hierachyEnt in hierachy )
+		{
+			hierachyEnt.kv.rendermode = 4
+			hierachyEnt.kv.renderamt = 0
+		}
+	}
+}
+
+void function AnimWindow_HideEnt_Stop( ScriptAnimWindow window, var settingsBlock )
+{
+	entity ent = window.ent
+	Assert( IsValid( ent ) )
+
+	ent.kv.rendermode = 4
+	ent.kv.renderamt = 255
+
+	bool hideChildren = GetSettingsBlockBool( settingsBlock, "hideChildren" )
+	if ( hideChildren )
+	{
+		array<entity> hierachy = GetEntityAndAllChildren( ent )
+		foreach ( entity hierachyEnt in hierachy )
+		{
+			hierachyEnt.kv.rendermode = 4
+			hierachyEnt.kv.renderamt = 255
+		}
+	}
+}
+
+
+
+
+
+
+void function AnimWindow_HideReactiveEffectsForWeapon_Start( ScriptAnimWindow window, var settingsBlock )
+{
+	entity weapon = TryResolveScriptAnimWindowWeapon( window.ent )
+	if ( IsValid( weapon ) )
+	{
+		weapon.ClearReactiveEffects()
+	}
+}
+
+void function AnimWindow_HideReactiveEffectsForWeapon_Stop( ScriptAnimWindow window, var settingsBlock )
+{
+	entity weapon = TryResolveScriptAnimWindowWeapon( window.ent )
+	if ( IsValid( weapon ) )
+	{
+		weapon.UpdateReactiveEffects()
+	}
+}
+
+
+
+
+
+
+void function AnimWindow_ShadowFormFX_Init()
+{
+	PrecacheParticleSystem( SHADOW_TRAIL_FX )
+	PrecacheParticleSystem( SHADOW_EYE_FX )
+	PrecacheParticleSystem( SHADOW_DEATH_FX )
+
+		RegisterSignal( "StopShadowFormFX" )
+
+}
+
+
+void function AnimWindow_ShadowFormFX_Precache( var settingsBlock )
+{
+	
+	PrecacheSkinName( "ShadowSqaud" )
+}
+
+
+void function AnimWindow_ShadowFormFX_Start( ScriptAnimWindow window, var settingsBlock )
+{
+
+
+
+		Assert( !window.ent.IsPlayer(), "The \"ShadowFormFX\" script anim window type should not be used on players because it would reset their highlight. Work is required if this is needed." )
+
+		string attachmentName = GetSettingsBlockString( settingsBlock, "attachPoint" )
+		int attachIndex       = window.ent.LookupAttachment( attachmentName )
+
+		float fadeInDuration  = GetSettingsBlockFloat( settingsBlock, "fadeInDuration" )
+		float fadeOutDuration = GetSettingsBlockFloat( settingsBlock, "fadeOutDuration" )
+
+
+		bool hasEyes      = GetSettingsBlockBool( settingsBlock, "hasEyes" )
+		bool fadeAlphaIN  = GetSettingsBlockBool( settingsBlock, "fadeAlphaIN" )
+		bool fadeAlphaOUT = GetSettingsBlockBool( settingsBlock, "fadeAlphaOUT" )
+
+		thread AnimWindow_ShadowFormBodyFX_Thread( window.ent, attachIndex, fadeInDuration, fadeOutDuration, fadeAlphaIN, fadeAlphaOUT )
+
+		if ( hasEyes )
+		{
+			thread AnimWindow_ShadowFormEyeFX_Thread( window.ent, fadeInDuration, fadeOutDuration )
+		}
+
+
+}
+
+
+
+void function AnimWindow_ShadowFormBodyFX_Thread( entity ent, int attachIndex, float fadeInDuration, float fadeOutDuration, bool fadeAlphaIN = false, bool fadeAlphaOUT = false )
+{
+	EndSignal( ent, "OnDestroy" )
+
+	vector transColor   = < 255, 64, 32 >
+	vector defaultColor = < 255, 255, 255 >
+	int originalSkin    = ent.GetSkin()
+
+	if ( fadeAlphaIN )
+		thread FadeModelAlphaOverTime( ent, fadeInDuration, 0, 255 )
+	else
+		thread FadeModelIntensityOverTime( ent, fadeInDuration, 1, 0 )
+
+	wait fadeInDuration
+
+	int FX_BODY = StartParticleEffectOnEntity( ent, GetParticleSystemIndex( SHADOW_TRAIL_FX ), FX_PATTACH_POINT_FOLLOW, attachIndex )
+
+	if ( ent.GetSkinIndexByName( "ShadowSqaud" ) != -1 )
+		ent.SetSkin( ent.GetSkinIndexByName( "ShadowSqaud" ) )
+
+
+	WaitSignal( ent, "StopShadowFormFX" )
+	
+
+	OnThreadEnd( void function() : ( FX_BODY ) {
+		
+		if ( EffectDoesExist( FX_BODY ) )
+			EffectStop( FX_BODY, false, true )
+	} )
+
+	thread FadeModelIntensityOverTime( ent, fadeOutDuration, 0, 1 )
+
+	if ( fadeAlphaOUT )
+		thread FadeModelAlphaOverTime( ent, fadeOutDuration, 255, 0 )
+
+
+	wait fadeOutDuration
+	if ( ent.GetSkinIndexByName( "ShadowSqaud" ) != -1 )
+		ent.SetSkin( originalSkin )
+	StartParticleEffectOnEntity( ent, GetParticleSystemIndex( SHADOW_DEATH_FX ), FX_PATTACH_POINT_FOLLOW, attachIndex )
+}
+
+void function AnimWindow_ShadowFormEyeFX_Thread( entity ent, float fadeInDuration, float fadeOutDuration )
+{
+	EndSignal( ent, "OnDestroy" )
+	
+
+	wait fadeInDuration
+	int FX_EYE_L = StartParticleEffectOnEntity( ent, GetParticleSystemIndex( SHADOW_EYE_FX ), FX_PATTACH_POINT_FOLLOW, ent.LookupAttachment( "EYE_L" ) )
+	int FX_EYE_R = StartParticleEffectOnEntity( ent, GetParticleSystemIndex( SHADOW_EYE_FX ), FX_PATTACH_POINT_FOLLOW, ent.LookupAttachment( "EYE_R" ) )
+
+	WaitSignal( ent, "StopShadowFormFX" )
+	
+
+	wait fadeOutDuration
+
+	OnThreadEnd( void function() : (FX_EYE_L, FX_EYE_R ) {
+		
+		if ( EffectDoesExist( FX_EYE_L ) )
+			EffectStop( FX_EYE_L, false, true )
+		if ( EffectDoesExist( FX_EYE_R ) )
+			EffectStop( FX_EYE_R, false, true )
+	} )
+}
+
+
+void function AnimWindow_ShadowFormFX_Transition( ScriptAnimWindow window, var settingsBlock )
+{
+	
+}
+
+
+void function AnimWindow_ShadowFormFX_Stop( ScriptAnimWindow window, var settingsBlock )
+{
+
+		Signal( window.ent, "StopShadowFormFX" )
+		
+
+}
+
+
+
+
+
+
+void function AnimWindow_ShadowFormRebornFX_Init()
+{
+	PrecacheParticleSystem( SHADOWReborn_body_FX )
+	PrecacheParticleSystem( SHADOWReborn_EYE_FX )
+	PrecacheParticleSystem( SHADOWReborn_activation_FX )
+	PrecacheSkinName( "ShadowSquad_reborn_3p" )
+
+		RegisterSignal( "StopShadowFormRebornFX" )
+
+}
+
+
+void function AnimWindow_ShadowFormRebornFX_Precache( var settingsBlock )
+{
+	
+}
+
+
+void function AnimWindow_ShadowFormRebornFX_Start( ScriptAnimWindow window, var settingsBlock )
+{
+
+
+
+		Assert( !window.ent.IsPlayer(), "The \"ShadowFormRebornFX\" script anim window type should not be used on players because it would reset their highlight. Work is required if this is needed." )
+
+		string attachmentName = GetSettingsBlockString( settingsBlock, "attachPoint" )
+		int attachIndex       = window.ent.LookupAttachment( attachmentName )
+
+		float fadeInDuration  = GetSettingsBlockFloat( settingsBlock, "fadeInDuration" )
+		float fadeOutDuration = GetSettingsBlockFloat( settingsBlock, "fadeOutDuration" )
+
+
+		bool hasEyes      = GetSettingsBlockBool( settingsBlock, "hasEyes" )
+		bool fadeAlphaIN  = GetSettingsBlockBool( settingsBlock, "fadeAlphaIN" )
+		bool fadeAlphaOUT = GetSettingsBlockBool( settingsBlock, "fadeAlphaOUT" )
+
+		thread AnimWindow_ShadowFormRebornBodyFX_Thread( window.ent, attachIndex, fadeInDuration, fadeOutDuration, fadeAlphaIN, fadeAlphaOUT )
+
+		if ( hasEyes )
+		{
+			thread AnimWindow_ShadowFormRebornEyeFX_Thread( window.ent, fadeInDuration, fadeOutDuration )
+		}
+
+
+}
+
+
+
+void function AnimWindow_ShadowFormRebornBodyFX_Thread( entity ent, int attachIndex, float fadeInDuration, float fadeOutDuration, bool fadeAlphaIN = false, bool fadeAlphaOUT = false )
+{
+	EndSignal( ent, "OnDestroy" )
+
+	vector transColor   = < 255, 64, 32 >
+	vector defaultColor = < 255, 255, 255 >
+	int originalSkin    = ent.GetSkin()
+
+	if ( fadeAlphaIN )
+		thread FadeModelAlphaOverTime( ent, fadeInDuration, 0, 255 )
+	else
+		thread FadeModelIntensityOverTime( ent, fadeInDuration, 1, 0 )
+
+	wait fadeInDuration
+
+	int FX_BODY = StartParticleEffectOnEntity( ent, GetParticleSystemIndex( SHADOWReborn_body_FX ), FX_PATTACH_POINT_FOLLOW, attachIndex )
+
+	if ( ent.GetSkinIndexByName( "ShadowSquad_reborn_3p" ) != -1 )
+		ent.SetSkin( ent.GetSkinIndexByName( "ShadowSquad_reborn_3p" ) )
+
+
+	WaitSignal( ent, "StopShadowFormRebornFX" )
+	
+
+	OnThreadEnd( void function() : ( FX_BODY ) {
+		
+		if ( EffectDoesExist( FX_BODY ) )
+			EffectStop( FX_BODY, false, true )
+	} )
+
+	thread FadeModelIntensityOverTime( ent, fadeOutDuration, 0, 1 )
+
+	if ( fadeAlphaOUT )
+		thread FadeModelAlphaOverTime( ent, fadeOutDuration, 255, 0 )
+
+
+	wait fadeOutDuration
+	if ( ent.GetSkinIndexByName( "ShadowSquad_reborn_3p" ) != -1 )
+		ent.SetSkin( originalSkin )
+	StartParticleEffectOnEntity( ent, GetParticleSystemIndex( SHADOWReborn_activation_FX ), FX_PATTACH_POINT_FOLLOW, attachIndex )
+}
+
+void function AnimWindow_ShadowFormRebornEyeFX_Thread( entity ent, float fadeInDuration, float fadeOutDuration )
+{
+	EndSignal( ent, "OnDestroy" )
+	
+
+	wait fadeInDuration
+	int FX_EYE_L = StartParticleEffectOnEntity( ent, GetParticleSystemIndex( SHADOWReborn_EYE_FX ), FX_PATTACH_POINT_FOLLOW, ent.LookupAttachment( "EYE_L" ) )
+	int FX_EYE_R = StartParticleEffectOnEntity( ent, GetParticleSystemIndex( SHADOWReborn_EYE_FX ), FX_PATTACH_POINT_FOLLOW, ent.LookupAttachment( "EYE_R" ) )
+
+	WaitSignal( ent, "StopShadowFormRebornFX" )
+	
+
+	wait fadeOutDuration
+
+	OnThreadEnd( void function() : (FX_EYE_L, FX_EYE_R ) {
+		
+		if ( EffectDoesExist( FX_EYE_L ) )
+			EffectStop( FX_EYE_L, false, true )
+		if ( EffectDoesExist( FX_EYE_R ) )
+			EffectStop( FX_EYE_R, false, true )
+	} )
+}
+
+
+void function AnimWindow_ShadowFormRebornFX_Transition( ScriptAnimWindow window, var settingsBlock )
+{
+	
+}
+
+
+void function AnimWindow_ShadowFormRebornFX_Stop( ScriptAnimWindow window, var settingsBlock )
+{
+
+		Signal( window.ent, "StopShadowFormRebornFX" )
+		
+
+}
+
+
+
+
+
+
+
+void function AnimWindow_SetColorModScaleOverDuration_Init()
+{
+
+		RegisterSignal( "SetColorModScaleEnd" )
+
+}
+
+
+void function AnimWindow_SetColorModScaleOverDuration_Start( ScriptAnimWindow window, var settingsBlock )
+{
+
+		AnimWindow_SetColorModScaleOverDuration_Transition( window, settingsBlock )
+
+}
+
+
+void function AnimWindow_SetColorModScaleOverDuration_Transition( ScriptAnimWindow window, var settingsBlock )
+{
+
+		float rampUpDuration   = GetSettingsBlockFloat( settingsBlock, "rampUpDuration" )
+		float plateauDuration  = GetSettingsBlockFloat( settingsBlock, "plateauDuration" )
+		float rampDownDuration = GetSettingsBlockFloat( settingsBlock, "rampDownDuration" )
+		bool fromMinToMax = GetSettingsBlockBool( settingsBlock, "rampFromMinToMax" )
+
+		thread SetColorModScaleOverDuration( window.ent, window.endCycle, rampUpDuration, plateauDuration, rampDownDuration, fromMinToMax )
+
+}
+
+
+void function SetColorModScaleOverDuration( entity ent, float endCycle, float rampUpDuration, float plateauDuration, float rampDownDuration, bool fromMinToMax)
+{
+	Signal( ent, "SetColorModScaleEnd" )
+	EndSignal( ent, "OnDestroy", "SetColorModScaleEnd" )
+
+	float startTime     = Time()
+	float totalDuration = rampUpDuration + plateauDuration + rampDownDuration
+
+	float rampUpCompletion   = rampUpDuration
+	float plateauCompletion  = rampUpCompletion + plateauDuration
+	float rampDownCompletion = plateauCompletion + rampDownDuration
+
+	OnThreadEnd( void function() : ( ent ) {
+		if ( IsValid( ent ) )
+			ent.SetColorModScaleIntensity( -1.0 )
+	} )
+
+	float timeSinceStart = Time() - startTime
+	while( IsValid( ent ) && timeSinceStart < totalDuration && ent.GetCycle() <= endCycle )
+	{
+		timeSinceStart = Time() - startTime
+		if ( timeSinceStart < rampUpCompletion )
+		{
+			
+			if( fromMinToMax )
+				ent.SetColorModScaleIntensity( Smooth01( (timeSinceStart / rampUpCompletion) ) )
+			else
+				ent.SetColorModScaleIntensity( Smooth01( 1.0 - (timeSinceStart / rampUpCompletion) ) )
+		}
+		else if ( timeSinceStart < plateauCompletion )
+		{
+			
+			if( fromMinToMax )
+			{
+				if ( ent.GetColorModScaleIntensity() != 1.0 )
+					ent.SetColorModScaleIntensity( 1.0 )
+			}
+			else
+			{
+				if ( ent.GetColorModScaleIntensity() != 0.0 )
+					ent.SetColorModScaleIntensity( 0.0 )
+			}
+
+		}
+		else if ( timeSinceStart < rampDownCompletion )
+		{
+			
+			if( fromMinToMax )
+				ent.SetColorModScaleIntensity( Smooth01( 1.0 - (timeSinceStart - plateauCompletion) / rampDownDuration ) )
+			else
+				ent.SetColorModScaleIntensity( Smooth01( (timeSinceStart - plateauCompletion) / rampDownDuration ) )
+		}
+
+		WaitFrame()
+	}
+}
+
+
+void function AnimWindow_SetColorModScaleOverDuration_Stop( ScriptAnimWindow window, var settingsBlock )
+{
+
+		if ( IsValid( window.ent ) )
+			window.ent.Signal( "SetColorModScaleEnd" )
+
+}
+
+
+
+
+
+
+void function AnimWindow_MirageHoloFX_Init()
+{
+	PrecacheParticleSystem( MIRAGE_HOLO_FLASH_FX )
+	PrecacheParticleSystem( MIRAGE_HOLO_TRAIL_FX )
+
+		RegisterSignal( "StopMirageHoloFX" )
+
+}
+
+
+void function AnimWindow_MirageHoloFX_Precache( var settingsBlock )
+{
+	
+}
+
+
+void function AnimWindow_MirageHoloFX_Start( ScriptAnimWindow window, var settingsBlock )
+{
+
+
+
+		Assert( !window.ent.IsPlayer(), "The \"MirageHoloFX\" script anim window type should not be used on players because it would reset their highlight. Work is required if this is needed." )
+
+		string attachmentName = GetSettingsBlockString( settingsBlock, "attachPoint" )
+		int attachIndex       = window.ent.LookupAttachment( attachmentName )
+
+		float fadeInDuration  = GetSettingsBlockFloat( settingsBlock, "fadeInDuration" )
+		float fadeOutDuration = GetSettingsBlockFloat( settingsBlock, "fadeOutDuration" )
+
+		thread AnimWindow_MirageHoloFX_Thread( window.ent, attachIndex, fadeInDuration, fadeOutDuration )
+
+}
+
+
+
+void function AnimWindow_MirageHoloFX_Thread( entity ent, int attachIndex, float fadeInDuration, float fadeOutDuration )
+{
+	EndSignal( ent, "OnDestroy" )
+
+	thread FadeModelAlphaOverTime( ent, fadeInDuration, 0, 255 )
+
+	
+	StartParticleEffectOnEntity( ent, GetParticleSystemIndex( MIRAGE_HOLO_FLASH_FX ), FX_PATTACH_POINT, attachIndex )
+
+	
+	int trailFXHandle = StartParticleEffectOnEntity( ent, GetParticleSystemIndex( MIRAGE_HOLO_TRAIL_FX ), FX_PATTACH_POINT_FOLLOW, attachIndex )
+
+	
+	ent.Highlight_ResetFlags()
+	ent.Highlight_SetVisibilityType( HIGHLIGHT_VIS_ALWAYS )
+	ent.Highlight_SetCurrentContext( GetHighlightId( "decoy_prop" ) )
+	ent.Highlight_SetFadeInTime( 0 )
+	ent.Highlight_StartOn()
+
+	OnThreadEnd( void function() : ( trailFXHandle ) {
+		if ( EffectDoesExist( trailFXHandle ) )
+			EffectStop( trailFXHandle, false, true )
+	} )
+
+	WaitSignal( ent, "StopMirageHoloFX" )
+
+	if ( EffectDoesExist( trailFXHandle ) )
+		EffectStop( trailFXHandle, false, true )
+
+
+	StartParticleEffectOnEntity( ent, GetParticleSystemIndex( MIRAGE_HOLO_FLASH_FX ), FX_PATTACH_POINT, attachIndex )
+
+	thread FadeModelAlphaOverTime( ent, fadeOutDuration, 255, 0 )
+}
+
+
+
+void function AnimWindow_MirageHoloFX_Transition( ScriptAnimWindow window, var settingsBlock )
+{
+	
+}
+
+
+void function AnimWindow_MirageHoloFX_Stop( ScriptAnimWindow window, var settingsBlock )
+{
+
+		Signal( window.ent, "StopMirageHoloFX" )
+
+}
+
+
+
+
+
+
+
+void function AnimWindow_LifelineDroneCommonFX_Init()
+{
+	LIFELINE_DRONE_JET_FX_IDX     = PrecacheParticleSystem( LIFELINE_DRONE_JET_FX )
+	LIFELINE_DRONE_VENT_FX_IDX    = PrecacheParticleSystem( LIFELINE_DRONE_VENT_FX )
+	LIFELINE_DRONE_EYEGLOW_FX_IDX = PrecacheParticleSystem( LIFELINE_DRONE_EYEGLOW_FX )
+
+		RegisterSignal( "StopLifelineDroneCommonFX" )
+
+}
+
+
+void function AnimWindow_LifelineDroneCommonFX_Precache( var settingsBlock )
+{
+	
+}
+
+
+void function AnimWindow_LifelineDroneCommonFX_Start( ScriptAnimWindow window, var settingsBlock )
+{
+
+
+
+		thread AnimWindow_LifelineDroneCommonFX_Thread( window.ent )
+
+}
+
+
+
+void function AnimWindow_LifelineDroneCommonFX_Thread( entity ent )
+{
+	EndSignal(( fxHandle, PARTICLE_SCRIPT_FLAG_DISABLE_DRAW, wasCloaked )
+			}
+		}
+
+		WaitFrame()
+	}
+}
+
+
+
+void function AnimWindow_LifelineDroneCommonFX_Transition( ScriptAnimWindow window, var settingsBlock )
+{
+	
+}
+
+
+void function AnimWindow_LifelineDroneCommonFX_Stop( ScriptAnimWindow window, var settingsBlock )
+{
+
+		Signal( window.ent, "StopLifelineDroneCommonFX" )
+
+}
+
+
+
+
+
+
+
+
+const string BLOODHOUND_WHITE_RAVEN_SKIN = "bloodhound_epicp_v21_aether"
+void fu, var settingsBlock, entity prop )
+{
+	printt( "setting colour for artifact prop smear" )
+
+	entity owner = window.ent
+	if( !IsValid( owner ) )
+		return
+
+	if ( owner.IsPlayerDecoy() )
+		owner = owner.GetBossPlayer()
+
+	if ( IsValid( owner ) && owner.IsPlayer() )
+	{
+		if ( owner == GetLocalClientPlayer() && owner.p.artifactConfig == null ) 
+			Artifacts_StoreLoadoutDataOnPlayerEntityStruct( owner, null, false )
+
+		if ( owner.p.artifactConfig == nulserVisible( true )
+}
+
+
+
+
+
+
+
+struct AnimWindowTypeInfo
+{
+	bool isForThisVM
+
+	void functionref( var )                   precacheFunc
+	bool functionref( var )                   streamFunc
+	void functionref( ScriptAnimWindow, var ) startFunc
+	void functionref( ScriptAnimWindow, var ) transitionFunc
+	void functionref( ScriptAnimWindow, var ) stopFunc
+}
+
+struct
+{
+	table<string, AnimWindowTypeInfo> animWindowTypeNameInfoMap
+} fileLevel
+
+
+void function \"" + window.ent.GetCurrentSequenceName() + "\" is marked as " + (SERVER ? "SERVER" : "CLIENT") + " but its type (\"" + windowType + "\") is " + (SERVER ? "CLIENT" : "SERVER") + " only." )
+	if ( awti.transitionFunc == null )
+		return
+
+	awti.transitionFunc( window, block )
+}
+
+
+
+
+void function ClientCodeCallback_AnimWindowStop( ScriptAnimWindow window )
+{
+	Assert( IsValid( window.ent ) )
+
+	var block = GetSettingsBlockForAsset( window.settingsAss[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/sh_anim_events.gnut.client
+[dump] scripts/vscripts/sh_anim_events.gnut.client (15458 bytes)global function MakeAnimEventData
+global function GetOptionalAnimEventVar
+global function AddAnimEvent
+global function DeleteAnimEvent
+global function RunAnimEventCallbacks
+global function HasAnimEvent
+global function GetOptionalTokenizedAnimEventVar
+global function AddAnimEventTokenized
+global function DeleteAnimEventTokenized
+global function RunAnimEventTokenizedCallbacks
+global function HasAnimEventTokenized
+global function GetImpactTableIndex
+global function AnimEvents_Init
+
+global function AddGlobalAnimEvent
+global function AddGlobalAnimEventTokenize
+global function DeleteGlobalAnimEventTokenize
+
+global function RegisterImpactTable
+
+
+
+
+
+
+
+global function GlobalAnimEventWithStringParameter_CloakStart
+
+
+global function ClientCodeCallback_GetScriptAnimSkinIndex
+global function ClientCodeCallback_HandleClientAnimEvent
+
+
+global struct AnimEventData
+{
+	string                     eventName
+	void functionref( entity ) callback
+	var                        optionalVar
+}
+
+global struct TokenizedAnimEventData
+{
+	string                                    eventName
+	void functionref( entity, array<string> ) callback
+	var                                       optionalVar
+}
+
+AnimEventData function MakeAnimEventData( string eventName, void functionref( entity ) callback, var optionalVar = null )
+{
+	AnimEventData aed
+	aed.eventName = eventName
+	aed.callback = callback
+	aed.optionalVar = optionalVar
+	return aed
+}
+
+
+AnimEventData function GetAnimEventDataForEvent( entity ent, string eventName )
+{
+	Assert( eventName in ent.e.animEventDataForEntity )
+	return ent.e.animEventDataForEntity[ eventName ]
+}
+
+
+TokenizedAnimEventData function GetTokenizedAnimEventDataForEvent( entity ent, string eventName )
+{
+	Assert( eventName in ent.e.tokenizedAnimEventDataForEntity )
+	return ent.e.tokenizedAnimEventDataForEntity[ eventName ]
+}
+
+struct
+{
+	table<string, int> effectImpactTable
+} file
+
+
+void function AnimEvents_Init()
+{
+	RegisterSignal( "HideBodyGroupReliable" )
+	RegisterSignal( "HideReliable" )
+
+	RegisterImpactTable( "pilot_bodyslam" )
+	RegisterImpactTable( "pilot_bodyslam_small" )
+	RegisterImpactTable( "prowler_bodyfall" )
+	RegisterImpactTable( "exp_medium" )
+	RegisterImpactTable( "default" )
+	RegisterImpactTable( "default_nosound" )
+	RegisterImpactTable( "bounce_small_nosound" )
+	RegisterImpactTable( "rampart_execution_overkill" )
+	RegisterImpactTable( "pilot_landing" )
+	RegisterImpactTable( "pilot_footstep" )
+	RegisterImpactTable( "pilot_footstep_emote" )
+	RegisterImpactTable( "jump_pad_bounce_no_sound" )
+	RegisterImpactTable( "pilot_emote_thruster_wash" )
+	RegisterImpactTable( "melee_human" )
+	RegisterImpactTable( "fuse_flag" )
+	RegisterImpactTable( "octane_mythic_exec" )
+	RegisterImpactTable( "grapple" )
+	RegisterImpactTable( "rampart_cricket_impact" )
+
+	AddGlobalAnimEvent( "hide", GlobalAnimEvent_Hide )
+	AddGlobalAnimEvent( "show", GlobalAnimEvent_Show )
+
+	AddGlobalAnimEvent( "hide_reliable", GlobalAnimEvent_HideReliable )
+
+
+		AddGlobalAnimEvent( "loot_bin_open_top", GlobalAnimEventClient_LootBinOpeningTop )
+		AddGlobalAnimEvent( "loot_bin_open_bottom", GlobalAnimEventClient_LootBinOpeningBottom )
+		AddGlobalAnimEvent( "loot_bin_open_all", GlobalAnimEventClient_LootBinOpeningAll )
+
+
+	AddGlobalAnimEventTokenize( "hide_bodygroup_reliable", GlobalAnimEvent_HideBodygroupReliable )
+	AddGlobalAnimEventTokenize( "end_hide_bodygroup_reliable", GlobalAnimEvent_EndHideBodygroupReliable )
+
+	AddGlobalAnimEventTokenize( "set_skin", GlobalAnimEvent_SetSkin )
+	AddGlobalAnimEventTokenize( "fade_over_time", GlobalAnimEvent_FadeOverTime )
+	AddGlobalAnimEventTokenize( "fade_intensity_over_time", GlobalAnimEvent_FadeIntensityOverTime )
+}
+
+
+void function RegisterImpactTable( string name )
+{
+	if ( name in file.effectImpactTable )
+	{
+		Warning( "RegisterImpactTable: Impact table '" + name + "' already registered." )
+	}
+
+	file.effectImpactTable[ name ] <- PrecacheImpactEffectTable( name )
+}
+
+
+int function GetImpactTableIndex( string id )
+{
+	if ( id in file.effectImpactTable )
+		return file.effectImpactTable[ id ]
+
+	return -1
+}
+
+
+var function GetOptionalAnimEventVar( entity ent, string eventName )
+{
+	AnimEventData animEventData = GetAnimEventDataForEvent( ent, eventName )
+	return animEventData.optionalVar
+}
+
+
+
+void function AddAnimEvent( entity ent, string eventName, void functionref( entity ent ) func, var optionalVar = null )
+{
+	Assert( !HasAnimEvent( ent, eventName ), "Already added anim event " + eventName + " for " + ent )
+
+	AnimEventData animEventData
+	animEventData.eventName = eventName
+	animEventData.callback = func
+	animEventData.optionalVar = optionalVar
+	ent.e.animEventDataForEntity[ eventName ] <- animEventData
+}
+
+
+void function DeleteAnimEvent( entity ent, string eventName )
+{
+	Assert( HasAnimEvent( ent, eventName ) )
+	delete ent.e.animEventDataForEntity[ eventName ]
+}
+
+
+bool function HasAnimEvent( entity ent, string eventName )
+{
+	return eventName in ent.e.animEvent
+		
+	}
+
+	function C_BaseEntity::Get( val )
+	{
+		return this.GetValueForKey( val )
+	}
+
+	function C_BaseEntity::Set( key, val )
+	{
+		return this.SetValueForKey( key, val )
+	}
+
+	function C_BaseEntity::InitHudElem( name )
+	{
+		this.hudElems[name] <- HudElement( name )
+
+		this.hudElems[name].SetVisGroupID( 0 )
+
+		return this.hudElems[name]
+	}
+
+	function C_BaseEntity::ShowHUD()
+	{
+		if ( this.hudVisible )
+			return
+
+		this.hudVisible = true
+
+		foreach ( element in this.hudElems )
+			element.UpdateVisibility()
+	}
+
+	function C_BaseEntity::HideHUD()
+	{
+		if ( !this.hudVisible )
+			return
+
+		this.hudVisible = false
+
+		foreach ( element in this.hudElems )
+			element.UpdateVisibility()
+	}
+
+	function C_BaseEntity::WaitSignal( signalID )
+	{
+		return WaitSignal( this, signalID )
+	}
+
+	function C_BaseEntity::EndSignal( signalID )
+	{
+		EndSignal( this, signalID )
+	}
+
+	function C_BaseEntity::Signal( signalID, results = null )
+	{
+		Signal( this, signalID, results )
+	}
+
+	function C_BaseEntity::Kill_Deprecated_UseDestroyInstead()
+	{
+		this.Destroy()
+	}
+	#document( "C_BaseEntity::Kill_Deprecated_UseDestroyInstead", "Kill this entity; deprecated: use ent.Destroy() instead" )
+}
+[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/class/C_Player.nut.client
+[dump] scripts/vscripts/class/C_Player.nut.client (381 bytes)global function CodeCallback_RegisterClass_C_Player
+global function HasPlayerSettingMod
+
+var function CodeCallback_RegisterClass_C_Player()
+{
+	C_Player.ClassName <- "C_Player"
+
+	C_Player.classChanged <- true
+	C_Player.cv <- null
+}
+
+bool function HasPlayerSettingMod( entity player, string mod )
+{
+	array<string> mods = player.GetPlayerSettingsMods()
+	return mods.contains( mod )
+}
+[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/client/cl_scoreboard_mp.nut.client
+[dump] scripts/vscripts/client/cl_scoreboard_mp.nut.client (26547 bytes)untyped
+
+global const SCOREBOARD_LOCAL_PLAYER_COLOR = <LOCAL_R / 255.0, LOCAL_G / 255.0, LOCAL_B / 255.0>
+global const SCOREBOARD_PARTY_COLOR = <PARTY_R / 255.0, PARTY_G / 255.0, PARTY_B / 255.0>
+const SCOREBOARD_FRIENDLY_COLOR = <FRIENDLY_R / 255.0, FRIENDLY_G / 255.0, FRIENDLY_B / 255.0>
+const SCOREBOARD_FRIENDLY_SELECTED_COLOR = <0.6640625,0.7578125,0.85546875>
+const SCOREBOARD_ENEMY_COLOR = <ENEMY_R / 255.0, ENEMY_G / 255.0, ENEMY_B / 255.0>
+const SCOREBOARD_ENEMY_SELECTED_COLOR = <1.0,0.7019,0.592>
+const SCOREBOARD_DEAD_FONT_COLOR = <0.7,0.7,0.7>
+const SCOREBOARD_FFA_COLOR = <0.5,0.5,0.5>
+const SCOREBOARD_BG_ALPHA = 0.35
+const SCOREBOARD_EMPTY_COLOR = <0,0,0>
+const SCOREBOARD_EMPTY_BG_ALPHA = 0.35
+
+const SCOREBOARD_TITLE_HEIGHT = 50
+const SCOREBOARD_SUBTITLE_HEIGHT = 35
+const SCOREBOARD_FOOTER_HEIGHT = 35
+const SCOREBOARD_TEAM_LOGO_OFFSET = 24
+const SCOREBOARD_TEAM_LOGO_HEIGHT = 64
+const SCOREBOARD_PLAYER_ROW_OFFSET = 12
+const SCOREBOARD_PLAYER_ROW_HEIGHT = 35
+const SCOREBOARD_PLAYER_ROW_SPACING = 2
+
+const int MAX_TEAM_SLOTS = 16
+
+const int MIC_STATE_NO_MIC = 0
+const int MIC_STATE_HAS_MIC = 1
+const int MIC_STATE_TALKING = 2
+const int MIC_STATE_PARTY_HAS_MIC = 3
+const int MIC_STATE_PARTY_TALKING = 4
+const int MIC_STATE_MUTED = 5
+
+global function ClScoreboardMp_Init
+
+global function ScoreboardFocus
+global function ScoreboardLoseFocus
+global function ScoreboardSelectPrevPlayer
+global function ScoreboardSelectNextPlayer
+global function ShowScoreboardOrMap_Teams
+global function HideScoreboardOrMap_Teams
+
+
+global function AddScoreboardCallback_OnShowing
+global function AddScoreboardCallback_OnHiding
+
+global function Scoreboard_AddRui
+global function Scoreboard_SetVisible
+global function Scoreboard_IsVisible
+
+struct {
+	bool hasFocus = false
+	entity selectedPlayer
+	entity prevPlayer
+	entity nextPlayer
+
+	var scoreboardBg
+	var scoreboard
+	var background
+
+	array<var> scoreboardOverlays
+	array<var> scoreboardElems
+
+	table header = {
+		background = null
+		gametypeAndMap = null
+		gametypeDesc = null
+		scoreHeader = null
+	}
+
+	var footer
+	var pingText
+
+	table teamElems
+
+	table highlightColumns
+
+	var nameEndColumn
+
+	table playerElems
+
+	var scoreboardRUI
+
+	bool scoreboardVisible = false
+	array<var> scoreboardRuis
+
+	void functionref(entity,var) scoreboardUpdateCallback
+	array <void functionref()> scoreboardCallbacks_OnShowing
+	array <void functionref()> scoreboardCallbacks_OnHiding
+} file
+
+void function Scoreboard_AddRui( var rui )
+{
+	file.scoreboardRuis.append( rui )
+	RuiSetVisible( rui, file.scoreboardVisible )
+}
+
+void function Scoreboard_SetVisible( bool state )
+{
+	foreach ( rui in file.scoreboardRuis )
+	{
+		RuiSetVisible( rui, state )
+	}
+
+	file.scoreboardVisible = state
+}
+
+bool function Scoreboard_IsVisible()
+{
+	return file.scoreboardVisible
+}
+
+void function ClScoreboardMp_Init()
+{
+	clGlobal.initScoreboardFunc = InitScoreboardMP
+	clGlobal.showScoreboardFunc = ShowScoreboardMP
+	clGlobal.hideScoreboardFunc = HideScoreboardMP
+	clGlobal.scoreboardInputFunc = ScoreboardInputMP
+}
+
+void function ShowScoreboardOrMap_Teams()
+{
+	Scoreboard_SetVisible( true )
+
+	ShowFullmap()
+	Fullmap_ClearInputContext()
+
+	UpdateMainHudVisibility( GetLocalViewPlayer() )
+
+	HudInputContext inputContext
+	inputContext.keyInputCallback = Teams_HandleKeyInput
+	inputContext.moveInputCallback = Teams_HandleMoveInput
+	inputContext.viewInputCallback = Teams_HandleViewInput
+	
+	HudInput_PushContext( inputContext )
+}
+
+bool function Teams_HandleKeyInput( int key )
+{
+	bool swallowInput = false
+
+	switch ( key )
+	{
+		case BUTTON_B:
+			HideScoreboard()
+			return true
+		case BUTTON_DPAD_UP:
+		case KEY_F2:
+			RunUIScript( "UI_OpenFeatureTutorialDialog", Cl_GetPlaylistUIRules() )
+			return true
+	}
+
+	return Fullmap_HandleKeyInput( key )
+}
+
+bool function Teams_HandleMoveInput( float x, float y )
+{
+	return Fullmap_HandleMoveInput( x, y )
+}
+
+bool function Teams_HandleViewInput( float x, float y )
+{
+	return Fullmap_HandleViewInput( x, y )
+}
+
+void function HideScoreboardOrMap_Teams()
+{
+	HudInput_PopContext()
+	Scoreboard_SetVisible( false )
+
+	HideFullmap()
+}
+
+void function ScoreboardFocus( entity player )
+{
+	if ( !clGlobal.isScoreboardShown || file.hasFocus )
+	{
+		return
+	}
+
+	if ( !ScoreboardEnabled() )
+		return
+
+	EmitSoundOnEntity( player, "menu_click" )
+	file.hasFocus = true
+	file.selectedPlayer = GetLocalClientPlayer()
+
+	HudInputContext inputContext;
+	inputContext.keyInputCallback = clGlobal.scoreboardInputFunc
+	HudInput_PushContext( inputContext )
+
+	RuiSetGameTime( Hud_GetRui( file.footer ), "startFadeTime", -1.0 )
+
+	string text = Localize( "#LEFT_SCOREBOARD_EXIT" ) + "   " + Localize( "#X_BUTTON_MUTE" )
+
+		if ( PCPlat_IsOverlayAvailable() )
+			text = text + "   " + Localize( "#Y_BUTTON_VIEW_PROFILE" )
+
+
+
+
+	RuiSetString( Hud_GetRui( file.footer ), "footerText", text )
+
+	
+	
+	
+	
+}
+
+void function ScoreboardLoseFocus( entity player )
+{
+	Assert( file.hasFocus )
+	if ( !clGlobal.isScoreboardShown )
+		return
+
+	if ( !ScoreboardEnabled() )
+		return
+
+	
+	
+	
+	
+
+	EmitSoundOnEntity( player, "menu_click" )
+	file.hasFocus = false
+	file.selectedPlayer = null
+
+	HudInput_PopContext()
+
+	RuiSetString( Hud_GetRui( file.footer ), "footerText", "" )
+	
+	
+}
+
+void function ScoreboardToggleFocus( entity player )
+{
+	if ( file.hasFocus )
+		ScoreboardLoseFocus( player )
+	else
+		ScoreboardFocus( player )
+}
+
+int function GetEnemyScoreboardTeam()
+{
+	return GetEnemyTeam( GetLocalClientPlayer().GetTeam() )
+}
+
+int function GetNumPlayersToDisplayAsATeam()
+{
+	if ( UseOnlyMyTeamScoreboard() )
+		return GetMaxTeamPlayers()
+
+	if ( UseSingleTeamScoreboard() )
+		return GetCurrentPlaylistVarInt( "max_players", MAX_TEAMS )
+
+	return GetCurrentPlaylistVarInt( "max_players", MAX_TEAM_SLOTS ) / GetCurrentPlaylistVarInt( "max_teams", MAX_TEAM_SLOTS )
+}
+
+bool function ScoreboardEnabled()
+{
+	return GetCurrentPlaylistVarInt( "scoreboard_enabled", 0 ) == 1
+}
+
+void function InitScoreboardMP()
+{
+	if ( !ScoreboardEnabled() )
+		return
+
+	entity localPlayer = GetLocalClientPlayer()
+	int myTeam = localPlayer.GetTeam()
+	if ( myTeam == TEAM_SPECTATOR ) 
+	{
+		myTeam = GetDefaultNonSpectatorTeam()
+	}
+	string mapName = GetMapDisplayName( GetMapName() )
+
+	var scoreboard = HudElement( "Scoreboard" )
+	file.scoreboard = scoreboard
+
+	file.header.gametypeAndMap = HudElement( "ScoreboardGamze
+}
+
+struct
+{
+	array<UnitFrameDef>				  RASUnitFrames
+	table<entity, UnitFrameDef>       teamUnitFrames
+	table<int, UnitFrameDef>     	  JIPUnitFrames
+	array< void functionref(int) >    Callbacks_OnTeamUnitFrameCreated
+	array< void functionref(int) >    Callbacks_OnTeamUnitFrameDestroyed
+
+	table<entity, asset>  customPlayerInfoTreatment
+	table<entity, vector> customCharacterColor
+	table<entity, asset>  customCharacterIcon
+	table<entity, stringeamMemberIndex() < b.GetTeamMemberIndex() )
+		return -1
+
+	return 0
+}
+
+void function UpdateUnitFrameIndices()
+{
+	entity localPlayer = GetLocalViewPlayer()
+	array<entity> team = GetPlayerArrayOfTeam( localPlayer.GetTeam() )
+	team.fastremovebyvalue( localPlayer )
+
+	
+	
+	team.sort( SquadMemberIndexSort )
+
+	
+	if ( PlayerHasUnitFrame( localPlayer ) )
+	{
+		team.insert( 0, localPlayer )
+	}
+
+	int displayIndex = 0;
+	foreach ( entity player in team )
+	{
+		rackFloat( rui, "deathboxLockoutEndTime", ent, RUI_TRACK_SCRIPT_NETWORK_VAR, GetNetworkedVariableIndex(  NETVAR_RESPAWN_FROMDEATHBOX_LOCKOUT_ENDTIME ) )
+		}
+
+	RuiTrackInt( rui, "respawnStatus", ent, RUI_TRACK_SCRIPT_NETWORK_VAR_INT, GetNetworkedVariableIndex( "respawnStatus" ) )
+	if ( GetRespawnStyle() != eRespawnStyle.NONE )
+	{
+		RuiTrackFloat( rui, "respawnStatusEndTime", ent, RUI_TRACK_SCRIPT_NETWORK_VAR, GetNetworkedVariableIndex( "respawnSterModelSpawned
+
+global function OnHealthPickupTypeChanged
+
+global function TriggerHealthKitHudTraining
+
+global function UpdateFallbackMatchmaking
+global function UpdateInventoryCounter
+
+global function OverrideHUDHealthFractions
+
+global function OpenSurvivalMenu
+
+global function SURVIVAL_PopulatePlayerInfoRui
+global function PilotHUD_PlayerInfo_StatusEffectChanged
+global function PlayerInfo_UpdatePossibleHealTo
+global function SURVIVAL_SetGameStateAssetOverrideCallback
+
+global function MarkDpadAsBlocked
+
+global function ScorebarInitTracking
+
+global function PlayerHudSetWeaponInspect
+global function UpdateDpadHud
+global function EquipmentChanged
+
+global function PROTO_OpenInventoryOrSpecifiedMenu
+
+global function Survival_IsUsingPrematchOverview
+
+global function UICallback_OpenCharacterSelectMenu
+global function UICallback_QueryPlayerCanBeRespawned
+global function UICallback_DieAndChangeCharacters
+
+global function HealthkitWheelToggleEnabled
+global function HealthkitWheelUseOnRelease
+global function HealthkitUseOnHold
+
+global function OrdnanceWheelToggleEnabled
+global function OrdnanceWheelUseOnRelease
+global function OrdnanceUseOnHold
+
+global function GetSquadSummaryData
+global function GetWinnerSquadSummaryData
+global function SetSquadDataToLocalTeam
+global function SetVictorySequenceEffectPackage
+global function SetVictorySequenceLocation
+global function SetVictorySequenceLocationFromInfoNode
+global function SetVictorySequenceSunSkyIntensity
+global function IsShowingVictorySequence
+global function IsShowingIntroPodiumSequence
+global function GetPodiumScreenCharacterModelForEHI
+global function ServerCallback_NessyMessage
+global function ShowChampionVictoryScreen
+global function GetPodiumSequenceRui
+global function TryStartIntroPodiumSequence
+global function SetVictoryScreenTeamName
+
+global function CanReportPlayer
+
+global function UIToClient_ToggleMute
+global function SetSquadMuteState
+global function ToggleSquadMute
+global function IsSquadMuted
+global function AddCallback_OnSquadMuteChanged
+global function RemoveCallback_OnSquadMuteChanged
+global function AddCallback_ShouldRunCharacterSelection
+
+global function OverwriteWithCustomPlayerInfoTreatment
+global function SetCustomPlayerInfoCharacterIcon
+global function SetCustomPlayerInfoTreatment
+global function SetCustomPlayerInfoColor
+global function SetCustomPlayerInfoShadowFormState
+global function SetCustomPlayerInfoOvershieldChargingState
+global function GetPlayerInfoColor
+global function ClearCustomPlayerInfoColor
+
+global function SetNextCircleDisplayCustomStarting
+global function SetNextCircleDisplayCustomClosing
+global function SetNextCircleDisplayCustomClear
+global function SetGamestateCountdown
+global function SetGamestateCountdownClear
+global function CircleAnnouncementsEnabled
+
+global function NextCircleClosingStatusChanged
+
+global function SetPreVictoryScreenCallback
+global function SetChampionScreenRuiAsset
+global function SetChampionScreenSound
+global function SetChampionScreenRuiAssetExtraFunc
+global function IsChampionScreenRuiAssetExtraFuncSet
+
+global function InitSurvivalHealthBar
+global function ChangeHUDVisibilityWhenInCryptoDrone
+
+global function GetCompassRui
+global function GetPilotRui
+global function GetDpadMenuRui
+global function CreateCustomGadgetRui
+global function GetCustomGadgetRui
+global function ResetToDefaultGadgetRui
+global function SetCustomGadgetUseDefaultUI
+
+global function EvolvingArmor_SetEvolutionRuiAnimTime
+
+#if DEV
+global function Dev_ShowVictorySequence
+global function Dev_AdjustVictorySequence
+global function Dev_SpoofMatchData
+#endif
+
+global function CircleAnnouncementsEnable
+global function CircleBannerAnnouncementsEnable
+global function Survival_SetVictorySoundPackageFunction
+global function Survival_SetCustomRingAnnouncementCallback
+global function Survival_SetCustomRingClosingAnnouncementCallback
+global function GetAnnouncementSubtextString
+
+global function GetVictorySquadFormationActivity
+global function CLSurvival_SetCallback_GetSquadSummaryPlayerDataForPodiumTeams
+global function CLSurvival_SetCallback_GetUniquePodiumTeams
+
+global function ClientCodeCallback_OnTryCycleOrdnance
+
+global function SetSummaryDataDisplayStringsCallback
+
+global function Thread_UpdateHealthVisibility
+
+global function SquadLeader_UpdateAllUnitFramesRui
+global function SquadLeader_UpdateUnitFrameRui
+global function Status_UpdatePlayerUnitFrame
+global function Status_UpdatePlayerUnitFrameRui
+global function Cl_GetPlaylistUIRules
+
+
+global function SetEvoArmorModifier
+
+
+global function IsUsingReducedArmorValues
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global function UseDynamicSquadTag
+global function SquadTag_GetOrCreateRui
+global function SquadTag_Destroy
+global function SquadTag_SetVisibility
+global function SquadTag_SetRuiArgs
+
+global function GetMatchLowTeamSkillPercentile
+global function GetMatchHighTeamSkillPercentile
+global function GetTeamSkillPercentileForPlayer
+
+global function SetBeingReusedAnimationThread
+
+global function AddCallback_OnSquadEliminated
+global function RemoveCallback_OnSquadEliminated
+global function ServerToClient_SquadEliminated
+
+
+global function UpdateLocalPlayerEndorsementSlots
+
+global struct NextCircleDisplayCustomData
+{
+	float  circleStartTime
+	float  circleCloseTime
+	float  countdownGoalTime
+	int    roundNumber
+	string roundString
+
+	vector deathFieldOrigin
+	vector safeZoneOrigin
+
+	float deathfieldDistance
+	float deathfieldStartRadius
+	float deathfieldEndRadius
+
+	asset  altIcon = $""
+	string altIconText
+	vector altColor = <1, 1, 1>
+}
+
+global struct VictorySoundPackage
+{
+	string youAreChampPlural
+	string youAreChampSingular
+	string theyAreChampPlural
+	string theyAreChampSingular
+}
+
+struct VictoryCameraPackage
+{
+	vector camera_offset_start
+	vector camera_offset_end
+	vector camera_focus_offset
+	float  camera_fov
+}
+
+global struct VictoryEffectPackage
+{
+	vector position
+	vector angles
+	asset effect = $""
+	bool endMatchOnly = false
+	string effectAudioEventName = ""
+	string summaryAudioEventName = ""
+}
+
+const VICTORY_PODIUM_RUI = $"ui/victory_podium_ui.rpak"
+const ENTRY_PODIUM_RUI = $"ui/entry_podium_ui.rpak"
+
+const float CROUCH_SPAM_DETECT_TIMEOUT = 1.25
+
+const string SOUND_UI_TEAMMATE_KILLED = "UI_DeathAlert_Friendly"
+
+const string CIRCLE_CLOSING_IN_SOUND = "UI_In

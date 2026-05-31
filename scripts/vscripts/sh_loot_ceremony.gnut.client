@@ -1,0 +1,9247 @@
+global function LootBoxCeremony_SharedInit
+
+
+
+
+
+
+
+
+global function CLLootBoxCeremony_Init
+global function UIToClient_LootCeremony_SetMenuHandles
+global function UIToClient_LootCeremony_SetGlobalAnimationEventsTokenize
+global function UIToClient_LootCeremony_DeleteGlobalAnimationEventsTokenize
+global function UIToClient_EnterLootCeremony
+global function UIToClient_AdditionalLootTick_Sequence
+global function UIToClient_LootCeremonyExit
+global function UIToClient_RewardPlacard_Hover
+global function UIToClient_RewardInspectActivate
+global function UIToClient_RewardInspectNavBack
+global function UIToClient_TrackButtonOnClick
+global function UIToClient_RewardEquipOnClick
+global function UIToClient_RewardEquipOnClickWithIndex
+global function UIToClient_RewardEquipToWheelOnClick
+global function UIToClient_RewardEquipToWheelOnClickWithIndex
+global function UIToClient_OnGRXPackOpeningResultsAvailable
+global function UIToClient_SkipAnimation
+
+global function UIToClient_SpecialItemPresentation
+global function UIToClient_SpecialItemPresentationExit
+
+global function IsLootCeremonyActive
+global function IsSpecialItemPresentationModeActive
+
+global function GetLootCeremonyFlashType
+global function GRXPackOpened_ErrorHandling
+global function LootCeremony_GetRarityBeamFXIndex
+global function LootCeremony_GetRarityFlashFXIndex
+
+
+
+#if DEV
+global function DEV_ShouldShowCustomLootRewards
+global function DEV_SetCustomLootRewardsToDisplay
+#endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global function IsItemEquipped
+global function GetCurrentlyEquippedItemNameForItemTypeSlot
+global function GetCurrentlyEquippedItemRarityForItemTypeSlot
+global function EquipButton_GetItemLoadoutEntries
+global function SetLatestPackOpenQuantity
+global function ProcessRewardSetItemsFromPackOpenResult
+global function ProcessRewardSetItemsFromPackOpenResultForRewardItems
+
+
+
+const float CAMERA_FOV = 35.5
+
+
+global const asset TICK_MODEL_DEFAULT = $"mdl/robots/drone_frag/drone_frag_loot.rmdl"
+const asset TICK_FX_HOLO_BEAM_BASE = $"P_loot_triad_beam"
+const asset TICK_FX_HOLO_BEAM_TIER1 = $"P_loot_triad_beam_reveal_T1"
+const asset TICK_FX_HOLO_BEAM_TIER2 = $"P_loot_triad_beam_reveal_T2"
+const asset TICK_FX_HOLO_BEAM_TIER3 = $"P_loot_triad_beam_reveal_T3"
+const asset TICK_FX_HOLO_BEAM_TIER4 = $"P_loot_triad_beam_reveal_T4"
+const asset TICK_FX_HOLO_BEAM_TIER5 = $"P_loot_triad_beam_reveal_T4"
+const asset TICK_FX_HOLO_BEAM_TIER6 = $"P_loot_triad_beam_reveal_T6"
+global const asset TICK_FX_RARITY_IDLE = $"P_loot_tick_beam_idle_flash"
+global const asset TICK_FX_RARITY_BEAM_TIER1 = $"P_loot_tick_rarity_beam_T1"
+global const asset TICK_FX_RARITY_BEAM_TIER2 = $"P_loot_tick_rarity_beam_T2"
+global const asset TICK_FX_RARITY_BEAM_TIER3 = $"P_loot_tick_rarity_beam_T3"
+global const asset TICK_FX_RARITY_BEAM_TIER4 = $"P_loot_tick_rarity_beam_T4"
+global const asset TICK_FX_RARITY_BEAM_TIER5 = $"P_loot_tick_rarity_beam_T4"
+global const asset TICK_FX_RARITY_BEAM_TIER6 = $"P_loot_tick_rarity_beam_T6"
+const asset TICK_FX_RARITY_FLASH_TIER1 = $"P_loot_tick_rarity_body_T1"
+const asset TICK_FX_RARITY_FLASH_TIER2 = $"P_loot_tick_rarity_body_T2"
+const asset TICK_FX_RARITY_FLASH_TIER3 = $"P_loot_tick_rarity_body_T3"
+const asset TICK_FX_RARITY_FLASH_TIER4 = $"P_loot_tick_rarity_body_T4"
+const asset TICK_FX_RARITY_FLASH_TIER5 = $"P_loot_tick_rarity_body_T4"
+const asset TICK_FX_RARITY_FLASH_TIER6 = $"P_loot_tick_rarity_body_T6"
+
+const asset TICK_FX_HEAD_CHARGE = $"P_loot_tick_head_charge"
+const asset TICK_FX_JUMP_JET = $"P_loot_tick_jump_jet"
+const string ATTACHNAME_LEFT = "FX_L_EYE"
+const string ATTACHNAME_CENTER = "FX_R_EYE"        
+const string ATTACHNAME_RIGHT = "FX_C_EYE"        
+global const array<string> TICK_LOOT_ATTACHMENTS = [ ATTACHNAME_LEFT, ATTACHNAME_CENTER, ATTACHNAME_RIGHT ]
+const array<string> INSPECT_BUTTONS = [ "RewardLeftButton", "RewardCenterButton", "RewardRightButton" ]
+
+global const asset CURRENCY_MODEL_COMMON = $"mdl/currency/crafting/currency_crafting_common.rmdl"
+global const asset CURRENCY_MODEL_RARE = $"mdl/currency/crafting/currency_crafting_rare.rmdl"
+global const asset CURRENCY_MODEL_EPIC = $"mdl/currency/crafting/currency_crafting_epic.rmdl"
+global const asset CURRENCY_MODEL_LEGENDARY = $"mdl/currency/crafting/currency_crafting_legendary.rmdl"
+global const asset CURRENCY_MODEL_EXOTIC = $"mdl/currency/crafting/currency_crafting_artifact.rmdl"
+const asset QUIP_BG_MODEL = $"mdl/menu/loot_ceremony_quip_bg.rmdl"
+const asset STAT_TRACKER_BG_MODEL = $"mdl/menu/loot_ceremony_stat_tracker_bg.rmdl"
+const asset LOADSCREEN_BG_MODEL = $"mdl/menu/generic_1920_1080_bg.rmdl"
+const asset BP_GIFTING_TEMPLATE_MODEL = $"mdl/menu/generic_1570_740_bg.rmdl"
+
+const asset FINISHER_SWAP_FX = $"P_menu_finisher_swap"
+
+
+const string SOUND_DEPLOY_ZOOM = "LootCeremony_Tick_Deploy_Zoom"
+const string SOUND_LIGHT_FLASH = "LootCeremony_Tick_LightFlash"
+const string SOUND_BEAM_SWEETEN_TIER1 = "LootCeremony_Tick_Deploy_BeamSweetener_Rare"
+const string SOUND_BEAM_SWEETEN_TIER2 = "LootCeremony_Tick_Deploy_BeamSweetener_Epic"
+const string SOUND_BEAM_SWEETEN_TIER3 = "LootCeremony_Tick_Deploy_BeamSweetener_Legendary"
+const string SOUND_BEAM_SWEETEN_TIER4 = "LootCeremony_Tick_Deploy_BeamSweetener_Heirloom"
+const string SOUND_HOLOGRAM_FIRST_APPEAR = "LootCeremony_LootHologram_FirstAppear"
+const string SOUND_HOLOGRAM_LOOP = "LootCeremony_Inspect_HologramLoop"
+const string SOUND_HOLOGRAM_APPEAR_TIER0 = "LootCeremony_LootHologram_Appear_Common"
+const string SOUND_HOLOGRAM_APPEAR_TIER1 = "LootCeremony_LootHologram_Appear_Rare"
+const string SOUND_HOLOGRAM_APPEAR_TIER2 = "LootCeremony_LootHologram_Appear_Epic"
+const string SOUND_HOLOGRAM_APPEAR_TIER3 = "LootCeremony_LootHologram_Appear_Legendary"
+const string SOUND_HOLOGRAM_APPEAR_TIER4 = "LootCeremony_LootHologram_Appear_Heirloom"
+const string SOUND_INSPECT_ZOOM_IN = "LootCeremony_Inspect_ZoomIn"
+const string SOUND_INSPECT_ZOOM_OUT = "LootCeremony_Inspect_ZoomOut"
+const string SOUND_EQUIP = "UI_Menu_Equip_Generic"
+const string SOUND_HOLOGRAM_PREAPPEAR_TIER3 = "LootCeremony_LootHologram_PreAppear_Legendary"
+const string SOUND_HOLOGRAM_PREAPPEAR_TIER4 = "LootCeremony_LootHologram_PreAppear_Legendary"
+const string SOUND_HOLOGRAM_APPEAR_RESETVIEW = "LootCeremony_LootHologram_Appear_ResetView"
+
+
+global const string ANIMSEQ_TRIADS_IDLE = "loot_ceremony_tick_triads_idle"
+global const string ANIMSEQ_ENTRANCE_NORMAL_IDLE = "loot_ceremony_tick_entrance_normal_idle"
+global const string ANIMSEQ_ENTRANCE_NORMAL = "loot_ceremony_tick_entrance_normal"
+global const string ANIMSEQ_IDLE = "loot_ceremony_tick_idle"
+const array< string > ANIMSEQ_DEPLOYMENT_SINGLE = [ 
+	"loot_ceremony_tick_deployment", 
+	"loot_ceremony_tick_deployment_fast_walk",
+	"loot_ceremony_tick_deployment_hop",
+	"loot_ceremony_tick_deployment_jump",
+	"loot_ceremony_tick_deployment_walk",
+]
+
+
+const table<int, string> LootCeremonyRarityToBeamFX = {
+	[eRarityTier.COMMON] 	= TICK_FX_RARITY_BEAM_TIER1,
+	[eRarityTier.RARE] 		= TICK_FX_RARITY_BEAM_TIER2,
+	[eRarityTier.EPIC] 		= TICK_FX_RARITY_BEAM_TIER3,
+	[eRarityTier.LEGENDARY] = TICK_FX_RARITY_BEAM_TIER4,
+	[eRarityTier.ICONIC] 	= TICK_FX_RARITY_BEAM_TIER5,
+	[eRarityTier.MYTHIC] 	= TICK_FX_RARITY_BEAM_TIER6
+}
+
+const table<int, string> LootCeremonyRarityToFlashFX = {
+	[eRarityTier.COMMON] 	= TICK_FX_RARITY_FLASH_TIER1,
+	[eRarityTier.RARE] 	 	= TICK_FX_RARITY_FLASH_TIER2,
+	[eRarityTier.EPIC]   	= TICK_FX_RARITY_FLASH_TIER3,
+	[eRarityTier.LEGENDARY] = TICK_FX_RARITY_FLASH_TIER4,
+	[eRarityTier.ICONIC] 	= TICK_FX_RARITY_FLASH_TIER5,
+	[eRarityTier.MYTHIC] 	= TICK_FX_RARITY_FLASH_TIER6
+}
+
+const table<int, string> LootCeremonyRarityToBeamSFX = {
+	[eRarityTier.RARE] 		= SOUND_BEAM_SWEETEN_TIER1,
+	[eRarityTier.EPIC] 		= SOUND_BEAM_SWEETEN_TIER2,
+	[eRarityTier.LEGENDARY] = SOUND_BEAM_SWEETEN_TIER3,
+	[eRarityTier.ICONIC] 	= SOUND_BEAM_SWEETEN_TIER4,
+	[eRarityTier.MYTHIC] 	= SOUND_BEAM_SWEETEN_TIER4
+}
+
+const int FINAL_TIER = 3
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const array<int> INVALID_ITEM_TYPES_FOR_LOOT_CEREMONY = [
+	eItemType.account_pack,
+	eItemType.artifact_component_activation_emote,
+	eItemType.artifact_component_power_source,
+	eItemType.artifact_component_theme,
+]
+
+
+
+enum eLootCeremonyPackType
+{
+	APEX_PACK,
+
+	COLLECTION_EVENT_PACK,
+	MILESTONE_EVENT_PACK,
+
+	MYTHIC_PACK,
+	HEIRLOOM_PACK,
+
+	THEMATIC_ITEM_TYPE_PACK,
+	THEMATIC_WEAPON_PACK,
+	THEMATIC_WEAPON_CATEGORY_PACK,
+	THEMATIC_CHARACTER_PACK,
+
+	RETRO_PACK,
+	WISHLIST_PACK,
+
+	COUNT
+}
+
+
+
+struct ItemPresentationData
+{
+	ItemFlavor& item
+	int         quantity = 1
+	string      attachment
+	int         rarity
+
+	bool 	    isWishlist = false
+}
+
+
+
+struct LootCeremonySortingData
+{
+	int packType
+
+	int packThemeType		    		
+	ItemFlavor ornull packTheme = null  
+	int retroPackType				
+}
+
+
+
+struct DummyInspectButtonData
+{
+	var  button
+	bool shouldShow
+}
+
+
+
+
+struct GladiatorCardData
+{
+	NestedGladiatorCardHandle& handle
+	var                        rui
+	var                        topo = null
+}
+
+
+
+const array<int> HIDE_ITEM_LIST = [
+	eItemType.weapon_charm,
+	eItemType.skydive_emote,
+	eItemType.account_pack,
+	eItemType.account_currency,
+	eItemType.account_currency_bundle,
+	eItemType.voucher,
+	eItemType.sticker,
+	eItemType.reward_set_tracker,
+	eItemType.battlepass,
+	eItemType.feature_unlock_token
+	eItemType.weapon_addon,
+	eItemType.melee_addon,
+	
+	eItemType.artifact_component_START,
+	eItemType.artifact_component_deathbox,
+	eItemType.artifact_component_blade,
+	eItemType.artifact_component_activation_emote,
+	eItemType.artifact_component_power_source,
+	eItemType.artifact_component_theme,
+	eItemType.artifact_component_END,
+]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+struct FileLevelStruct
+{
+
+
+
+
+		int latestPackOpenQuantity = 0
+
+
+
+		table  signalDummy
+
+		var                           menu
+		var                           inspectMenu
+		var                           equipButton
+		var							  trackChallengeButton
+		var                           equipToWheelButton
+		var                           purchaseButton
+		ItemFlavor&                   equipButtonItemFlavor
+		ItemFlavor& 				  trackButtonItemFlavor
+		var                           mouseClickElem
+		var                           inspectVideoPanel
+		array<DummyInspectButtonData> dummyInspectButtons
+		var                           skipAnimButton
+		var                           moreInfoButton
+		bool                          menuActive = false
+		bool                          inspectMenuIsNavigatingBack = false
+
+		entity lootTickMover
+		entity lootTickModel
+		entity cameraMover
+		entity cameraEnt
+		bool entitiesDidLoad = false
+
+		table<string, var>            rewardPlacards = { RewardLeftButton = null, RewardCenterButton = null, RewardRightButton = null }
+		array<entity>				  characterSkinModels
+		bool						  inspectModeActive
+
+		array< ItemPresentationData > itemPresentationDatas
+		LootCeremonySortingData& lootCeremonySortingData
+
+		bool specialItemPresentationModeActive = false
+
+		
+		ItemFlavor& currentPackFlav
+		bool        grxRewardsReceived = false
+
+		
+		array<int> rarityBeamFXHandles
+		bool       tickRandomFlashFXStarted = false
+
+		array<PakHandle> pakHandles
+
+
+#if DEV
+		bool           debugShowCustomRewards = false
+		array< asset > debugCustomRewardAssets = [
+			$"settings/itemflav/character_skin/wraith/legendary_01.rpak",
+			$"settings/itemflav/gcard_stance/wraith/epic_05.rpak",
+			$"settings/itemflav/weapon_skin/hemlok/rare_04.rpak"
+		]
+#endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+}
+FileLevelStruct& fileLevel
+
+
+void function LootBoxCeremony_SharedInit()
+{
+	Remote_RegisterServerFunction( "Server_GrantChaseItemsIfCollectionCompleted" )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function CLLootBoxCeremony_Init()
+{
+	RegisterSignal( "LootCeremonyExit" )
+	RegisterSignal( "LootCeremonyAnimSeqStart" )
+	RegisterSignal( "LootCeremonyInspectModeStart" )
+	RegisterSignal( "LootCeremonyInspectModeStartComplete" )
+	RegisterSignal( "LootCeremonyInspectModeEnd" )
+	RegisterSignal( "LootCeremonyInspectModeEndComplete" )
+	RegisterSignal( "LootCeremonyInspectCompleteOrBackout" )
+	RegisterSignal( "LootCeremonyInspectTimeCompleteOrBackout" )
+	RegisterSignal( "LootCeremonyInspectVideoCompleteOrBackout" )
+	RegisterSignal( "LootCeremonyTimeComplete" )
+	RegisterSignal( "LootCeremonyVideoComplete" )
+	RegisterSignal( "TickAnimStartDisplayLoot" )
+	RegisterSignal( "TickAnimStartDeployment" )
+	RegisterSignal( "TickAnimSkip" )
+	RegisterSignal( "LootCeremonyAnimShowLootOrSkip" )
+	RegisterSignal( "LootCeremonyTickCancelAnim" )
+
+	LootCeremonyLightingRigPreCache()
+
+	AddCallback_FullUpdate( LootCeremonyOnFullUpdate )
+	AddCallback_EntitiesDidLoad( EntitiesDidLoad )
+}
+
+
+
+
+void function EntitiesDidLoad()
+{
+	entity targetAnimRef = GetEntByScriptName( "target_loot_ceremony_ref" )
+	fileLevel.lootTickMover = CreateClientsideScriptMover( $"mdl/dev/empty_model.rmdl", targetAnimRef.GetOrigin(), targetAnimRef.GetAngles() )
+	fileLevel.lootTickModel = CreatePropDynamic( TICK_MODEL_DEFAULT, fileLevel.lootTickMover.GetOrigin(), fileLevel.lootTickMover.GetAngles() )
+
+	
+	table< string, table< string, vector > > tickAttachmentOriginsAngles
+	Attachment camResult = fileLevel.lootTickModel.Anim_GetAttachmentAtTime( ANIMSEQ_TRIADS_IDLE, "CAMERA", 0 )
+	foreach ( string attachment in TICK_LOOT_ATTACHMENTS )
+	{
+		tickAttachmentOriginsAngles[attachment] <- {}
+
+		Attachment attachResult = fileLevel.lootTickModel.Anim_GetAttachmentAtTime( ANIMSEQ_TRIADS_IDLE, attachment, 0 )
+		vector pos              = attachResult.position
+		vector angles           = VectorToAngles( FlattenVec( camResult.position - pos ) )
+
+		tickAttachmentOriginsAngles[ attachment ]["origin"] <- pos
+		tickAttachmentOriginsAngles[ attachment ]["angles"] <- angles
+	}
+	InitLootCeremonyLightingRigs( tickAttachmentOriginsAngles )
+
+	fileLevel.lootTickModel.SetParent( fileLevel.lootTickMover )
+	thread PlayAnim( fileLevel.lootTickModel, ANIMSEQ_ENTRANCE_NORMAL_IDLE, fileLevel.lootTickMover )
+	HideEntityAndChildren( fileLevel.lootTickModel )
+
+	fileLevel.cameraMover = CreateClientsideScriptMover( $"mdl/dev/empty_model.rmdl", targetAnimRef.GetOrigin(), targetAnimRef.GetAngles() )
+	fileLevel.cameraEnt = CreateClientSidePointCamera( targetAnimRef.GetOrigin(), targetAnimRef.GetAngles(), CAMERA_FOV )
+	fileLevel.cameraEnt.SetParent( fileLevel.cameraMover, "REF" )
+	fileLevel.cameraMover.SetParent( fileLevel.lootTickModel, "CAMERA" )
+	fileLevel.entitiesDidLoad = true
+}
+
+
+
+
+void function UIToClient_LootCeremony_SetMenuHandles( var menu )
+{
+	fileLevel.menu = menu
+	fileLevel.inspectMenu = Hud_GetChild( menu, "InspectBar" )
+	fileLevel.equipButton = Hud_GetChild( menu, "InspectEquipButton" )
+	fileLevel.trackChallengeButton = Hud_GetChild( menu, "TrackChallengeButton" )
+	fileLevel.equipToWheelButton = Hud_GetChild( menu, "InspectEquipToWheelButton" )
+	fileLevel.mouseClickElem = Hud_GetChild( menu, "ModelRotateMouseCapture" )
+	fileLevel.inspectVideoPanel = Hud_GetChild( menu, "InspectVideoPanel" )
+	fileLevel.moreInfoButton = Hud_GetChild( menu, "InspectMoreInfo" )
+
+	fileLevel.dummyInspectButtons.clear()
+
+	DummyInspectButtonData inspectButton1
+	inspectButton1.button = Hud_GetChild( menu, "RewardLeftButton" )
+	inspectButton1.shouldShow = false
+	fileLevel.dummyInspectButtons.append( inspectButton1 )
+
+	DummyInspectButtonData inspectButton2
+	inspectButton2.button = Hud_GetChild( menu, "RewardCenterButton" )
+	inspectButton2.shouldShow = false
+	fileLevel.dummyInspectButtons.append( inspectButton2 )
+
+	DummyInspectButtonData inspectButton3
+	inspectButton3.button = Hud_GetChild( menu, "RewardRightButton" )
+	inspectButton3.shouldShow = false
+	fileLevel.dummyInspectButtons.append( inspectButton3 )
+
+	fileLevel.skipAnimButton = Hud_GetChild( menu, "SkipAnimationButton" )
+}
+
+
+
+void function UIToClient_LootCeremony_SetGlobalAnimationEventsTokenize()
+{
+	AddGlobalAnimEventTokenize( "loot_tick_rarity_random_flash_fx", OnLootTickAnimEvent )
+	AddGlobalAnimEventTokenize( "loot_tick_rarity_beam_start_fx", OnLootTickAnimEvent )
+	AddGlobalAnimEventTokenize( "loot_tick_rarity_beam_stop_fx", OnLootTickAnimEvent )
+	AddGlobalAnimEventTokenize( "loot_tick_rarity_flash_start_fx", OnLootTickAnimEvent )
+	AddGlobalAnimEventTokenize( "loot_tick_play_sound", OnLootTickAnimEvent )
+}
+
+
+
+void function UIToClient_LootCeremony_DeleteGlobalAnimationEventsTokenize()
+{
+	DeleteGlobalAnimEventTokenize( "loot_tick_rarity_random_flash_fx" )
+	DeleteGlobalAnimEventTokenize( "loot_tick_rarity_beam_start_fx")
+	DeleteGlobalAnimEventTokenize( "loot_tick_rarity_beam_stop_fx" )
+	DeleteGlobalAnimEventTokenize( "loot_tick_rarity_flash_start_fx" )
+	DeleteGlobalAnimEventTokenize( "loot_tick_play_sound" )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function UIToClient_OnGRXPackOpeningResultsAvailable()
+{
+	
+	if ( !IsLootCeremonyActive() )
+		return
+
+	ItemFlavorBag bag = GRX_GetMostRecentPackOpeningResults()
+
+	
+	int error = GRX_INVENTORYERROR_NONE
+	if ( bag.associatedError != GRX_INVENTORYERROR_NONE )
+		error = bag.associatedError
+		GRXPackOpened_ErrorHandling( error )
+
+	
+#if DEV
+		if ( fileLevel.debugShowCustomRewards )
+		{
+			array< ItemFlavor > debugItems
+			foreach ( asset itemAsset in fileLevel.debugCustomRewardAssets )
+				debugItems.append( GetItemFlavorByAsset( itemAsset ) )
+
+			bag.flavors = debugItems
+		}
+#endif
+
+	fileLevel.itemPresentationDatas.clear()
+
+	bool hasCurrency                      = false
+	bool hasNonCurrency                   = false
+	bool hasMythicSkin					  = false
+	table<ItemFlavor, int> currencyCounts = {}
+	foreach ( int bagEntryIdx, ItemFlavor bagEntryFlav in bag.flavors )
+	{
+		if ( ItemFlavor_GetType( bagEntryFlav ) == eItemType.account_currency )
+		{
+			hasCurrency = true
+
+			if ( bagEntryFlav == GRX_CURRENCIES[GRX_CURRENCY_EXOTIC] )
+				
+				Remote_ServerCallFunction( "ClientCallback_LastSeenExoticCurrency" )
+
+			if ( !(bagEntryFlav in currencyCounts) )
+				currencyCounts[bagEntryFlav] <- 0
+
+			currencyCounts[bagEntryFlav] += bag.quantities[bagEntryIdx]
+		}
+		else
+		{
+			if ( Mythics_IsItemFlavorMythicSkin( bagEntryFlav ) )
+				hasMythicSkin = true
+
+			hasNonCurrency = true
+		}
+	}
+
+	bool hasJustCurrency = hasCurrency && hasNonCurrency == false && currencyCounts.len() == 1
+	if ( hasJustCurrency )
+	{
+		
+
+
+
+
+		ItemFlavor currencyFlav
+		int currencyQty
+		foreach ( ItemFlavor flav, int qty in currencyCounts )
+		{ ; currencyFlav = flav; currencyQty = qty; break; }
+
+		int middleQty = 0
+		int leftQty   = 0
+		int rightQty  = 0
+		if ( currencyQty % 3 == 0 )
+		{
+			
+			middleQty = currencyQty / 3
+			leftQty   = middleQty
+			rightQty  = middleQty
+		}
+		else if ( ( currencyQty - 100 ) % 3 == 0 )
+		{
+			
+			middleQty = ( currencyQty - 100 ) / 3 + 100
+			leftQty   = ( currencyQty - 100 ) / 3
+			rightQty  = leftQty
+		}
+		else
+		{
+			
+			
+			middleQty = currencyQty / 3
+			leftQty   = middleQty
+			rightQty  = middleQty
+		}
+		
+		middleQty += currencyQty - middleQty - leftQty - rightQty
+
+		ItemPresentationData wtfLeft
+		wtfLeft.item = currencyFlav
+		wtfLeft.rarity = ItemFlavor_GetQuality( currencyFlav )
+		wtfLeft.attachment = TICK_LOOT_ATTACHMENTS[0]
+		wtfLeft.quantity = leftQty
+		fileLevel.itemPresentationDatas.append( wtfLeft )
+
+		ItemPresentationData wtfMiddle
+		wtfMiddle.item = currencyFlav
+		wtfMiddle.rarity = ItemFlavor_GetQuality( currencyFlav )
+		wtfMiddle.attachment = TICK_LOOT_ATTACHMENTS[1]
+		wtfMiddle.quantity = middleQty
+		fileLevel.itemPresentationDatas.append( wtfMiddle )
+
+		ItemPresentationData wtfRight
+		wtfRight.item = currencyFlav
+		wtfRight.rarity = ItemFlavor_GetQuality( currencyFlav )
+		wtfRight.attachment = TICK_LOOT_ATTACHMENTS[2]
+		wtfRight.quantity = rightQty
+		fileLevel.itemPresentationDatas.append( wtfRight )
+	}
+	else if ( GRXPack_IsExpectedToContainSingleItemWithCurrency( fileLevel.currentPackFlav ) )
+	{
+		ItemFlavor ornull theSingleItemFlav = null
+		ItemFlavor ornull theCurrencyFlav   = null
+		int theCurrencyQty                  = 0
+		foreach ( int bagEntryIdx, ItemFlavor bagEntryFlav in bag.flavors )
+		{
+			int bagEntryQty = bag.quantities[bagEntryIdx]
+			if ( ItemFlavor_GetType( bagEntryFlav ) == eItemType.account_currency )
+			{
+				Assert( theCurrencyFlav == null || theCurrencyFlav == bagEntryFlav )
+				theCurrencyFlav = bagEntryFlav
+				theCurrencyQty += bagEntryQty
+			}
+			else
+			{
+				
+				
+				Assert( ItemFlavor_GetType( bagEntryFlav ) == eItemType.character_skin
+				|| ItemFlavor_GetType( bagEntryFlav ) == eItemType.weapon_skin
+				|| ItemFlavor_GetType( bagEntryFlav ) == eItemType.gladiator_card_stance
+				|| ItemFlavor_GetType( bagEntryFlav ) == eItemType.music_pack )
+
+				
+				Assert( theSingleItemFlav == null )
+				theSingleItemFlav = bagEntryFlav
+			}
+		}
+
+		Assert( theSingleItemFlav != null )
+		Assert( theCurrencyFlav != null )
+		Assert( theCurrencyQty > 0 )
+
+		if ( !IsEven( theCurrencyQty ) )
+			Warning( "Pack %s gave an odd amount of currency but we expected an even amount: %d", string(ItemFlavor_GetAsset( fileLevel.currentPackFlav )), theCurrencyQty )
+
+		int leftCurrencyAmount  = theCurrencyQty / 2
+		int rightCurrencyAmount = theCurrencyQty - leftCurrencyAmount
+
+		ItemPresentationData leftCurrencyIPD
+		leftCurrencyIPD.item = expect ItemFlavor(theCurrencyFlav)
+		leftCurrencyIPD.rarity = ItemFlavor_GetQuality( leftCurrencyIPD.item )
+		leftCurrencyIPD.attachment = TICK_LOOT_ATTACHMENTS[0]
+		leftCurrencyIPD.quantity = leftCurrencyAmount
+		fileLevel.itemPresentationDatas.append( leftCurrencyIPD )
+
+		ItemPresentationData theSingleItemIPD
+		theSingleItemIPD.item = expect ItemFlavor(theSingleItemFlav)
+		theSingleItemIPD.rarity = ItemFlavor_GetQuality( theSingleItemIPD.item )
+		theSingleItemIPD.attachment = TICK_LOOT_ATTACHMENTS[1]
+		fileLevel.itemPresentationDatas.append( theSingleItemIPD )
+
+		ItemPresentationData rightCurrencyIPD
+		rightCurrencyIPD.item = expect ItemFlavor(theCurrencyFlav)
+		rightCurrencyIPD.rarity = ItemFlavor_GetQuality( rightCurrencyIPD.item )
+		rightCurrencyIPD.attachment = TICK_LOOT_ATTACHMENTS[2]
+		rightCurrencyIPD.quantity = rightCurrencyAmount
+		fileLevel.itemPresentationDatas.append( rightCurrencyIPD )
+	}
+	else if ( bag.flavors.len() == 1 && Mythics_IsItemFlavorMythicSkin( bag.flavors[0] ) ) 
+	{
+		array<ItemFlavor> mythicSkins = Mythics_GetAllSkinsFromBase( bag.flavors[0] )
+
+		Assert( FINAL_TIER == mythicSkins.len() )
+
+		for ( int i = 0; i < mythicSkins.len(); i++ )
+		{
+			int attachmentIndex = i
+
+			if ( i == 0 )
+				attachmentIndex = 1
+			else if ( i == 1 )
+				attachmentIndex = 0
+
+			ItemPresentationData data
+			data.item = mythicSkins[i]
+			data.rarity = eRarityTier.MYTHIC 
+			data.attachment = TICK_LOOT_ATTACHMENTS[ attachmentIndex ]
+
+			fileLevel.itemPresentationDatas.append( data )
+		}
+	}
+	else
+	{
+		for ( int i = 0; i < bag.quantities.len(); i++ )
+		{
+			if ( ItemFlavor_GetType( bag.flavors[i] ) != eItemType.account_currency )
+			{
+				Assert( bag.quantities[i] == 1, "Quantity is not 1 for loot ceremony item flavor: " + string(ItemFlavor_GetAsset( bag.flavors[i] )) )
+			}
+		}
+
+		array<ItemFlavor> filteredAndSortedItemFlavors = FilterAndSortPackResults( bag.flavors )
+
+		for ( int i = 0; i < filteredAndSortedItemFlavors.len(); i++ )
+		{
+			ItemFlavor flavor = filteredAndSortedItemFlavors[i]
+
+			ItemPresentationData data
+			data.item = flavor
+			data.rarity = ItemFlavor_HasQuality( flavor ) ? ItemFlavor_GetQuality( flavor ) : 0
+			data.attachment = TICK_LOOT_ATTACHMENTS[i]
+			data.isWishlist = GRX_IsItemFlavInPackResultContainer( flavor, GRX_CONTAINERTYPE_WISHLIST )
+
+			fileLevel.itemPresentationDatas.append( data )
+		}
+	}
+
+	if ( hasMythicSkin )
+		Remote_ServerCallFunction( "ClientCallback_UpdateMythicChallenges" ) 
+
+	
+	fileLevel.grxRewardsReceived = true
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+bool function IsInvalidTypeForLootCeremony( int type )
+{
+	Assert( type < eItemType.COUNT, "Invalid eItemType : " + type )
+
+	foreach ( int target in INVALID_ITEM_TYPES_FOR_LOOT_CEREMONY )
+	{
+		if ( target == type )
+		{
+			return true
+		}
+	}
+
+	return false
+}
+
+
+
+void function UpdateLootCeremonySortingData()
+{
+	LootCeremonySortingData out
+
+	int accountPackType = ItemFlavor_GetAccountPackType( fileLevel.currentPackFlav )
+
+	switch ( accountPackType )
+	{
+		case eAccountPackType.MYTHIC:
+		{
+			
+			out.packType = eLootCeremonyPackType.HEIRLOOM_PACK
+
+			break
+		}
+		case eAccountPackType.THEMATIC:
+		{
+			asset themeAsset = GetGlobalSettingsAsset( ItemFlavor_GetAsset( fileLevel.currentPackFlav ), "themeFlavor" )
+			if ( IsValidItemFlavorSettingsAsset( themeAsset ) )
+			{
+				out.packTheme = GetItemFlavorByAsset( themeAsset )
+				out.packThemeType = ItemFlavor_GetType( expect ItemFlavor( out.packTheme ) )
+
+				if ( out.packThemeType == eItemType.character )
+				{
+					out.packType = eLootCeremonyPackType.THEMATIC_CHARACTER_PACK
+				}
+				else if ( out.packThemeType == eItemType.weapon_category )
+				{
+					out.packType = eLootCeremonyPackType.THEMATIC_WEAPON_CATEGORY_PACK
+				}
+				else if ( out.packThemeType == eItemType.loot_main_weapon )
+				{
+					out.packType = eLootCeremonyPackType.THEMATIC_WEAPON_PACK
+				}
+				else
+				{
+					out.packType = eLootCeremonyPackType.THEMATIC_ITEM_TYPE_PACK 
+				}
+			}
+
+			break
+		}
+		case eAccountPackType.EVENT_THEMATIC:
+		{
+			if ( GetGlobalSettingsBool( ItemFlavor_GetAsset( fileLevel.currentPackFlav ), "hasHolosprays" ) )
+			{
+				out.packType = eLootCeremonyPackType.THEMATIC_ITEM_TYPE_PACK
+				out.packThemeType = eItemType.emote_icon
+			}
+			else if ( GetGlobalSettingsBool( ItemFlavor_GetAsset( fileLevel.currentPackFlav ), "hasStickers" ) )
+			{
+				out.packType = eLootCeremonyPackType.THEMATIC_ITEM_TYPE_PACK
+				
+				out.packThemeType = eItemType.sticker
+			}
+
+			break
+		}
+		case eAccountPackType.EVENT:
+		{
+			out.packType = eLootCeremonyPackType.COLLECTION_EVENT_PACK
+
+			break
+		}
+		case eAccountPackType.SIRNGE:
+		{
+			if ( GRXPack_IsWishlistSirngePack( fileLevel.currentPackFlav ) )
+			{
+				out.packType = eLootCeremonyPackType.WISHLIST_PACK
+			}
+			else
+			{
+				out.packType = eLootCeremonyPackType.MILESTONE_EVENT_PACK
+			}
+
+			break
+		}
+		case eAccountPackType.RETRO_ESCALATING_BACKFILL_PACK:
+		case eAccountPackType.RETRO_PACK:
+		{
+			out.packType = eLootCeremonyPackType.RETRO_PACK
+			out.retroPackType = GRXPack_GetRetroPackDisclaimerType( fileLevel.currentPackFlav )
+
+			break
+		}
+		default:
+		{
+			out.packType = eLootCeremonyPackType.APEX_PACK
+		}
+	}
+
+	fileLevel.lootCeremonySortingData = out
+}
+
+
+
+int function SortApexPackResults( ItemFlavor a, ItemFlavor b )
+{
+	
+	if ( ItemFlavor_GetSourceIcon( a ) != $"" )
+	{
+		return -1
+	}
+	else if ( ItemFlavor_GetSourceIcon( b ) != $"" )
+	{
+		return 1
+	}
+
+	if ( ItemFlavor_GetQuality( a ) >= ItemFlavor_GetQuality( b ) )
+	{
+		return -1
+	}
+	else
+	{
+		return 1
+	}
+
+	return 0
+}
+
+
+
+int function SortCollectionEventPackResults( ItemFlavor a, ItemFlavor b )
+{
+	ItemFlavor ornull collectionEvent = GetActiveCollectionEvent( GetUnixTimestamp() )
+
+	if ( collectionEvent != null )
+	{
+		expect ItemFlavor( collectionEvent )
+
+		if ( CollectionEvent_IsGivenItemFlavorReward( collectionEvent, a ) )
+		{
+			return -1
+		}
+		else if ( CollectionEvent_IsGivenItemFlavorReward( collectionEvent, b ) )
+		{
+			return 1
+		}
+	}
+
+	return SortApexPackResults( a, b )
+}
+
+
+
+int function SortMilestoneEventPackResults( ItemFlavor a, ItemFlavor b )
+{
+	int heirloomResult = SortHeirloomPackResults( a, b )
+	if ( heirloomResult != 0 )
+		return heirloomResult
+
+	if ( ItemFlavor_GetType( a ) == eItemType.artifact_component_blade )
+	{
+		return -1
+	}
+	if ( ItemFlavor_GetType( b ) == eItemType.artifact_component_blade )
+	{
+		return 1
+	}
+
+	if ( ItemFlavor_GetType( a ) == eItemType.reward_set_tracker )
+	{
+		return -1
+	}
+	if ( ItemFlavor_GetType( b ) == eItemType.reward_set_tracker )
+	{
+		return 1
+	}
+
+	array<ItemFlavor> activeMilestones = GetAllMilestoneEvents( true, true )
+	foreach ( ItemFlavor milestoneEvent in activeMilestones )
+	{
+		if ( MilestoneEvent_IsItemEventItem( milestoneEvent, a.grxIndex ) )
+		{
+			return -1
+		}
+		else if ( MilestoneEvent_IsItemEventItem( milestoneEvent, b.grxIndex ) )
+		{
+			return 1
+		}
+	}
+
+	return SortApexPackResults( a, b )
+}
+
+
+
+void function ApplyRetroPackSort( array<ItemFlavor> out, int functionref( ItemFlavor, ItemFlavor ) sortFunc )
+{
+	ItemFlavor retroPack = fileLevel.currentPackFlav
+	array<ItemFlavor> packItems = GRXPack_GetPackContents( retroPack )
+
+	out.sort( int function( ItemFlavor a, ItemFlavor b ) : ( packItems, sortFunc )
+		{
+
+			int heirloomResult = SortHeirloomPackResults( a, b )
+			if ( heirloomResult != 0 )
+				return heirloomResult
+
+			if ( packItems.contains( a ) )
+				return -1
+			else if ( packItems.contains( b ) )
+				return 1
+
+			return sortFunc( a, b )
+		}
+	)
+}
+
+
+
+int function SortHeirloomPackResults( ItemFlavor a, ItemFlavor b )
+{
+	if ( ItemFlavor_GetType( a ) == eItemType.melee_skin )
+	{
+		return -1
+	}
+	if ( ItemFlavor_GetType( b ) == eItemType.melee_skin )
+	{
+		return 1
+	}
+
+	return 0
+}
+
+
+
+int function SortThematicPackResults( ItemFlavor a, ItemFlavor b )
+{
+	int packThemeType = fileLevel.lootCeremonySortingData.packThemeType
+
+	if ( packThemeType == ItemFlavor_GetType( a ) && ItemFlavor_GetQuality( a ) >= eRarityTier.RARE )
+		return -1
+
+	if ( packThemeType == ItemFlavor_GetType( b ) && ItemFlavor_GetQuality( b ) >= eRarityTier.RARE )
+		return 1
+
+	return 0
+}
+
+
+
+int function SortThematicWeaponPackResults( ItemFlavor a, ItemFlavor b )
+{
+	ItemFlavor ornull packTheme = fileLevel.lootCeremonySortingData.packTheme
+
+	if ( ItemFlavor_GetType( a ) == eItemType.weapon_skin )
+	{
+		
+		ItemFlavor themeCatagory     = WeaponItemFlavor_GetCategory( expect ItemFlavor( packTheme ) )
+		ItemFlavor itemAssocCatagory = WeaponItemFlavor_GetCategory( expect ItemFlavor( GetItemFlavorAssociatedCharacterOrWeapon( a ) ) )
+
+		if ( themeCatagory == itemAssocCatagory && ItemFlavor_GetQuality( a ) >= eRarityTier.RARE )
+		{
+			return -1
+		}
+	}
+
+	if ( ItemFlavor_GetType( b ) == eItemType.weapon_skin )
+	{
+		ItemFlavor themeCatagory     = WeaponItemFlavor_GetCategory( expect ItemFlavor( packTheme ) )
+		ItemFlavor itemAssocCatagory = WeaponItemFlavor_GetCategory( expect ItemFlavor( GetItemFlavorAssociatedCharacterOrWeapon( b ) ) )
+
+		if ( themeCatagory == itemAssocCatagory && ItemFlavor_GetQuality( b ) >= eRarityTier.RARE )
+		{
+			return 1
+		}
+	}
+
+	return 0
+}
+
+
+
+int function SortThematicWeaponCategoryPackResults( ItemFlavor a, ItemFlavor b )
+{
+	ItemFlavor ornull packTheme = fileLevel.lootCeremonySortingData.packTheme
+
+	if ( ItemFlavor_GetType( a ) == eItemType.weapon_skin )
+	{
+		if ( packTheme == WeaponItemFlavor_GetCategory( expect ItemFlavor( GetItemFlavorAssociatedCharacterOrWeapon( a ) ) ) &&
+				ItemFlavor_GetQuality( a ) >= eRarityTier.RARE )
+			return -1
+	}
+
+	if ( ItemFlavor_GetType( b ) == eItemType.weapon_skin )
+	{
+		if ( packTheme == WeaponItemFlavor_GetCategory( expect ItemFlavor( GetItemFlavorAssociatedCharacterOrWeapon( b ) ) ) &&
+				ItemFlavor_GetQuality( b ) >= eRarityTier.RARE )
+			return 1
+	}
+
+	return 0
+}
+
+
+
+int function SortThematicCharacterPackResults( ItemFlavor a, ItemFlavor b )
+{
+	ItemFlavor ornull packTheme = fileLevel.lootCeremonySortingData.packTheme
+
+	if ( packTheme == GetItemFlavorAssociatedCharacterOrWeapon( a ) && ItemFlavor_GetQuality( a ) >= eRarityTier.RARE )
+		return -1
+
+	if ( packTheme == GetItemFlavorAssociatedCharacterOrWeapon( b ) && ItemFlavor_GetQuality( b ) >= eRarityTier.RARE )
+		return 1
+
+	return 0
+}
+
+
+
+int function SortWishlistPackResults( ItemFlavor a, ItemFlavor b )
+{
+	if ( GRX_IsItemFlavInPackResultContainer( a, GRX_CONTAINERTYPE_WISHLIST ) )
+	{
+		return -1
+	}
+	else if ( GRX_IsItemFlavInPackResultContainer( b, GRX_CONTAINERTYPE_WISHLIST ) )
+	{
+		return 1
+	}
+
+	array<ItemFlavor> activeMilestones = GetAllMilestoneEvents( true, true )
+	foreach ( ItemFlavor milestoneEvent in activeMilestones )
+	{
+		if ( MilestoneEvent_IsItemEventItem( milestoneEvent, a.grxIndex ) )
+		{
+			return -1
+		}
+		else if ( MilestoneEvent_IsItemEventItem( milestoneEvent, b.grxIndex ) )
+		{
+			return 1
+		}
+	}
+
+	if ( ItemFlavor_GetQuality( a ) >= ItemFlavor_GetQuality( b ) )
+	{
+		return -1
+	}
+	else
+	{
+		return 1
+	}
+
+	return 0
+}
+
+
+#if DEV
+string function DEV_GetReadableLootCeremonyPackType( int type )
+{
+	switch ( type )
+	{
+		case eLootCeremonyPackType.APEX_PACK:
+		{
+			return "APEX_PACK"
+		}
+
+		case eLootCeremonyPackType.COLLECTION_EVENT_PACK:
+		{
+			return "COLLECTION_EVENT_PACK"
+		}
+
+		case eLootCeremonyPackType.MILESTONE_EVENT_PACK:
+		{
+			return "MILESTONE_EVENT_PACK"
+		}
+
+		case eLootCeremonyPackType.THEMATIC_ITEM_TYPE_PACK:
+		{
+			return "THEMATIC_ITEM_TYPE_PACK"
+		}
+
+		case eLootCeremonyPackType.THEMATIC_WEAPON_PACK:
+		{
+			return "THEMATIC_WEAPON_PACK"
+		}
+
+		case eLootCeremonyPackType.THEMATIC_WEAPON_CATEGORY_PACK:
+		{
+			return "THEMATIC_WEAPON_CATEGORY_PACK"
+		}
+
+		case eLootCeremonyPackType.THEMATIC_CHARACTER_PACK:
+		{
+			return "THEMATIC_CHARACTER_PACK"
+		}
+
+		case eLootCeremonyPackType.RETRO_PACK:
+		{
+			return "RETRO_PACK"
+		}
+
+		case eLootCeremonyPackType.WISHLIST_PACK:
+		{
+			return "WISHLIST_PACK"
+		}
+
+		default:
+			return "UNKNOWN LOOT CEREMONY PACK TYPE"
+
+	}
+
+	return "UNKNOWN LOOT CEREMONY PACK TYPE"
+}
+#endif
+
+
+array<ItemFlavor> function SortPackResults( array<ItemFlavor> results )
+{
+	Assert( fileLevel.lootCeremonySortingData.packType < eLootCeremonyPackType.COUNT, "Invalid Loot Ceremony Pack Type" )
+
+	array<ItemFlavor> out = results
+
+	if ( out.len() != 3 )
+		return out
+
+	
+	switch ( fileLevel.lootCeremonySortingData.packType )
+	{
+		case eLootCeremonyPackType.APEX_PACK:
+		{
+			out.sort( SortApexPackResults )
+
+			break
+		}
+		case eLootCeremonyPackType.COLLECTION_EVENT_PACK:
+		{
+			out.sort( SortCollectionEventPackResults )
+
+			break
+		}
+		case eLootCeremonyPackType.MILESTONE_EVENT_PACK:
+		{
+			
+			out.sort( SortMilestoneEventPackResults )
+
+			break
+		}
+		case eLootCeremonyPackType.HEIRLOOM_PACK:
+		{
+			out.sort( SortHeirloomPackResults )
+
+			break
+		}
+		case eLootCeremonyPackType.THEMATIC_ITEM_TYPE_PACK:
+		{
+			out.sort( SortThematicPackResults )
+
+			break
+		}
+		case eLootCeremonyPackType.THEMATIC_WEAPON_PACK:
+		{
+			out.sort( SortThematicWeaponPackResults )
+
+			break
+		}
+		case eLootCeremonyPackType.THEMATIC_WEAPON_CATEGORY_PACK:
+		{
+			out.sort( SortThematicWeaponCategoryPackResults )
+
+			break
+		}
+		case eLootCeremonyPackType.THEMATIC_CHARACTER_PACK:
+		{
+			out.sort( SortThematicCharacterPackResults )
+
+			break
+		}
+		case eLootCeremonyPackType.RETRO_PACK:
+		{
+			int packType = fileLevel.lootCeremonySortingData.retroPackType
+
+			if ( packType == eRetroPackDisclosureType.COLLECTION_EVENT )
+			{
+				ApplyRetroPackSort( out, SortCollectionEventPackResults )
+			}
+			else if ( packType == eRetroPackDisclosureType.MILESTONE_EVENT )
+			{
+				ApplyRetroPackSort( out, SortMilestoneEventPackResults )
+			}
+			else
+			{
+				ApplyRetroPackSort( out, SortApexPackResults )
+			}
+
+			break
+		}
+		case eLootCeremonyPackType.WISHLIST_PACK:
+		{
+			out.sort( SortWishlistPackResults )
+			break
+		}
+		default:
+			Assert( false, "Invalid Loot Ceremony Pack Type" )
+	}
+
+	
+	ItemFlavor temp = out[0]
+	out[0] = out[1]
+	out[1] = temp
+
+#if DEV
+	printt( FUNC_NAME() + " : Current Loot Ceremony Pack Type - " + DEV_GetReadableLootCeremonyPackType( fileLevel.lootCeremonySortingData.packType ) )
+
+	if ( fileLevel.lootCeremonySortingData.packType >= eLootCeremonyPackType.THEMATIC_ITEM_TYPE_PACK &&
+			fileLevel.lootCeremonySortingData.packType < eLootCeremonyPackType.COUNT &&
+			fileLevel.lootCeremonySortingData.packTheme != null )
+	{
+		printt( FUNC_NAME() + " : Current Loot Ceremony Theme Item Type - " + DEV_DescItemFlavor( fileLevel.lootCeremonySortingData.packTheme ) )
+	}
+#endif
+
+	return out
+}
+
+
+
+array<ItemFlavor> function GetArrayWithTypeFilteredOut( array<ItemFlavor> items, int type )
+{
+	array<ItemFlavor> filteredItems
+	foreach ( ItemFlavor item in items )
+	{
+		if ( ItemFlavor_GetType( item ) == type )
+		{
+			continue
+		}
+		filteredItems.append( item )
+	}
+	return filteredItems
+}
+
+void function SetLatestPackOpenQuantity( int quantity )
+{
+	fileLevel.latestPackOpenQuantity = quantity
+}
+
+array<ItemFlavor> function ProcessRewardSetItemsFromPackOpenResult( array<ItemFlavor> items )
+{
+	ItemFlavor ornull rewardSetTracker = null
+	foreach( ItemFlavor item in items )
+	{
+		if ( ItemFlavor_GetType( item ) == eItemType.reward_set_tracker )
+		{
+			rewardSetTracker = item
+			break
+		}
+	}
+
+	if ( rewardSetTracker != null )
+	{
+		expect ItemFlavor( rewardSetTracker )
+		if ( fileLevel.latestPackOpenQuantity == 1 )
+		{
+			return FilterRewardSetItemsFromPackList( rewardSetTracker , items )
+		}
+		else if ( fileLevel.latestPackOpenQuantity > 1 )
+		{
+			
+			
+			return GetArrayWithTypeFilteredOut( items, eItemType.reward_set_tracker )
+		}
+	}
+	return items
+}
+
+array<RewardItemFlavor> function GetArrayWithTypeFilteredOutForRewardItems( array<RewardItemFlavor> items, int type )
+{
+	array<RewardItemFlavor> filteredItems
+	foreach ( RewardItemFlavor item in items )
+	{
+		if ( ItemFlavor_GetType( item.reward ) == type )
+		{
+			continue
+		}
+		filteredItems.append( item )
+	}
+	return filteredItems
+}
+
+array<RewardItemFlavor> function ProcessRewardSetItemsFromPackOpenResultForRewardItems( array<RewardItemFlavor> items )
+{
+	ItemFlavor ornull rewardSetTracker = null
+	foreach( RewardItemFlavor item in items )
+	{
+		if ( ItemFlavor_GetType( item.reward ) == eItemType.reward_set_tracker )
+		{
+			rewardSetTracker = item.reward
+			break
+		}
+	}
+
+	if ( rewardSetTracker != null )
+	{
+		expect ItemFlavor( rewardSetTracker )
+		if ( fileLevel.latestPackOpenQuantity == 1 )
+		{
+			return FilterRewardSetItemsFromPackListForRewardItems( rewardSetTracker , items )
+		}
+		else if ( fileLevel.latestPackOpenQuantity > 1 )
+		{
+			
+			
+			return GetArrayWithTypeFilteredOutForRewardItems( items, eItemType.reward_set_tracker )
+		}
+	}
+	return items
+}
+
+
+
+
+array<ItemFlavor> function FilterAndSortPackResults( array<ItemFlavor> resultList )
+{
+	UpdateLootCeremonySortingData()
+
+	array<ItemFlavor> out = []
+
+	
+	foreach ( ItemFlavor result in resultList )
+	{
+		if ( IsInvalidTypeForLootCeremony( ItemFlavor_GetType( result ) ) )
+		{
+			continue
+		}
+
+		out.append( result )
+	}
+
+	out = ProcessRewardSetItemsFromPackOpenResult( out )
+	out = SortPackResults( out )
+
+	
+	if ( out.len() > TICK_LOOT_ATTACHMENTS.len() )
+		out.resize( TICK_LOOT_ATTACHMENTS.len() )
+
+	return out
+}
+
+
+
+void function GRXPackOpened_ErrorHandling( int packError )
+{
+	if ( packError == GRX_INVENTORYERROR_NONE )
+		return
+
+	string message
+	string warningText
+
+	if ( packError == GRX_INVENTORYERROR_UNKNOWNITEM )
+	{
+		message = "#GRX_ERROR_MESSAGE_UNKNOWNITEM"
+		warningText = "Loot Box had an error: UNKNOWNITEM"
+	}
+	else if ( packError == GRX_INVENTORYERROR_BACKEND )
+	{
+		message = "#GRX_ERROR_MESSAGE_BACKEND"
+		warningText = "Loot Box had an error: BACKEND"
+	}
+	else
+	{
+		message = "#GRX_ERROR_MESSAGE_GENERIC"
+		warningText = "Loot Box had an error: " + packError
+	}
+
+	RunUIScript( "ShowGRXErrorDialogue", message )
+
+#if DEV
+		Warning( warningText )
+#endif
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function EnableFakeInspectButtons()
+{
+	foreach ( DummyInspectButtonData buttonData in fileLevel.dummyInspectButtons )
+	{
+		if ( buttonData.shouldShow )
+		{
+			Hud_SetEnabled( buttonData.button, true )
+			Hud_SetVisible( buttonData.button, true )
+		}
+	}
+}
+
+
+
+
+void function DisableFakeInspectButtons()
+{
+	foreach ( DummyInspectButtonData buttonData in fileLevel.dummyInspectButtons )
+	{
+		Hud_SetEnabled( buttonData.button, false )
+		Hud_SetVisible( buttonData.button, false )
+	}
+}
+
+
+
+
+void function UIToClient_SkipAnimation()
+{
+	
+}
+
+
+
+
+void function UIToClient_SpecialItemPresentation( SettingsAssetGUID itemFlavorGUID, int itemQty, int badgeDataInteger )
+{
+	thread UIToClient_SpecialItemPresentation_Threaded( itemFlavorGUID, itemQty, badgeDataInteger )
+}
+
+
+
+const float MAX_WAIT_TIME_SEC = 5.0
+const float WAIT_FOR_ENTITIES_INTERVAL = 0.1
+void function UIToClient_SpecialItemPresentation_Threaded( SettingsAssetGUID itemFlavorGUID, int itemQty, int badgeDataInteger )
+{
+	EndSignal( fileLevel.signalDummy, "LootCeremonyExit" )
+
+	float waitTime = 0.0
+	while ( !fileLevel.entitiesDidLoad && waitTime < MAX_WAIT_TIME_SEC ) 
+	{
+		waitTime += WAIT_FOR_ENTITIES_INTERVAL 
+		wait WAIT_FOR_ENTITIES_INTERVAL
+	}
+
+	if ( !fileLevel.entitiesDidLoad )
+	{
+		
+		UIToClient_LootCeremonyExit() 
+		return 
+	}
+
+	fileLevel.specialItemPresentationModeActive = true
+
+	
+	DisableFakeInspectButtons()
+	DisableInspectMenu()
+	Hud_SetEnabled( fileLevel.skipAnimButton, false )
+	Hud_SetVisible( fileLevel.skipAnimButton, false )
+
+	
+	LootCeremonySceneLightsUpdateShadows( true )
+
+	if ( !IsValid( fileLevel.cameraMover.GetParent() ) )
+		fileLevel.cameraMover.SetParent( fileLevel.lootTickModel, "CAMERA" )
+
+	GetLocalClientPlayer().SetMenuCameraEntityWithAudio( fileLevel.cameraEnt )
+
+	thread PlayAnim( fileLevel.lootTickModel, ANIMSEQ_TRIADS_IDLE, fileLevel.lootTickMover )
+
+	wait 0.25 
+
+	
+	ItemFlavor item     = GetItemFlavorByGUID( itemFlavorGUID )
+	int itemType        = ItemFlavor_GetType( item )
+	string attachment   = TICK_LOOT_ATTACHMENTS[1]
+	int attachIDEye     = fileLevel.lootTickModel.LookupAttachment( attachment )
+	vector attachOrigin = fileLevel.lootTickModel.GetAttachmentOrigin( attachIDEye )
+	vector attachAngles = VectorToAngles( FlattenVec( fileLevel.cameraMover.GetOrigin() - attachOrigin ) )
+	int displayIndex    = TICK_LOOT_ATTACHMENTS.find( attachment )
+
+	int rarity = 0
+	if ( ItemFlavor_HasQuality( item ) )
+		rarity = ItemFlavor_GetQuality( item )
+
+	vector rarityColor = GetFXRarityColorForUnlockable( rarity )
+
+	
+	fileLevel.itemPresentationDatas.clear()
+	ItemPresentationData data
+	data.item = item
+	data.quantity = itemQty
+	
+	data.attachment = attachment
+	data.rarity = rarity
+	fileLevel.itemPresentationDatas.append( data )
+
+	
+	InspectMenu_ZoomIn( Hud_GetChild( fileLevel.menu, "RewardCenterButton" ), true )
+
+	
+	thread ShowRewardBasedOnItemType( itemType, item, attachOrigin, attachAngles, rarity, itemQty, badgeDataInteger, displayIndex, attachment, false )
+
+	
+	RunUIScript( "ClientToUI_PlayLootCeremonySound", SOUND_HOLOGRAM_FIRST_APPEAR )
+	
+	RunUIScript( "ClientToUI_UpdateSpecialItemPresentationPurchaseButton" )
+	
+	thread ShowRewards_FX( attachIDEye, rarity, rarityColor, displayIndex )
+
+	EnableInspectMenu()
+}
+
+
+
+
+void function UIToClient_SpecialItemPresentationExit()
+{
+	Signal( fileLevel.signalDummy, "LootCeremonyExit" )
+
+	fileLevel.specialItemPresentationModeActive = false
+
+	if ( !fileLevel.entitiesDidLoad || !IsValid( fileLevel.lootTickModel ) || !IsValid( fileLevel.cameraMover ) )
+		Warning("Loot ceremony entities did not load and/or lootTickModel/cameraMover entity is invalid")
+	else
+		fileLevel.cameraMover.SetParent( fileLevel.lootTickModel, "CAMERA" )
+
+	if ( IsValid( GetLocalClientPlayer() ) )
+		GetLocalClientPlayer().ClearMenuCameraEntity()
+
+	
+	ClearInspectMenuDetails()
+	LootCeremonySceneLightsUpdateShadows( false )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function UIToClient_EnterLootCeremony( int packFlavGUID )
+{
+	ItemFlavor packFlav = GetItemFlavorByGUID( packFlavGUID )
+
+	fileLevel.menuActive = true
+	LootCeremonySceneLightsUpdateShadows( true )
+
+	Chroma_LootCeremonyStart()
+
+	ShowEntityAndChildren( fileLevel.lootTickModel )
+	thread TickAnimationSequence( packFlav, true, false )
+}
+
+
+
+
+void function UIToClient_AdditionalLootTick_Sequence( int packFlavGUID )
+{
+	ItemFlavor packFlav = GetItemFlavorByGUID( packFlavGUID )
+
+	Chroma_LootCeremonyStart()
+
+	thread TickAnimationSequence( packFlav, false, false )
+}
+
+
+
+void function TickAnimationSequence( ItemFlavor packFlav, bool firstTime, bool openAll )
+{
+	Signal( fileLevel.signalDummy, "LootCeremonyAnimSeqStart" )
+
+	EndSignal( fileLevel.signalDummy, "LootCeremonyExit" )
+	EndSignal( fileLevel.signalDummy, "LootCeremonyAnimSeqStart" )
+
+	
+	fileLevel.currentPackFlav = packFlav
+	fileLevel.grxRewardsReceived = false
+	DisableFakeInspectButtons()
+	DisableInspectMenu()
+	Hud_SetEnabled( fileLevel.skipAnimButton, false )
+	Hud_SetVisible( fileLevel.skipAnimButton, false )
+
+	
+	fileLevel.lootTickModel.SetModel( GRXPack_GetTickModel( packFlav ) )
+	fileLevel.lootTickModel.SetSkin( fileLevel.lootTickModel.GetSkinIndexByName( GRXPack_GetTickModelSkin( packFlav ) ) )
+
+	string deployAnim = GetTickDeploymentAnim()
+
+	OnThreadEnd(
+		function() : ()
+		{
+			Signal( fileLevel.lootTickModel, "LootCeremonyTickCancelAnim" )
+
+			
+
+			if ( !IsLootCeremonyActive() )
+			{
+				thread PlayAnim( fileLevel.lootTickModel, ANIMSEQ_ENTRANCE_NORMAL_IDLE, fileLevel.lootTickMover )
+				HideEntityAndChildren( fileLevel.lootTickModel )
+			}
+			else
+			{
+				RunUIScript( "PlayCustomUIMusic", "" )
+			}
+		}
+	)
+
+	if ( !IsValid( fileLevel.cameraMover.GetParent() ) )
+		fileLevel.cameraMover.SetParent( fileLevel.lootTickModel, "CAMERA" )
+
+	GetLocalClientPlayer().SetMenuCameraEntityWithAudio( fileLevel.cameraEnt )
+
+	if ( firstTime )
+		wait 0.25 
+
+	RunUIScript( "PlayCustomUIMusic", LOOT_CEREMONY_MUSIC_P1 )
+
+	
+	PlayAnim( fileLevel.lootTickModel, ANIMSEQ_ENTRANCE_NORMAL, fileLevel.lootTickMover )
+	thread PlayAnim( fileLevel.lootTickModel, ANIMSEQ_IDLE, fileLevel.lootTickMover )
+
+	
+	wait 0.5
+
+	
+	while( !fileLevel.grxRewardsReceived )
+		WaitFrame()
+
+	
+	Hud_SetEnabled( fileLevel.skipAnimButton, true )
+	Hud_SetVisible( fileLevel.skipAnimButton, true )
+
+	
+	Signal( fileLevel.lootTickModel, "TickAnimStartDeployment" )
+
+	
+	RunUIScript( "PlayCustomUIMusic", LOOT_CEREMONY_MUSIC_P2 )
+	RunUIScript( "ClientToUI_PlayLootCeremonySound", SOUND_DEPLOY_ZOOM )
+
+	
+	thread PlayAnim( fileLevel.lootTickModel, deployAnim, fileLevel.lootTickMover )
+	thread WaitForTickAnimCompleteAndSignalDisplayLoot( fileLevel.lootTickModel, deployAnim )
+
+	
+	bool animReachedDisplayEvent = false
+	array<string> signalsToWait  = ["TickAnimStartDisplayLoot", "TickAnimSkip", "LootCeremonyTickCancelAnim"]
+	string resultSignal          = GetWaitMultipleSignal_Entity( fileLevel.lootTickModel, signalsToWait, "LootCeremonyAnimShowLootOrSkip" )
+
+	if ( resultSignal == "TickAnimStartDisplayLoot" )
+		animReachedDisplayEvent = true
+
+	
+	Hud_SetEnabled( fileLevel.skipAnimButton, false )
+	Hud_SetVisible( fileLevel.skipAnimButton, false )
+
+	
+	if ( animReachedDisplayEvent )
+	{
+		thread LootCeremonySequenceShowRewards()
+		WaittillAnimDone( fileLevel.lootTickModel )
+		thread PlayAnim( fileLevel.lootTickModel, ANIMSEQ_TRIADS_IDLE, fileLevel.lootTickMover )
+	}
+	else
+	{
+		LootCeremony_RarityBeamFX_Stop( true )
+		thread PlayAnim( fileLevel.lootTickModel, ANIMSEQ_TRIADS_IDLE, fileLevel.lootTickMover )
+		thread LootCeremonySequenceShowRewards()
+	}
+
+	WaitForever()
+}
+
+
+
+
+string function GetTickDeploymentAnim()
+{
+	string deployAnim = ANIMSEQ_DEPLOYMENT_SINGLE.getrandom()
+	printt( "Loot Ceremony deployment animation: " + deployAnim )
+	return deployAnim
+}
+
+
+
+
+void function WaitForTickAnimCompleteAndSignalDisplayLoot( entity tickModel, string tickAnim )
+{
+	
+	EndSignal( fileLevel.signalDummy, "LootCeremonyExit" )
+	EndSignal( fileLevel.signalDummy, "LootCeremonyAnimSeqStart" )
+
+	Wait( tickModel.GetSequenceDuration( tickAnim ) )
+
+	Signal( fileLevel.lootTickModel, "TickAnimStartDisplayLoot" )
+}
+
+
+
+
+void function UIToClient_LootCeremonyExit()
+{
+	fileLevel.menuActive = false
+
+	Signal( fileLevel.signalDummy, "LootCeremonyExit" )
+
+	if ( IsValid( GetLocalClientPlayer() ) )
+		GetLocalClientPlayer().ClearMenuCameraEntity()
+
+	LootCeremonySceneLightsUpdateShadows( false )
+
+	RunUIScript( "CancelCustomUIMusic" )
+
+	
+	LootCeremony_RarityBeamFX_Stop( true )
+
+	Chroma_Lobby()
+}
+
+
+
+
+void function LootCeremonyOnFullUpdate()
+{
+	if ( !IsLootCeremonyActive() && !IsSpecialItemPresentationModeActive() )
+		return
+
+	printt( "#################" )
+	printf( "%s() ", FUNC_NAME() )
+	printt( "#################" )
+
+	entity localClientPlayer = GetLocalClientPlayer()
+	if ( IsValid( localClientPlayer ) && IsValid( fileLevel.cameraEnt ) )
+		localClientPlayer.SetMenuCameraEntityWithAudio( fileLevel.cameraEnt )
+}
+
+
+
+
+bool function IsLootCeremonyActive()
+{
+	return fileLevel.menuActive
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function OnLootTickAnimEvent( entity ent, array<string> tokens )
+{
+	switch ( tokens[0] )
+	{
+		case "loot_tick_rarity_random_flash_fx":
+		{
+			thread LootCeremony_RandomFlashFX_Thread( ent )
+			break
+		}
+
+		case "loot_tick_rarity_beam_start_fx":
+		{
+			LootCeremony_RarityBeamFX( ent, tokens[1] )
+			break
+		}
+
+		case "loot_tick_rarity_beam_stop_fx":
+		{
+			LootCeremony_RarityBeamFX_Stop()
+			break
+		}
+
+		case "loot_tick_rarity_flash_start_fx":
+		{
+			LootCeremony_RarityFlashFX( ent, tokens[1], tokens[2] )
+			break
+		}
+
+		case "loot_tick_play_sound":
+		{
+			LootCeremony_PlayLootTickSound( ent, tokens[1] )
+			break
+		}
+
+		default: Assert( false )
+	}
+}
+
+
+
+
+void function LootCeremony_RandomFlashFX_Thread( entity tickModel )
+{
+	EndSignal( fileLevel.signalDummy, "LootCeremonyExit" )
+	EndSignal( fileLevel.signalDummy, "LootCeremonyAnimSeqStart" )
+	EndSignal( fileLevel.lootTickModel, "TickAnimStartDeployment" )
+
+	if ( fileLevel.tickRandomFlashFXStarted )
+		return
+
+	fileLevel.tickRandomFlashFXStarted = true
+
+	OnThreadEnd(
+		function() : ()
+		{
+			fileLevel.tickRandomFlashFXStarted = false
+		}
+	)
+
+	int attachID = tickModel.LookupAttachment( "FX_C_EYE" )
+
+	while( true )
+	{
+		int rarity  = 0
+		int randInt = RandomInt( 1000 )
+
+		if ( randInt > 995 )
+			rarity = 4
+		if ( randInt > 970 )
+			rarity = 3
+		else if ( randInt > 900 )
+			rarity = 2
+		else if ( randInt > 600 )
+			rarity = 1
+
+		vector rarityColor = GetFXRarityColorForUnlockable( rarity )
+
+		int fxIndex = StartParticleEffectOnEntity( tickModel, GetParticleSystemIndex( TICK_FX_RARITY_IDLE ), FX_PATTACH_POINT_FOLLOW, attachID )
+		EffectSetControlPointVector( fxIndex, 1, rarityColor )
+
+		RunUIScript( "ClientToUI_PlayLootCeremonySound", SOUND_LIGHT_FLASH )
+
+		Wait( RandomFloatRange( 0.2, 0.4 ) )
+	}
+}
+
+
+
+
+void function LootCeremony_RarityBeamFX( entity tickModel, string fxAttachment )
+{
+	bool attachmentHasItem = false
+
+	foreach ( ItemPresentationData data in fileLevel.itemPresentationDatas )
+	{
+		if ( data.attachment == fxAttachment )
+		{
+			attachmentHasItem = true
+			break
+		}
+	}
+
+	if ( !attachmentHasItem )
+		return
+
+	int rarity         = GetItemRarityFromAttachment( fxAttachment )
+	vector rarityColor = GetFXRarityColorForUnlockable( rarity )
+
+	Chroma_LootCeremonyBeam( rarity )
+
+	int attachID = tickModel.LookupAttachment( fxAttachment )
+	int fxIndex = LootCeremony_GetRarityBeamFXIndex( tickModel, rarity, attachID )
+
+	EffectSetControlPointVector( fxIndex, 1, rarityColor )
+
+	fileLevel.rarityBeamFXHandles.append( fxIndex )
+}
+
+
+
+int function LootCeremony_GetRarityBeamFXIndex( entity tickModel, int rarity, int attachID )
+{
+	if ( rarity in LootCeremonyRarityToBeamFX )
+	{
+		if ( rarity in LootCeremonyRarityToBeamSFX )
+			RunUIScript( "ClientToUI_PlayLootCeremonySound", LootCeremonyRarityToBeamSFX[rarity] )
+
+		return StartParticleEffectOnEntity( tickModel, GetParticleSystemIndex( LootCeremonyRarityToBeamFX[rarity] ), FX_PATTACH_POINT_FOLLOW, attachID )
+	}
+	return StartParticleEffectOnEntity( tickModel, GetParticleSystemIndex( TICK_FX_RARITY_BEAM_TIER1 ), FX_PATTACH_POINT_FOLLOW, attachID )
+}
+
+
+
+
+void function LootCeremony_RarityBeamFX_Stop( bool stopImmediately = false )
+{
+	foreach ( int fxID in fileLevel.rarityBeamFXHandles )
+	{
+		if ( EffectDoesExist( fxID ) )
+		{
+			if ( stopImmediately )
+				EffectStop( fxID, true, false )
+			else
+				EffectStop( fxID, false, true )
+		}
+	}
+
+	fileLevel.rarityBeamFXHandles.clear()
+}
+
+
+
+
+void function LootCeremony_RarityFlashFX( entity tickModel, string attachmentHead, string attachmentEye )
+{
+	int rarity         = GetItemRarityFromAttachment( attachmentEye )
+	vector rarityColor = GetFXRarityColorForUnlockable( rarity )
+
+	int attachID  = tickModel.LookupAttachment( attachmentHead )
+	vector origin = tickModel.GetAttachmentOrigin( attachID )
+	vector angles = tickModel.GetAttachmentAngles( attachID )
+
+	Chroma_LootCeremonyFlash( rarity )
+
+	int fxIndex = LootCeremony_GetRarityFlashFXIndex( rarity, origin, angles )
+	EffectSetControlPointVector( fxIndex, 1, rarityColor )
+}
+
+
+
+int function LootCeremony_GetRarityFlashFXIndex( int rarity, vector origin, vector angles )
+{
+	if ( rarity in LootCeremonyRarityToFlashFX )
+	{
+		return StartParticleEffectInWorldWithHandle( GetParticleSystemIndex( LootCeremonyRarityToFlashFX[rarity] ), origin, angles )
+	}
+	unreachable
+}
+
+
+
+
+void function LootCeremony_PlayLootTickSound( entity tickModel, string soundKindRef )
+{
+	string soundAlias = GRXPack_GetTickSoundAlias( fileLevel.currentPackFlav, eGRXPackTickSoundKind[soundKindRef] )
+	if ( soundAlias != "" )
+		EmitSoundOnEntity( tickModel, soundAlias )
+}
+
+
+
+
+int function GetItemRarityFromAttachment( string compareAttachment )
+{
+	int rarity = 0
+
+	foreach ( ItemPresentationData data in fileLevel.itemPresentationDatas )
+	{
+		if ( data.attachment == compareAttachment )
+			return data.rarity
+	}
+
+	return rarity
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const float REWARDS_DELAY_TIER5 = 1.1
+const float REWARDS_DELAY_TIER4 = 1.0
+const float REWARDS_DELAY_TIER3 = 0.4
+const float REWARDS_DELAY_TIER1 = 0.2
+
+
+
+void function LootCeremonySequenceShowRewards()
+{
+	EndSignal( fileLevel.signalDummy, "LootCeremonyExit" )
+	EndSignal( fileLevel.signalDummy, "LootCeremonyAnimSeqStart" )
+
+	
+	bool heirloomShards = false
+	for ( int i = 0; i < fileLevel.itemPresentationDatas.len(); i++ )
+	{
+		ItemPresentationData data = fileLevel.itemPresentationDatas[i]
+		ItemFlavor item           = data.item
+		int quantity              = data.quantity
+		int badgeDataInteger      = -1
+
+		
+		string attachment   = data.attachment
+		int attachIDEye     = fileLevel.lootTickModel.LookupAttachment( attachment )
+		vector attachOrigin = fileLevel.lootTickModel.GetAttachmentOrigin( attachIDEye )
+		vector attachAngles = VectorToAngle
+
+	
+	RunUIScript( "ClientToUI_SetLootHasBeenPresented", heirloomShards )
+	RunUIScript( "LootCeremony_UpdateOpenAdditionalButton" )
+	thread MythicUpdateAllEffects( true )
+
+	
+	for ( int i = 0; i < TICK_LOOT_ATTACHMENTS.len(); i++ )
+	{
+		if ( i < fileLevel.itemPresentationDatas.len() )
+			fileLevel.dummyInspectButtons[i].shouldShow = true
+		else
+			fileLevel.dummyInspectButtons[i].shouldShow = false
+	}
+	EnableFakeInspectButtons()
+}
+
+
+
+
+void functiex )
+			break
+
+		case eItemType.gladiator_card_stat_tracker:
+			thread ShowRewards_StatTracker( item, attachOrigin, attachAngles, rarity, displayIndex )
+			break
+
+		case eItemType.gladiator_card_badge:
+			thread ShowRewards_Badge( item, badgeDataInteger, attachOrigin, attachAngles, rarity, displayIndex )
+			break
+
+		case eItemType.artifact_component_blade:
+		case eItemType.melee_skin:
+			thread ShowRewards_MeleeSkin( item, attachOrigin, attachAsplayFlav, origin, angles, rarity, displayIndex, attachment )
+					break
+				}
+				case eItemType.weapon_skin:
+				{
+					thread ShowRewards_WeaponSkin( displayFlav, origin, angles, rarity, displayIndex, attachment )
+					break
+				}
+				case eItemType.character_skin:
+				{
+					thread ShowRewards_CharacterSkin( displayFlav, origin, angles, rarity, displayIndex, attachment )
+					break
+				}
+				default:
+				{
+					Assert( false, format( "Rewarfault: Assert( false )
+		}
+	}
+
+	
+
+	entity moverEnt = CreateClientsideScriptMover( $"mdl/dev/empty_model.rmdl", origin, angles )
+	entity modelEnt = CreateClientSidePropDynamic( origin, angles, modelAsset )
+
+	moverEnt.MakeSafeForUIScriptHack()
+	modelEnt.MakeSafeForUIScriptHack()
+	modelEnt.SetParent( moverEnt )
+	modelEnt.SetModelScale( modelScale )
+
+	if ( shouldSpin )
+		moverEnt.NonPhysicsRotate( <0, 0, 1>, MODEL_ROTATE_SPEED )
+
+	
+	int flashType  ectMenuFunctionality_Model( item, displayIndex, rarity, quantity, modelEnt, moverEnt, angles, 360.0 )
+}
+
+
+
+const float CHARACTER_SKIN_Z_OFFSET = 4.0
+const float CHARACTER_SKIN_SCALE = 0.7
+
+
+void function ShowRewards_Character( ItemFlavor item, vector origin, vector angles, int rarity, int displayIndex, string attachment )
+{
+	EndSignal( level, "EndSetPresentationType" )
+	EndSignal( fileLevel.signalDummy, "LootCeremonyExit" )
+	EndSignal( fileLeveMONY_IDLE", mover )
+
+	
+	characterModel.SetModelScale( CHARACTER_SKIN_SCALE )
+
+	
+	int flashType     = GetLootCeremonyFlashType( item )
+	vector flashColor = ItemFlavor_GetQualityColor( item ) / 255
+	thread FlashMenuModel( characterModel, flashType, flashColor )
+	LootCeremonyUpdateSpotLights( attachment, true, eItemType.character_skin )
+
+	if ( Mythics_IsItemFlavorMythicSkin( item ) && displayIndex != 1 )
+		fileLevel.characterSkinModels.append( cha( ItemFlavor item, vector origin, vector angles, int rarity, int displayIndex, string attachment )
+{
+	EndSignal( level, "EndSetPresentationType" )
+	EndSignal( fileLevel.signalDummy, "LootCeremonyExit" )
+	EndSignal( fileLevel.signalDummy, "LootCeremonyAnimSeqStart" )
+
+	
+	ItemFlavor attackerCharacter = CharacterExecution_GetCharacterFlavor( item )
+	ItemFlavor characterSkin     = LoadoutSlot_GetItemFlavor( LocalClientEHI(), Loadout_CharacterSkin( Type, flashColor )
+	LootCeremonyUpdateSpotLights( attachment, true, eItemType.character_execution )
+
+	OnThreadEnd(
+		function() : ( mover, attackerModel, victimModel, attachment )
+		{
+			attackerModel.Destroy()
+			victimModel.Destroy()
+			mover.Destroy()
+
+			LootCeremonyUpdateSpotLights( attachment, false )
+		}
+	)
+
+	if ( IsSpecialItemPresentationModeActive() )
+		SpecialItemPresentationView_Execution( item, rarity, attackerModel, victimModel, mo
+		spray.SetParent( mover )
+		spray.SetModelScale( 0.4 )
+	}
+	else
+	{
+		origin -= <0, 0, HOLOSPRAY_Z_OFFSET> * 2
+
+		asset EMOTE_ICON_BASE_MODEL = HOLO_SPRAY_BASE
+
+		mover = CreateClientsideScriptMover( EMOTE_ICON_BASE_MODEL, origin, angles )
+		mover.MakeSafeForUIScriptHack()
+		mover.SetDoDestroyCallback( true )
+
+		spray = CreateClientSidePropDynamic( origin, angles, $"mdl/dev/empty_model.rmdl" )
+
+		thread CreateClientSideEmoteIcon( mover, ItemFlocalClientEHI(), Loadout_Character() )
+
+			for ( int badgeIndex = 0; badgeIndex < GLADIATOR_CARDS_NUM_BADGES; badgeIndex++ )
+			{
+				LoadoutEntry badgeSlot = Loadout_GladiatorCardStatTracker( character, badgeIndex )
+				if ( LoadoutSlot_IsReady( LocalClientEHI(), badgeSlot ) )
+					loadoutEntries.append( badgeSlot )
+			}
+			break
+
+		case eItemType.music_pack:
+			loadoutEntries = [ Loadout_MusicPack() ]
+			break
+
+		case eItemType.loadscreen:
+			loadoutEntries = [ Loadout_Loadscreen() ]
+			break
+
+		case eItemType.skydive_trail:
+			loadoutEntries = [ Loadout_SkydiveTrail() ]
+			break
+
+		case eItemType.skydive_emote:
+			ItemFlavor character = SkydiveEmote_GetCharacterFlavor( item )
+
+			for ( int emoteIndex = 0; emoteIndex < NUM_SKYDIVE_EMOTE_SLOTS; emoteIndex++ )
+			{
+				LoadoutEntry emoteSlot = Loadout_SkydiveEmote( character, emoteIndex )
+				if ( LoadoutSlot_IsReady( LocalClientEHI(), emoteSlot ) )
+					loadoutEntries.append( emoteSlot )
+			}
+			break
+
+		case eItemType.emote_icon:
+		case eItemType.character_emote:
+			ItemFlavor ornull character = CharacterQuip_GetCharacterFlavor( item )
+			if ( character == null ) 
+				character = LoadoutSlot_GetItemFlavor( LocalClientEHI(), Loadout_Character() )
+			expect ItemFlavor( character )
+
+			for ( int emoteIndex = 0; emoteIndex < MAX_QUIPS_EQUIPPED; emoteIndex++ )
+			{
+				LoadoutEntry emoteSlot = Loadout_CharacterQuip( character, emoteIndex )
+				if ( LoadoutSlot_IsReady( LocalClientEHI(), emoteSlot ) )
+					loadoutEntries.append( emoteSlot )
+			}
+			break
+
+		case eItemType.sticker:
+			for ( int stickerObjectType = 0; stickerObjectType < eStickerObjectType.len(); stickerObjectType++ )
+			{
+				for ( int stickerIndex = 0; stickerIndex < GetMaxStickersForObjectType( stickerObjectType ); stickerIndex++ )
+				{
+					LoadoutEntry stickerSlot = Loadout_Sticker( stickerObjectType, stickerIndex )
+					if ( LoadoutSlot_IsReady( LocalClientEHI(), stickerSlot ) )
+						loadoutEntries.append( stickerSlot )
+				}
+			}
+			break
+
+		
+		case eItemType.character:
+			ItemFlavor characterSkin = CharacterClass_GetDefaultSkin( item )
+			loadoutEntries = [ Loadout_CharacterSkin( CharacterSkin_GetCharacterFlavor( characterSkin ) ) ]
+			break
+
+		default:
+			Assert( false, "Loot Ceremony equip button does not support reward type: " + DEV_GetEnumStringSafe( "eItemType", itemType ) )
+	}
+
+	return loadoutEntries
+}
+
+
+
+
+LoadoutEntry function PopulateInspectMenuDetails_GetStatTrackerLoadoutEntry( ItemFlavor item, bool findExistingEntry )
+{
+	ItemFlavor ornull character = GladiatorCardStatTracker_GetCharacterFlavor( item )
+	if ( character == null ) 
+		character = LoadoutSlot_GetItemFlavor( LocalClientEHI(), Loadout_Character() )
+
+	expect ItemFlavor( character )
+
+	
+	LoadoutEntry functionref( ItemFlavor, int ) getEntryFunc = GladiatorCardStatTracker_GetTrackerType( item ) == eTrackerType.ART ? Loadout_GladiatorCardStatTrackerArt : Loadout_GladiatorCardStatTracker
+
+	for ( int trackerIndex = 0; trackerIndex < GLADIATOR_CARDS_NUM_TRACKERS; trackerIndex++ )
+	{
+		LoadoutEntry trackerSlot = getEntryFunc( character, trackerIndex )
+		ItemFlavor flavor        = LoadoutSlot_GetItemFlavor( LocalClientEHI(), trackerSlot )
+
+		if ( findExistingEntry )
+		{
+			if ( flavor == item )
+				return trackerSlot
+		}
+		else if ( LoadoutSlot_IsReady( LocalClientEHI(), trackerSlot ) )
+		{
+			if ( GladiatorCardTracker_IsTheEmpty( flavor ) )
+				return trackerSlot
+		}
+	}
+
+	LoadoutEntry fallback = Loadout_GladiatorCardStatTracker( character, (GLADIATOR_CARDS_NUM_TRACKERS - 1) )
+	return fallback
+}
+
+
+
+
+void function UIToClient_RewardInspectNavBack_Threaded()
+{
+	if ( fileLevel.inspectMenuIsNavigatingBack )
+		return
+
+	fileLevel.inspectMenuIsNavigatingBack = true
+
+	Signal( fileLevel.signalDummy, "LootCeremonyInspectModeEnd" )
+
+	EndSignal( fileLevel.signalDummy, "LootCeremonyExit" )
+	EndSignal( fileLevel.signalDummy, "LootCeremonyAnimSeqStart" )
+
+	table<string, bool> success = { result = false }
+
+	DisableInspectMenu()
+
+	
+	int attachID        = fileLevel.lootTickModel.LookupAttachment( "CAMERA" )
+	vector attachOrigin = fileLevel.lootTickModel.GetAttachmentOrigin( attachID )
+	vector attachAngles = fileLevel.lootTickModel.GetAttachmentAngles( attachID )
+
+	fileLevel.cameraMover.NonPhysicsMoveTo( attachOrigin, INSPECT_ZOOM_TIME, 0, 0.1 )
+	fileLevel.cameraMover.NonPhysicsRotateTo( attachAngles, INSPECT_ZOOM_TIME, 0, 0.1 )
+
+	RunUIScript( "ClientToUI_PlayLootCeremonySound", SOUND_INSPECT_ZOOM_OUT )
+
+	OnThreadEnd(
+		function() : ( success )
+		{
+			if ( success[ "result" ] == false )
+			{
+				if ( !IsLootCeremonyActive() )
+				{
+					fileLevel.cameraMover.NonPhysicsStop()
+					fileLevel.cameraMover.SetParent( fileLevel.lootTickModel, "CAMERA" )
+					fileLevel.inspectMenuIsNavigatingBack = false
+				}
+			}
+		}
+	)
+
+	wait INSPECT_ZOOM_TIME
+
+	fileLevel.cameraMover.SetParent( fileLevel.lootTickModel, "CAMERA" )
+	RunUIScript( "ClientToUI_ClearInspectModeIsActive" )
+	RunUIScript( "LootCeremony_UpdateOpenAdditionalButton" )
+	EnableFakeInspectButtons()
+	RunUIScript( "ClientToUI_PlayLootCeremonySound", SOUND_HOLOGRAM_APPEAR_RESETVIEW )
+	fileLevel.inspectModeActive = false
+	thread MythicUpdateAllEffects( true )
+
+	Signal( fileLevel.signalDummy, "LootCeremonyInspectModeEndComplete" )
+
+	fileLevel.inspectMenuIsNavigatingBack = false
+	success[ "result" ] = true
+}
+
+
+
+
+void function EnableInspectMenu()
+{
+	Hud_SetEnabled( fileLevel.inspectMenu, true )
+	Hud_SetVisible( fileLevel.inspectMenu, true )
+	RuiSetBool( Hud_GetRui( fileLevel.inspectMenu ), "isVisible", true )
+
+	
+	
+
+	Hud_SetEnabled( fileLevel.mouseClickElem, true )
+	Hud_SetVisible( fileLevel.mouseClickElem, true )
+}
+
+
+
+
+void function DisableInspectMenu()
+{
+	Hud_SetEnabled( fileLevel.inspectMenu, false )
+	Hud_SetVisible( fileLevel.inspectMenu, false )
+	RuiSetBool( Hud_GetRui( fileLevel.inspectMenu ), "isVisible", false )
+
+	Hud_SetEnabled( fileLevel.equipButton, false )
+	Hud_SetVisible( fileLevel.equipButton, false )
+
+	Hud_SetEnabled( fileLevel.moreInfoButton, false )
+	Hud_SetVisible( fileLevel.moreInfoButton, false )
+
+	Hud_SetEnabled( fileLevel.trackChallengeButton, false )
+	Hud_SetVisible( fileLevel.trackChallengeButton, false )
+
+	Hud_SetEnabled( fileLevel.equipToWheelButton, false )
+	Hud_SetVisible( fileLevel.equipToWheelButton, false )
+
+	Hud_SetEnabled( fileLevel.mouseClickElem, false )
+	Hud_SetVisible( fileLevel.mouseClickElem, false )
+
+	Hud_SetEnabled( fileLevel.inspectVideoPanel, false )
+	Hud_SetVisible( fileLevel.inspectVideoPanel, false )
+}
+
+
+
+const float INSPECT_FORWARD_OFFSET = 136.0
+const float INSPECT_FORWARD_OFFSET_WEAPON = 100.0
+const float INSPECT_FORWARD_OFFSET_CHARM = 45.0
+const float INSPECT_FORWARD_OFFSET_EXECUTION = 100.0
+const float INSPECT_FORWARD_OFFSET_CURRENCY = 100.0
+
+const float INSPECT_RIGHT_OFFSET = -24.0
+const float INSPECT_RIGHT_OFFSET_WEAPON = -18.0
+const float INSPECT_RIGHT_OFFSET_CHARM = -7.5
+const float INSPECT_RIGHT_OFFSET_EXECUTION = -20.0
+const float INSPECT_RIGHT_OFFSET_CURRENCY = -20.0
+
+const float INSPECT_UP_OFFSET = 30.0
+const float INSPECT_UP_OFFSET_EXECUTION = 28.0
+const float INSPECT_UP_OFFSET_CHARM = 30.0
+
+
+
+table<string, vector> function RewardInspect_GetCameraOrgAnglesFromMenuButton( var menuButton )
+{
+	string menuButtonName = Hud_GetHudName( menuButton )
+	int menuButtonIndex   = INSPECT_BUTTONS.find( menuButtonName )
+	string attachment     = TICK_LOOT_ATTACHMENTS[menuButtonIndex]
+
+	int itemType
+	foreach ( ItemPresentationData data in fileLevel.itemPresentationDatas )
+	{
+		if ( data.attachment == attachment )
+		{
+			itemType = ItemFlavor_GetType( data.item )
+			break
+		}
+	}
+
+	return RewardInspect_GetCameraOrgAngles( attachment, itemType )
+}
+
+table<string, vector> function RewardInspect_GetCameraOrgAngles( string attachment, int itemType )
+{
+	float forwardOffset
+	float rightOffset
+	float upOffset
+	if ( itemType == eItemType.weapon_skin || itemType == eItemType.melee_skin )
+	{
+		forwardOffset = INSPECT_FORWARD_OFFSET_WEAPON
+		rightOffset = INSPECT_RIGHT_OFFSET_WEAPON
+		upOffset = INSPECT_UP_OFFSET
+	}
+	else if ( itemType == eItemType.weapon_charm )
+	{
+		forwardOffset = INSPECT_FORWARD_OFFSET_CHARM
+		rightOffset = INSPECT_RIGHT_OFFSET_CHARM
+		upOffset = INSPECT_UP_OFFSET_CHARM
+	}
+	else if ( itemType == eItemType.character_execution )
+	{
+		forwardOffset = INSPECT_FORWARD_OFFSET_EXECUTION
+		rightOffset = INSPECT_RIGHT_OFFSET_EXECUTION
+		upOffset = INSPECT_UP_OFFSET_EXECUTION
+	}
+	else if ( itemType == eItemType.account_currency_bundle )
+	{
+		forwardOffset = INSPECT_FORWARD_OFFSET_CURRENCY
+		rightOffset = INSPECT_RIGHT_OFFSET_CURRENCY
+		upOffset = INSPECT_UP_OFFSET
+	}
+	else
+	{
+		forwardOffset = INSPECT_FORWARD_OFFSET
+		rightOffset = INSPECT_RIGHT_OFFSET
+		upOffset = INSPECT_UP_OFFSET
+	}
+
+	int attachID        = fileLevel.lootTickModel.LookupAttachment( attachment )
+	vector attachOrigin = fileLevel.lootTickModel.GetAttachmentOrigin( attachID )
+	vector attachAngles = VectorToAngles( FlattenVec( fileLevel.cameraMover.GetOrigin() - attachOrigin ) )
+
+	vector offsetRight   = (AnglesToRight( attachAngles ) * rightOffset)
+	vector offsetForward = (AnglesToForward( attachAngles ) * forwardOffset)
+	vector zoomOrigin    = attachOrigin + offsetRight + offsetForward + <0, 0, upOffset>
+
+	table<string, vector> zoomOrgAngles = {
+		origin = zoomOrigin,
+		angles = VectorToAngles( FlattenVec( attachOrigin - fileLevel.cameraMover.GetOrigin() ) )
+	}
+
+	return zoomOrgAngles
+}
+
+table<string, vector> function Inspect_GetCameraOrgAngles( string attachment, int itemType )
+{
+	float forwardOffset
+	float rightOffset
+	float upOffset
+	if ( itemType == eItemType.weapon_skin || itemType == eItemType.melee_skin )
+	{
+		forwardOffset = INSPECT_FORWARD_OFFSET
+		rightOffset = 0
+		upOffset = 26
+	}
+	else if ( itemType == eItemType.character_execution )
+	{
+		forwardOffset = INSPECT_FORWARD_OFFSET
+		rightOffset = 0
+		upOffset = 18
+	}
+	else if ( itemType == eItemType.account_currency_bundle )
+	{
+		forwardOffset = INSPECT_FORWARD_OFFSET_CURRENCY
+		rightOffset = 0
+		upOffset = INSPECT_UP_OFFSET
+	}
+	else if ( itemType == eItemType.character_skin || itemType == eItemType.character )
+	{
+		forwardOffset = 212
+		rightOffset = 0
+		upOffset = 20
+	}
+	else
+	{
+		forwardOffset = INSPECT_FORWARD_OFFSET
+		rightOffset = 0
+		upOffset = INSPECT_UP_OFFSET
+	}
+
+	int attachID        = fileLevel.lootTickModel.LookupAttachment( attachment )
+	vector attachOrigin = fileLevel.lootTickModel.GetAttachmentOrigin( attachID )
+	vector attachAngles = VectorToAngles( FlattenVec( fileLevel.cameraMover.GetOrigin() - attachOrigin ) )
+
+	vector offsetRight   = (AnglesToRight( attachAngles ) * rightOffset)
+	vector offsetForward = (AnglesToForward( attachAngles ) * forwardOffset)
+	vector zoomOrigin    = attachOrigin + offsetRight + offsetForward + <0, 0, upOffset>
+
+	table<string, vector> zoomOrgAngles = {
+		origin = zoomOrigin,
+		angles = VectorToAngles( FlattenVec( attachOrigin - fileLevel.cameraMover.GetOrigin() ) )
+	}
+
+	return zoomOrgAngles
+}
+
+
+
+
+bool function ShouldShowControlHintsForItemType( int itemType )
+{
+	switch( itemType )
+	{
+		case eItemType.account_currency_bundle:
+		case eItemType.character_skin:
+		case eItemType.weapon_skin:
+		case eItemType.melee_skin:
+		case eItemType.character_execution:
+		case eItemType.weapon_charm:
+			return true
+	}
+
+	return false
+}
+
+
+
+
+void function PopulateInspectMenuDetails_WeaponSkin( ItemFlavor item, int rarity, int quantity )
+{
+	PopulateInspectMenuDetails( item, rarity, quantity, ItemFlavor_GetShortName( WeaponSkin_GetWeaponFlavor( item ) ) )
+}
+
+
+
+
+void function PopulateInspectMenuDetails_MeleeSkin( ItemFlavor item, int rarity, int quantity )
+{
+	string miscString = MeleeSkin_HasSpecificCharacterFlavor( item ) ? ItemFlavor_GetShortName( MeleeSkin_GetCharacterFlavor( item ) ) : "#REWARD_GENERIC"
+	PopulateInspectMenuDetails( item, rarity, quantity, miscString )
+}
+
+
+
+
+void function PopulateInspectMenuDetails_CharacterSkin( ItemFlavor item, int rarity, int quantity )
+{
+	PopulateInspectMenuDetails( item, rarity, quantity, ItemFlavor_GetShortName( CharacterSkin_GetCharacterFlavor( item ) ) )
+}
+
+
+
+
+void function PopulateInspectMenuDetails_CharacterEmote( ItemFlavor item, int rarity, int quantity )
+{
+	ItemFlavor ornull char = CharacterQuip_GetCharacterFlavor( item )
+
+	if ( char == null )
+		PopulateInspectMenuDetails( item, rarity, 1 )
+	else
+	{
+		expect ItemFlavor( char )
+		PopulateInspectMenuDetails( item, rarity, quantity, ItemFlavor_GetShortName( char ) )
+	}
+}
+
+
+
+
+void function PopulateInspectMenuDetails( ItemFlavor item, int rarity, int quantity, string miscString = "", string descString = "" )
+{
+	int itemType = ItemFlavor_GetType( item )
+
+	var rui             = Hud_GetRui( fileLevel.inspectMenu )
+	string itemTypeName = ItemFlavor_GetTypeName( item )
+	string itemName     = "?"
+	RuiSetInt( rui, "mythicTier", -1 )
+	RuiSetInt( rui, "maxOwnedMythicTier", -1 )
+
+	switch ( itemType )
+	{
+		case eItemType.gladiator_card_stat_tracker:
+			descString = ""
+			itemName = Localize( ItemFlavor_GetShortName( item ) )
+			break
+
+		case eItemType.battlepass:
+			itemTypeName = ItemFlavor_GetLongName( item )
+			descString = ItemFlavor_GetLongDescription( item )
+			itemName = Localize( "#BP_PRESALE_DIALOG_OPTION_BASIC" )
+			break
+
+		case eItemType.account_currency_bundle:
+			ItemFlavor currencyFlav = GRXCurrencyBundle_GetCurrencyFlav( item )
+			itemTypeName = ItemFlavor_GetShortName( currencyFlav )
+			quantity = GRXCurrencyBundle_GetValue( item )
+			string quantityStr = FormatAndLocalizeNumber( "1",  float ( quantity ), IsTenThousandOrMore( quantity ) )
+			itemName = Localize( "#CURRENCY_AMOUNT", string( ItemFlavor_GetIcon( currencyFlav ) ), quantityStr )
+			break
+
+		case eItemType.account_currency:
+			itemTypeName = ItemFlavor_GetShortName( item )
+			string quantityStr = FormatAndLocalizeNumber( "1",  float ( quantity ), IsTenThousandOrMore( quantity ) )
+			itemName = Localize( "#CURRENCY_AMOUNT", string( ItemFlavor_GetIcon( item ) ), quantityStr )
+			break
+
+		case eItemType.account_pack:
+			itemName = Localize( ItemFlavor_GetLongName( item ) )
+			if ( quantity != 1 )
+				itemName += " x" + quantity
+			break
+
+		case eItemType.voucher:
+			itemTypeName = ItemFlavor_GetLongName( item )
+			itemName = ""
+			descString = ItemFlavor_GetLongDescription( item )
+			if ( Voucher_GetEffectBattlepassStars( item ) > 0 )
+			{
+				int starsQuantity = quantity > 1 ? quantity : Voucher_GetEffectBattlepassStars( item )
+				itemTypeName = starsQuantity > 1 ? ItemFlavor_GetLongName( item ) : ItemFlavor_GetShortName( item )
+				itemName = starsQuantity > 1 ? "x" + starsQuantity : ""
+				if ( rarity == 0 )
+					rarity = GRX_GetRarityOverrideFromQuantity( item, rarity, starsQuantity )
+			}
+			break
+
+		case eItemType.gladiator_card_badge:
+			itemName = Localize( ItemFlavor_GetLongName( item ) )
+			descString = ""
+			break
+
+		case eItemType.reward_set_tracker:
+			itemTypeName = Localize( ItemFlavor_GetLongName( item ) )
+			itemName = Localize( ItemFlavor_GetShortName( item ) )
+			break
+
+		default:
+			itemName = Localize( ItemFlavor_GetLongName( item ) )
+			break
+	}
+
+	Hud_SetVisible( fileLevel.trackChallengeButton, false )
+
+	if ( Mythics_IsItemFlavorMythicSkin( item ) )
+	{
+		RuiSetInt( rui, "mythicTier", Mythics_GetSkinTierIntForSkin( item ) )
+		RuiSetInt( rui, "maxOwnedMythicTier", Mythics_GetNumTiersUnlockedForSkin( GetLocalClientPlayer(), item ) )
+
+		itemTypeName = Localize( "#MYTHIC_SKIN" )
+
+		var trackButtonRui = Hud_GetRui( fileLevel.trackChallengeButton )
+
+		ItemFlavor challenge = Mythics_GetChallengeForSkin( item )
+		bool isChallengeTracked = IsFavoriteChallenge( challenge )
+		RuiSetString( trackButtonRui, "buttonText", isChallengeTracked ?  "#CHALLENGE_TRACKED" : "#CHALLENGE_TRACK" )
+		RuiSetBool( trackButtonRui, "isChallengeTracked", isChallengeTracked )
+		fileLevel.trackButtonItemFlavor = item
+		Hud_SetVisible( fileLevel.trackChallengeButton, true )
+		Hud_SetEnabled( fileLevel.trackChallengeButton, true )
+	}
+
+	RuiSetString( rui, "itemType", itemTypeName )
+	RuiSetString( rui, "itemName", itemName )
+	RuiSetInt( rui, "rarity", rarity )
+	RuiSetString( rui, "miscText", miscString )
+	RuiSetBool( rui, "showControlsHints", ShouldShowControlHintsForItemType( itemType ) )
+
+	if ( Localize( descString ) != "" )
+	{
+		ToolTipData toolTipData
+		toolTipData.descText = descString
+
+		Hud_SetToolTipData( fileLevel.moreInfoButton, toolTipData )
+		RunUIScript( "ClientToUI_Tooltip_MarkForClientUpdate", fileLevel.moreInfoButton, eTooltipStyle.DEFAULT )
+		Hud_SetEnabled( fileLevel.moreInfoButton, true )
+		Hud_SetVisible( fileLevel.moreInfoButton, true )
+	}
+	else
+	{
+		RunUIScript( "ClientToUI_Tooltip_Clear", fileLevel.moreInfoButton )
+		Hud_SetVisible( fileLevel.moreInfoButton, false )
+		Hud_SetEnabled( fileLevel.moreInfoButton, false )
+	}
+
+	
+
+	
+	float descTextPositionScalar = 0.0
+	if ( itemType == eItemType.gladiator_card_stat_tracker )
+		descTextPositionScalar = 1.0
+	else if ( itemType == eItemType.account_currency )
+		descTextPositionScalar = -0.4
+
+	RuiSetFloat( rui, "descTextPositionScalar", descTextPositionScalar )
+
+	ManageEquipButton( item, itemType, rarity )
+
+	
+	if ( itemType != eItemType.account_currency_bundle )
+		RunUIScript( "ClientToUI_LootCeremonyMarkItemAsNoLongerNew", ItemFlavor_GetGUID( item ) )
+}
+
+
+
+void function ManageEquipButton( ItemFlavor item, int itemType, int rarity )
+{
+		
+	fileLevel.equipButtonItemFlavor = item
+	var equipButtonRui = Hud_GetRui( fileLevel.equipButton )
+
+	Hud_SetVisible( fileLevel.equipToWheelButton, false )
+	Hud_SetEnabled( fileLevel.equipToWheelButton, false )
+
+	bool hasValidCharacterOrWeapon = ( GetItemFlavorAssociatedCharacterOrWeapon( item ) != null ) 
+
+	if ( HIDE_ITEM_LIST.contains( itemType ) )
+	{
+		Hud_SetVisible( fileLevel.equipButton, false )
+		Hud_SetEnabled( fileLevel.equipButton, false )
+
+		if ( ItemFlavor_CanEquipToWheel( item ) )
+		{
+			bool isOwned = GRX_IsItemOwnedByPlayer( item, GetLocalClientPlayer() )
+			if ( isOwned && hasValidCharacterOrWeapon )
+			{
+				Hud_SetVisible( fileLevel.equipToWheelButton, true )
+				Hud_SetEnabled( fileLevel.equipToWheelButton, true )
+				Hud_SetLocked( fileLevel.equipToWheelButton, false )
+
+				var equipWheelButtonRui = Hud_GetRui( fileLevel.equipToWheelButton )
+				string equipTip = ItemFlavor_GetType( item ) == eItemType.skydive_emote ? "#EQUIP_SKYDIVE_WHEEL_REWARD" : "#EQUIP_WHEEL_LOOT_REWARD"
+				RuiSetString( equipWheelButtonRui, "buttonText", equipTip )
+				RuiSetString( equipWheelButtonRui, "descText", "" )
+			}
+			else if ( isOwned && ! hasValidCharacterOrWeapon )
+			{
+				Hud_SetVisible( fileLevel.equipToWheelButton, true )
+				Hud_SetEnabled( fileLevel.equipToWheelButton, false )
+				Hud_SetLocked( fileLevel.equipToWheelButton, true )
+
+				var equipWheelButtonRui = Hud_GetRui( fileLevel.equipToWheelButton )
+				RuiSetString( equipWheelButtonRui, "buttonText", "#UNLOCKED" )
+				RuiSetString( equipWheelButtonRui, "descText", "#EQUIP_IN_LEGENDS_MENU" )
+			}
+			else
+			{
+				Hud_SetVisible( fileLevel.equipToWheelButton, false )
+				Hud_SetEnabled( fileLevel.equipToWheelButton, false )
+				Hud_SetLocked( fileLevel.equipToWheelButton, true )
+			}
+		}
+	}
+	else if ( IsItemEquipped( item ) )
+	{
+		Hud_SetVisible( fileLevel.equipButton, true )
+
+		if ( ItemFlavor_CanEquipToWheel( item ) && hasValidCharacterOrWeapon )
+		{
+			Hud_SetVisible( fileLevel.equipToWheelButton, true )
+			Hud_SetEnabled( fileLevel.equipToWheelButton, true )
+			Hud_SetLocked( fileLevel.equipToWheelButton, false )
+
+			var equipWheelButtonRui = Hud_GetRui( fileLevel.equipToWheelButton )
+			string equipTip = ItemFlavor_GetType( item ) == eItemType.skydive_emote ? "#EQUIP_SKYDIVE_WHEEL_REWARD" : "#EQUIP_WHEEL_LOOT_REWARD"
+			RuiSetString( equipWheelButtonRui, "buttonText", equipTip )
+			RuiSetString( equipWheelButtonRui, "descText", "" )
+		}
+
+		Hud_SetEnabled( fileLevel.equipButton, true )
+		Hud_SetLocked( fileLevel.equipButton, true )
+
+		RuiSetString( equipButtonRui, "buttonText", "#EQUIPPED_LOOT_REWARD" )
+		RuiSetString( equipButtonRui, "descText", Localize( "#CURRENTLY_EQUIPPED_ITEM", Localize( ItemFlavor_GetLongName( item ) ) ) )
+		RuiSetInt( equipButtonRui, "descTextRarity", rarity )
+	}
+	else
+	{
+		bool agnosticEquipToCurrentCharacter = ( itemType == eItemType.melee_skin || itemType == eItemType.character_emote || itemType == eItemType.emote_icon )
+		if ( agnosticEquipToCurrentCharacter && !hasValidCharacterOrWeapon )
+		{
+			ItemFlavor character = LoadoutSlot_GetItemFlavor( LocalClientEHI(), Loadout_Character() )
+			RuiSetString( equipButtonRui, "buttonText", Localize( "#EQUIP_LOOT_REWARD_TO", Localize( ItemFlavor_GetLongName( character ) ) ) )
+		}
+		else
+		{
+			RuiSetString( equipButtonRui, "buttonText", "#EQUIP_LOOT_REWARD" )
+		}
+
+		string equippedItemText = Localize( GetCurrentlyEquippedItemNameForItemTypeSlot( item ) )
+
+		if ( ItemFlavor_GetType( item ) == eItemType.melee_skin )
+		{
+			ItemFlavor equippedItem = LoadoutSlot_GetItemFlavor( LocalClientEHI(), Loadout_MeleeSkin( LoadoutSlot_GetItemFlavor( LocalClientEHI(), Loadout_Character() ) ) )
+
+			if ( Artifacts_Loadouts_IsConfigPointerItemFlavor( equippedItem ) )
+			{
+				equippedItemText = Localize( ItemFlavor_GetLongName( equippedItem ), Artifacts_Loadouts_GetConfigIndex( equippedItem ) + 1 )
+			}
+		}
+
+		RuiSetString( equipButtonRui, "descText", Localize( "#CURRENTLY_EQUIPPED_ITEM", equippedItemText ) )
+		RuiSetInt( equipButtonRui, "descTextRarity", GetCurrentlyEquippedItemRarityForItemTypeSlot( item ) )
+
+		if ( !Hud_IsVisible( Hud_GetChild( fileLevel.menu, "InspectPurchaseButton" ) ) )
+		{
+			Hud_SetVisible( fileLevel.equipButton, true )
+			entity player = GetLocalClientPlayer()
+			bool isOwned = GRX_IsItemOwnedByPlayer( item, player )
+			if ( isOwned && ItemFlavor_CanEquipToWheel( item ) && hasValidCharacterOrWeapon )
+			{
+				Hud_SetVisible( fileLevel.equipToWheelButton, true )
+				Hud_SetEnabled( fileLevel.equipToWheelButton, true )
+				Hud_SetLocked( fileLevel.equipToWheelButton, false )
+
+				var equipWheelButtonRui = Hud_GetRui( fileLevel.equipToWheelButton )
+				string equipTip = ItemFlavor_GetType( item ) == eItemType.skydive_emote ? "#EQUIP_SKYDIVE_WHEEL_REWARD" : "#EQUIP_WHEEL_LOOT_REWARD"
+				RuiSetString( equipWheelButtonRui, "buttonText", equipTip )
+				RuiSetString( equipWheelButtonRui, "descText", "" )
+			}
+
+			Hud_SetEnabled( fileLevel.equipButton, true )
+			Hud_SetLocked( fileLevel.equipButton, false )
+
+			if ( Mythics_IsItemFlavorMythicSkin( item ) && Mythics_GetSkinTierIntForSkin( item ) > Mythics_GetNumTiersUnlockedForSkin( player, item ) )
+			{
+				Hud_SetLocked( fileLevel.equipButton, true )
+				RuiSetString( equipButtonRui, "buttonText", "#EQUIP_LOCKED" )
+				RuiSetString( equipButtonRui, "descText", "#CHALLENGE_MYTHIC_LOCKED_ICON" )
+			}
+		}
+	}
+}
+
+
+
+
+bool function IsItemEquipped( ItemFlavor item )
+{
+	array<LoadoutEntry> entries = EquipButton_GetItemLoadoutEntries( item, true )
+	foreach ( entry in entries )
+	{
+		if ( item == LoadoutSlot_GetItemFlavor( LocalClientEHI(), entry ) )
+			return true
+	}
+
+	return false
+}
+
+
+
+
+string function GetCurrentlyEquippedItemNameForItemTypeSlot( ItemFlavor referenceItem )
+{
+	array<LoadoutEntry> entries = EquipButton_GetItemLoadoutEntries( referenceItem, true )
+
+	ItemFlavor equippedItem = LoadoutSlot_GetItemFlavor( LocalClientEHI(), entries[ 0 ] )
+	return ItemFlavor_GetLongName( equippedItem )
+}
+
+
+
+
+int function GetCurrentlyEquippedItemRarityForItemTypeSlot( ItemFlavor referenceItem )
+{
+	array<LoadoutEntry> entries = EquipButton_GetItemLoadoutEntries( referenceItem, true )
+
+	ItemFlavor equippedItem = LoadoutSlot_GetItemFlavor( LocalClientEHI(), entries[ 0 ] )
+
+	if ( ItemFlavor_HasQuality( equippedItem ) )
+		return ItemFlavor_GetQuality( equippedItem )
+
+	return -1
+}
+
+
+
+
+void function ClearInspectMenuDetails()
+{
+	var rui = Hud_GetRui( fileLevel.inspectMenu )
+	RuiSetString( rui, "itemType", "#UNKNOWN_LOOT_REWARD" )
+	RuiSetString( rui, "itemName", "#UNKNOWN_LOOT_REWARD" )
+	RuiSetString( rui, "miscText", "" )
+	RuiSetInt( rui, "rarity", 0 )
+}
+
+
+
+
+void function InspectMenuFunctionality_Model( ItemFlavor item, int displayIndex, int rarity, int quantity, entity model, entity mover, vector startAngles, float maxYaw )
+{
+	int itemType = ItemFlavor_GetType( item )
+
+	while( true )
+	{
+		table results = WaitSignal( fileLevel.signalDummy, "LootCeremonyInspectModeStart" )
+
+		string inspectButton = expect string( results.inspectButton )
+
+		int buttonIndex         = INSPECT_BUTTONS.find( inspectButton )
+		bool activelyInspecting = false
+
+		if ( buttonIndex == displayIndex )
+			activelyInspecting = true
+
+		if ( !activelyInspecting )
+		{
+			HideEntityAndChildren( model )
+			mover.NonPhysicsStop()
+		}
+		else
+		{
+			
+			if ( itemType == eItemType.weapon_skin || itemType == eItemType.melee_skin )
+			{
+				HideEntityAndChildren( model )
+				mover.NonPhysicsStop()
+			}
+
+			bool inspectComplete = WaitForInspectCompleteOrBackout()
+
+			if ( inspectComplete )
+			{
+				if ( itemType == eItemType.weapon_skin || itemType == eItemType.melee_skin )
+				{
+					if ( itemType == eItemType.weapon_skin )
+					{
+						PopulateInspectMenuDetails_WeaponSkin( item, rarity, quantity )
+						UpdateWeaponLights( model, WEAPON_LIGHT_RIG_OFFSET, item )
+					}
+					else if ( itemType == eItemType.melee_skin )
+						PopulateInspectMenuDetails_MeleeSkin( item, rarity, quantity )
+
+					mover.SetAngles( startAngles )
+					mover.NonPhysicsRotate( <0, 0, 1>, MODEL_ROTATE_SPEED )
+					ShowEntityAndChildren( model )
+
+					vector flashColor = ItemFlavor_GetQualityColor( item ) / 255
+					thread FlashMenuModel( model, eMenuModelFlashType.LOOT_CEREMONY_QUICK, flashColor )
+				}
+				else if ( itemType == eItemType.character_skin )
+				{
+					PopulateInspectMenuDetails_CharacterSkin( item, rarity, quantity )
+				}
+				else if ( itemType == eItemType.account_currency_bundle )
+				{
+					PopulateInspectMenuDetails( item, rarity, quantity, "", "#CURRENCY_CRAFTING_DESCRIPTION" )
+				}
+				else if ( itemType == eItemType.account_currency )
+				{
+					PopulateInspectMenuDetails( item, rarity, quantity, "", ItemFlavor_GetLongDescription( item ) )
+				}
+				else if ( itemType == eItemType.character_emote )
+				{
+					PopulateInspectMenuDetails_CharacterEmote( item, rarity, quantity )
+				}
+				else
+				{
+					PopulateInspectMenuDetails( item, rarity, quantity )
+				}
+
+				waitthread TurntableModelController( model, mover, itemType, item, null, maxYaw )
+			}
+			else
+			{
+				HideEntityAndChildren( model )
+			}
+		}
+
+		WaitSignal( fileLevel.signalDummy, "LootCeremonyInspectModeEndComplete" )
+
+		mover.SetAngles( startAngles )
+
+		if ( itemType == eItemType.character_emote )
+		{
+			model.Anim_Stop()
+			thread ModelPerformEmote( model, item, mover, false, true )
+		}
+
+		ShowEntityAndChildren( model )
+
+		vector flashColor    = ItemFlavor_GetQualityColor( item ) / 255
+		bool includeChildren = true
+		bool depthDiscard = ItemFlavor_GetType( item ) == eItemType.sticker
+		thread FlashMenuModel( model, eMenuModelFlashType.LOOT_CEREMONY_QUICK, flashColor, includeChildren, depthDiscard )
+
+		if ( itemType == eItemType.weapon_skin || itemType == eItemType.melee_skin || itemType == eItemType.account_currency_bundle )
+			mover.NonPhysicsRotate( <0, 0, 1>, MODEL_ROTATE_SPEED )
+	}
+}
+
+
+
+
+void function SpecialItemPresentationView_Model( ItemFlavor item, int rarity, int quantity, vector angles, entity mover, entity model, float maxYaw )
+{
+	int itemType = ItemFlavor_GetType( item )
+
+	if ( itemType == eItemType.weapon_skin )
+	{
+		PopulateInspectMenuDetails_WeaponSkin( item, rarity, quantity )
+	}
+	else if ( itemType == eItemType.melee_skin )
+	{
+		PopulateInspectMenuDetails_MeleeSkin( item, rarity, quantity )
+	}
+	else if ( itemType == eItemType.character_skin )
+	{
+		PopulateInspectMenuDetails_CharacterSkin( item, rarity, quantity )
+	}
+	else if ( itemType == eItemType.account_currency_bundle )
+	{
+		PopulateInspectMenuDetails( item, rarity, quantity, "", "#CURRENCY_CRAFTING_DESCRIPTION" )
+	}
+	else if ( itemType == eItemType.account_currency )
+	{
+		PopulateInspectMenuDetails( item, rarity, quantity, "", ItemFlavor_GetLongDescription( item ) )
+	}
+	else
+	{
+		PopulateInspectMenuDetails( item, rarity, quantity )
+	}
+
+	waitthread TurntableModelController( model, mover, itemType, item, null, maxYaw )
+}
+
+
+
+const float EXECUTION_START_VIDEO_DELAY = 0.25
+const float EXECUTION_START_TURNTABLE_DELAY = 0.15
+
+
+
+void function InspectMenuFunctionality_Execution( ItemFlavor item, int displayIndex, int rarity, entity attackerModel, entity victimModel, entity mover, vector startAngles )
+{
+	int itemType         = ItemFlavor_GetType( item )
+	var rui              = Hud_GetRui( fileLevel.inspectVideoPanel )
+	string characterName = ItemFlavor_GetShortName( CharacterExecution_GetCharacterFlavor( item ) )
+
+	while( true )
+	{
+		table results = WaitSignal( fileLevel.signalDummy, "LootCeremonyInspectModeStart" )
+
+		string inspectButton = expect string( results.inspectButton )
+
+		int buttonIndex         = INSPECT_BUTTONS.find( inspectButton )
+		bool activelyInspecting = false
+
+		if ( buttonIndex == displayIndex )
+			activelyInspecting = true
+
+		if ( !activelyInspecting )
+		{
+			HideEntityAndChildren( attackerModel )
+			HideEntityAndChildren( victimModel )
+		}
+		else
+		{
+			bool inspectComplete = WaitForInspectCompleteOrBackout()
+
+			if ( inspectComplete )
+			{
+				PopulateInspectMenuDetails( item, rarity, 1, characterName )
+
+				int attachIDAttacker = attackerModel.LookupAttachment( "ORIGIN" )
+				int attachIDVictim   = victimModel.LookupAttachment( "ORIGIN" )
+				int fxIndexAttacker  = StartParticleEffectOnEntity( attackerModel, GetParticleSystemIndex( FINISHER_SWAP_FX ), FX_PATTACH_POINT_FOLLOW, attachIDAttacker )
+				int fxIndexVictim    = StartParticleEffectOnEntity( victimModel, GetParticleSystemIndex( FINISHER_SWAP_FX ), FX_PATTACH_POINT_FOLLOW, attachIDVictim )
+
+				bool delayCompleted = WaitForInspectTimeCompleteOrBackout( EXECUTION_START_VIDEO_DELAY )
+
+				HideEntityAndChildren( attackerModel )
+				HideEntityAndChildren( victimModel )
+
+				if ( delayCompleted )
+				{
+					Hud_SetVisible( fileLevel.inspectVideoPanel, true )
+					Hud_SetEnabled( fileLevel.inspectVideoPanel, true )
+
+					int videoChannel = ReserveVideoChannel( ExecutionVideoOnFinished )
+					RuiSetInt( rui, "channel", videoChannel )
+					StartVideoOnChannel( videoChannel, CharacterExecution_GetExecutionVideo( item ), false, 0.0 )
+
+					bool videoCompleted = WaitForInspectVideoCompleteOrBackout()
+
+					Hud_SetVisible( fileLevel.inspectVideoPanel, false )
+					Hud_SetEnabled( fileLevel.inspectVideoPanel, false )
+
+					ReleaseVideoChannel( videoChannel )
+
+					if ( videoCompleted )
+					{
+						bool secondDelayCompleted = WaitForInspectTimeCompleteOrBackout( EXECUTION_START_TURNTABLE_DELAY )
+
+						if ( secondDelayCompleted )
+						{
+							ShowEntityAndChildren( attackerModel )
+							ShowEntityAndChildren( victimModel )
+
+							int flashType     = eMenuModelFlashType.LOOT_CEREMONY_QUICK
+							vector flashColor = ItemFlavor_GetQualityColor( item ) / 255
+							thread FlashMenuModel( attackerModel, flashType, flashColor )
+							thread FlashMenuModel( victimModel, flashType, flashColor )
+
+							mover.NonPhysicsRotate( <0, 0, 1>, MODEL_ROTATE_SPEED )
+							waitthread TurntableModelController( attackerModel, mover, itemType, item, victimModel )
+						}
+					}
+				}
+				else
+				{
+					if ( EffectDoesExist( fxIndexAttacker ) )
+						EffectStop( fxIndexAttacker, true, false )
+
+					if ( EffectDoesExist( fxIndexVictim ) )
+						EffectStop( fxIndexVictim, true, false )
+				}
+			}
+			else
+			{
+				HideEntityAndChildren( attackerModel )
+				HideEntityAndChildren( victimModel )
+			}
+
+			ClearInspectMenuDetails()
+		}
+
+		WaitSignal( fileLevel.signalDummy, "LootCeremonyInspectModeEndComplete" )
+
+		mover.NonPhysicsStop()
+		mover.SetAngles( startAngles )
+		ShowEntityAndChildren( attackerModel )
+		ShowEntityAndChildren( victimModel )
+
+		int flashType     = eMenuModelFlashType.LOOT_CEREMONY_QUICK
+		vector flashColor = ItemFlavor_GetQualityColor( item ) / 255
+		thread FlashMenuModel( attackerModel, flashType, flashColor )
+		thread FlashMenuModel( victimModel, flashType, flashColor )
+	}
+}
+
+
+
+
+void function SpecialItemPresentationView_Execution( ItemFlavor item, int rarity, entity attackerModel, entity victimModel, entity mover )
+{
+	int itemType         = ItemFlavor_GetType( item )
+	var rui              = Hud_GetRui( fileLevel.inspectVideoPanel )
+	string characterName = ItemFlavor_GetShortName( CharacterExecution_GetCharacterFlavor( item ) )
+
+	PopulateInspectMenuDetails( item, rarity, 1, characterName )
+
+	wait 1
+
+	int attachIDAttacker = attackerModel.LookupAttachment( "ORIGIN" )
+	int attachIDVictim   = victimModel.LookupAttachment( "ORIGIN" )
+	int fxIndexAttacker  = StartParticleEffectOnEntity( attackerModel, GetParticleSystemIndex( FINISHER_SWAP_FX ), FX_PATTACH_POINT_FOLLOW, attachIDAttacker )
+	int fxIndexVictim    = StartParticleEffectOnEntity( victimModel, GetParticleSystemIndex( FINISHER_SWAP_FX ), FX_PATTACH_POINT_FOLLOW, attachIDVictim )
+
+	wait EXECUTION_START_VIDEO_DELAY
+
+	HideEntityAndChildren( attackerModel )
+	HideEntityAndChildren( victimModel )
+
+	Hud_SetVisible( fileLevel.inspectVideoPanel, true )
+	Hud_SetEnabled( fileLevel.inspectVideoPanel, true )
+
+	int videoChannel = ReserveVideoChannel( ExecutionVideoOnFinished )
+	RuiSetInt( rui, "channel", videoChannel )
+	StartVideoOnChannel( videoChannel, CharacterExecution_GetExecutionVideo( item ), false, 0.0 )
+
+	bool videoCompleted = WaitForInspectVideoCompleteOrBackout()
+
+	Hud_SetVisible( fileLevel.inspectVideoPanel, false )
+	Hud_SetEnabled( fileLevel.inspectVideoPanel, false )
+
+	ReleaseVideoChannel( videoChannel )
+
+	wait EXECUTION_START_TURNTABLE_DELAY
+
+	ShowEntityAndChildren( attackerModel )
+	ShowEntityAndChildren( victimModel )
+
+	int flashType     = eMenuModelFlashType.LOOT_CEREMONY_QUICK
+	vector flashColor = ItemFlavor_GetQualityColor( item ) / 255
+	thread FlashMenuModel( attackerModel, flashType, flashColor )
+	thread FlashMenuModel( victimModel, flashType, flashColor )
+
+	mover.NonPhysicsRotate( <0, 0, 1>, MODEL_ROTATE_SPEED )
+
+	waitthread TurntableModelController( attackerModel, mover, itemType, item, victimModel )
+}
+
+
+
+
+void function ExecutionVideoOnFinished( int channel )
+{
+	Signal( fileLevel.signalDummy, "LootCeremonyVideoComplete" )
+}
+
+
+
+
+void function InspectMenuFunctionality_RUI( ItemFlavor item, int displayIndex, int rarity, var rui, entity bgModel = null, string descString = "" )
+{
+	int itemType    = ItemFlavor_GetType( item )
+	string nameText = ""
+
+	switch ( itemType )
+	{
+		case eItemType.gladiator_card_stat_tracker:
+			if ( GladiatorCardStatTracker_GetCharacterFlavor( item ) != null )
+			{
+				nameText = ItemFlavor_GetShortName( expect ItemFlavor(GladiatorCardStatTracker_GetCharacterFlavor( item )))
+			}
+			break
+	}
+
+	while( true )
+	{
+		table results = WaitSignal( fileLevel.signalDummy, "LootCeremonyInspectModeStart" )
+
+		string inspectButton = expect string( results.inspectButton )
+
+		int buttonIndex         = INSPECT_BUTTONS.find( inspectButton )
+		bool activelyInspecting = false
+
+		if ( buttonIndex == displayIndex )
+			activelyInspecting = true
+
+		
+		if ( !activelyInspecting )
+		{
+			RuiSetBool( rui, "isVisible", false )
+
+			if ( IsValid( bgModel ) )
+				bgModel.Hide()
+		}
+		else
+		{
+			bool inspectComplete = WaitForInspectCompleteOrBackout()
+
+			if ( inspectComplete )
+			{
+				PopulateInspectMenuDetails( item, rarity, 1, nameText, descString )
+
+				WaitSignal( fileLevel.signalDummy, "LootCeremonyInspectModeEnd" )
+
+				RuiSetBool( rui, "isVisible", false )
+
+				if ( IsValid( bgModel ) )
+					bgModel.Hide()
+
+				ClearInspectMenuDetails()
+			}
+			else
+			{
+				RuiSetBool( rui, "isVisible", false )
+
+				if ( IsValid( bgModel ) )
+					bgModel.Hide()
+			}
+		}
+
+		WaitSignal( fileLevel.signalDummy, "LootCeremonyInspectModeEndComplete" )
+
+		RuiSetBool( rui, "introComplete", true )
+		RuiSetBool( rui, "isVisible", true )
+
+		if ( IsValid( bgModel ) )
+			bgModel.Show()
+	}
+}
+
+
+
+
+void function SpecialItemPresentationView_RUI( ItemFlavor item, int rarity, var rui, string descString = "" )
+{
+	int itemType    = ItemFlavor_GetType( item )
+	string nameText = ""
+
+	switch ( itemType )
+	{
+		case eItemType.gladiator_card_stat_tracker:
+			if ( GladiatorCardStatTracker_GetCharacterFlavor( item ) == null )
+			{
+				break
+			}
+
+			nameText = ItemFlavor_GetShortName( expect ItemFlavor( GladiatorCardStatTracker_GetCharacterFlavor( item ) ) )
+			break
+	}
+
+	PopulateInspectMenuDetails( item, rarity, 1, nameText, descString )
+
+	WaitForever()
+}
+
+
+
+const float QUIP_START_AUDIO_DELAY = 0.25
+
+
+
+void function InspectMenuFunctionality_Quip( ItemFlavor item, int displayIndex, int rarity, var rui, entity bgModel )
+{
+	int itemType = ItemFlavor_GetType( item )
+
+	string nameText  = ""
+	string quipAlias = ""
+	if ( itemType == eItemType.gladiator_card_kill_quip )
+	{
+		quipAlias = CharacterKillQuip_GetVictimVoiceSoundEvent( item )
+		nameText = ItemFlavor_GetShortName( CharacterKillQuip_GetCharacterFlavor( item ) )
+	}
+	else
+	{
+		quipAlias = CharacterIntroQuip_GetVoiceSoundEvent( item )
+		nameText = ItemFlavor_GetShortName( CharacterIntroQuip_GetCharacterFlavor( item ) )
+	}
+
+	if ( quipAlias == "" )
+		Warning( "Quip sound alias came back empty. It probably hasn't been authored yet: " + ItemFlavor_GetLongName( item ) )
+
+	while( true )
+	{
+		table results = WaitSignal( fileLevel.signalDummy, "LootCeremonyInspectModeStart" )
+
+		string inspectButton = expect string( results.inspectButton )
+
+		int buttonIndex         = INSPECT_BUTTONS.find( inspectButton )
+		bool activelyInspecting = false
+
+		if ( buttonIndex == displayIndex )
+			activelyInspecting = true
+
+		if ( !activelyInspecting )
+		{
+			RuiSetBool( rui, "isVisible", false )
+			bgModel.Hide()
+		}
+		else
+		{
+			bool inspectComplete = WaitForInspectCompleteOrBackout()
+
+			if ( inspectComplete )
+			{
+				PopulateInspectMenuDetails( item, rarity, 1, nameText )
+
+				bool delayCompleted = WaitForInspectTimeCompleteOrBackout( QUIP_START_AUDIO_DELAY )
+
+				if ( delayCompleted )
+				{
+					if ( quipAlias != "" )
+						RunUIScript( "ClientToUI_PlayLootCeremonySound", quipAlias )
+
+					WaitSignal( fileLevel.signalDummy, "LootCeremonyInspectModeEnd" )
+
+					if ( quipAlias != "" )
+						RunUIScript( "ClientToUI_StopLootCeremonySound", quipAlias )
+
+					RuiSetBool( rui, "isVisible", false )
+					bgModel.Hide()
+					ClearInspectMenuDetails()
+				}
+				else
+				{
+					RuiSetBool( rui, "isVisible", false )
+					bgModel.Hide()
+				}
+			}
+			else
+			{
+				RuiSetBool( rui, "isVisible", false )
+				bgModel.Hide()
+			}
+		}
+
+		WaitSignal( fileLevel.signalDummy, "LootCeremonyInspectModeEndComplete" )
+
+		RuiSetBool( rui, "introComplete", true )
+		RuiSetBool( rui, "isVisible", true )
+		bgModel.Show()
+	}
+}
+
+
+
+
+void function SpecialItemPresentationView_Quip( ItemFlavor item, int rarity, var rui )
+{
+	int itemType = ItemFlavor_GetType( item )
+
+	string nameText  = ""
+	string quipAlias = ""
+	if ( itemType == eItemType.gladiator_card_kill_quip )
+	{
+		quipAlias = CharacterKillQuip_GetVictimVoiceSoundEvent( item )
+		nameText = ItemFlavor_GetShortName( CharacterKillQuip_GetCharacterFlavor( item ) )
+	}
+	else
+	{
+		quipAlias = CharacterIntroQuip_GetVoiceSoundEvent( item )
+		nameText = ItemFlavor_GetShortName( CharacterIntroQuip_GetCharacterFlavor( item ) )
+	}
+
+	if ( quipAlias == "" )
+		Warning( "Quip sound alias came back empty. It probably hasn't been authored yet: " + ItemFlavor_GetLongName( item ) )
+
+	OnThreadEnd(
+		function() : ( quipAlias )
+		{
+			if ( quipAlias != "" )
+				RunUIScript( "ClientToUI_StopLootCeremonySound", quipAlias )
+		}
+	)
+
+	PopulateInspectMenuDetails( item, rarity, 1, nameText )
+
+	wait 0.75
+
+	if ( quipAlias != "" )
+		RunUIScript( "ClientToUI_PlayLootCeremonySound", quipAlias )
+
+	WaitForever()
+}
+
+
+
+
+void function InspectMenuFunctionality_MusicPack( ItemFlavor item, int displayIndex, int rarity, var rui, entity bgModel )
+{
+	string nameText = ItemFlavor_GetShortName( item )
+	string previewAlias = MusicPack_GetPreviewMusic( item )
+
+	if ( previewAlias == "" )
+		Warning( "Music pack sound alias came back empty. It probably hasn't been authored yet: " + ItemFlavor_GetLongName( item ) )
+
+	while ( true )
+	{
+		table results = WaitSignal( fileLevel.signalDummy, "LootCeremonyInspectModeStart" )
+
+		string inspectButton = expect string( results.inspectButton )
+
+		int buttonIndex         = INSPECT_BUTTONS.find( inspectButton )
+		bool activelyInspecting = false
+
+		if ( buttonIndex == displayIndex )
+			activelyInspecting = true
+
+		if ( !activelyInspecting )
+		{
+			RuiSetBool( rui, "isVisible", false )
+			bgModel.Hide()
+		}
+		else
+		{
+			bool inspectComplete = WaitForInspectCompleteOrBackout()
+
+			if ( inspectComplete )
+			{
+				PopulateInspectMenuDetails( item, rarity, 1, nameText )
+
+				bool delayCompleted = WaitForInspectTimeCompleteOrBackout( QUIP_START_AUDIO_DELAY )
+
+				if ( delayCompleted )
+				{
+					if ( previewAlias != "" )
+						RunUIScript( "ClientToUI_PlayLootCeremonySound", previewAlias )
+
+					WaitSignal( fileLevel.signalDummy, "LootCeremonyInspectModeEnd" )
+
+					if ( previewAlias != "" )
+						RunUIScript( "ClientToUI_StopLootCeremonySound", previewAlias )
+
+					RuiSetBool( rui, "isVisible", false )
+					bgModel.Hide()
+					ClearInspectMenuDetails()
+				}
+				else
+				{
+					RuiSetBool( rui, "isVisible", false )
+					bgModel.Hide()
+				}
+			}
+			else
+			{
+				RuiSetBool( rui, "isVisible", false )
+				bgModel.Hide()
+			}
+		}
+
+		WaitSignal( fileLevel.signalDummy, "LootCeremonyInspectModeEndComplete" )
+
+		RuiSetBool( rui, "introComplete", true )
+		RuiSetBool( rui, "isVisible", true )
+		bgModel.Show()
+	}
+}
+
+
+
+
+void function SpecialItemPresentationView_MusicPack( ItemFlavor item, int rarity, var rui )
+{
+	string nameText = ItemFlavor_GetShortName( item )
+	string previewAlias = MusicPack_GetPreviewMusic( item )
+
+	if ( previewAlias == "" )
+		Warning( "Music pack sound alias came back empty. It probably hasn't been authored yet: " + ItemFlavor_GetLongName( item ) )
+
+	OnThreadEnd(
+		function() : ( previewAlias )
+		{
+			if ( previewAlias != "" )
+				RunUIScript( "ClientToUI_StopLootCeremonySound", previewAlias )
+		}
+	)
+
+	PopulateInspectMenuDetails( item, rarity, 1, nameText )
+
+	wait 0.75
+
+	if ( previewAlias != "" )
+		RunUIScript( "ClientToUI_PlayLootCeremonySound", previewAlias )
+
+	WaitForever()
+}
+
+
+
+
+void function InspectMenuFunctionality_GladiatorCard( ItemFlavor item, int itemType, vector origin, vector angles, int displayIndex, int rarity, GladiatorCardData gCardData )
+{
+	table <string, GladiatorCardData> gCardDataTracker = { data = gCardData }
+	OnThreadEnd(
+		function() : ( gCardDataTracker )
+		{
+			ShowRewards_GladiatorCard_Destroy( gCardDataTracker.data )
+		}
+	)
+
+	string characterName
+	if ( itemType == eItemType.gladiator_card_frame )
+	{
+		ItemFlavor ornull character = GladiatorCardFrame_GetCharacterFlavor( item )
+		if ( character == null )
+		{
+			characterName = "#REWARD_GENERIC"
+		}
+		else
+		{
+			expect ItemFlavor( character )
+			characterName = ItemFlavor_GetShortName( character )
+		}
+	}
+	else
+	{
+		characterName = ItemFlavor_GetShortName( GladiatorCardStance_GetCharacterFlavor( item ) )
+	}
+
+	while( true )
+	{
+		table results = WaitSignal( fileLevel.signalDummy, "LootCeremonyInspectModeStart" )
+
+		string inspectButton = expect string( results.inspectButton )
+
+		int buttonIndex         = INSPECT_BUTTONS.find( inspectButton )
+		bool activelyInspecting = false
+
+		if ( buttonIndex == displayIndex )
+			activelyInspecting = true
+
+		
+		if ( !activelyInspecting )
+		{
+			ShowRewards_GladiatorCard_Destroy( gCardDataTracker.data )
+		}
+		else
+		{
+			bool inspectComplete = WaitForInspectCompleteOrBackout()
+
+			if ( !inspectComplete )
+			{
+				ShowRewards_GladiatorCard_Destroy( gCardDataTracker.data )
+			}
+			else
+			{
+				PopulateInspectMenuDetails( item, rarity, 1, characterName )
+
+				WaitSignal( fileLevel.signalDummy, "LootCeremonyInspectModeEnd" )
+
+				ShowRewards_GladiatorCard_Destroy( gCardDataTracker.data )
+
+				ClearInspectMenuDetails()
+			}
+		}
+
+		WaitSignal( fileLevel.signalDummy, "LootCeremonyInspectModeEndComplete" )
+
+		
+		gCardDataTracker.data = ShowRewards_GladiatorCard_Create( item, itemType, false, rarity, origin, angles )
+	}
+}
+
+
+
+
+void function SpecialItemPresentationView_GladiatorCard( ItemFlavor item, int itemType, int rarity, GladiatorCardData gCardData )
+{
+	OnThreadEnd(
+		function() : ( gCardData )
+		{
+			ShowRewards_GladiatorCard_Destroy( gCardData )
+		}
+	)
+
+	string characterName
+	if ( itemType == eItemType.gladiator_card_frame )
+	{
+		ItemFlavor ornull character = GladiatorCardFrame_GetCharacterFlavor( item )
+		if ( character == null )
+		{
+			characterName = "#REWARD_GENERIC"
+		}
+		else
+		{
+			expect ItemFlavor( character )
+			characterName = ItemFlavor_GetShortName( character )
+		}
+	}
+	else
+	{
+		characterName = ItemFlavor_GetShortName( GladiatorCardStance_GetCharacterFlavor( item ) )
+	}
+
+	PopulateInspectMenuDetails( item, rarity, 1, characterName )
+
+	WaitForever()
+}
+
+
+
+
+void function InspectMenuFunctionality_FXBeams( int displayIndex, int fxIndexRarity, table<string, int> fxTrackerBeam, int animAttachID, vector rarityColor )
+{
+	OnThreadEnd(
+		function() : ( fxIndexRarity, fxTrackerBeam )
+		{
+			if ( EffectDoesExist( fxIndexRarity ) )
+				EffectStop( fxIndexRarity, true, false )
+
+			if ( EffectDoesExist( fxTrackerBeam[ "fxID" ] ) )
+				EffectStop( fxTrackerBeam[ "fxID" ], true, false )
+		}
+	)
+
+	while( true )
+	{
+		table results = WaitSignal( fileLevel.signalDummy, "LootCeremonyInspectModeStart" )
+
+		string inspectButton    = expect string( results.inspectButton )
+		int buttonIndex         = INSPECT_BUTTONS.find( inspectButton )
+		bool activelyInspecting = false
+
+		if ( buttonIndex == displayIndex )
+			activelyInspecting = true
+
+		
+		if ( !activelyInspecting )
+		{
+			if ( EffectDoesExist( fxTrackerBeam[ "fxID" ] ) )
+				EffectStop( fxTrackerBeam[ "fxID" ], true, false )
+		}
+		else
+		{
+			bool inspectComplete = WaitForInspectCompleteOrBackout()
+
+			if ( !inspectComplete )
+			{
+				if ( EffectDoesExist( fxTrackerBeam[ "fxID" ] ) )
+					EffectStop( fxTrackerBeam[ "fxID" ], true, false )
+			}
+			else
+			{
+				WaitSignal( fileLevel.signalDummy, "LootCeremonyInspectModeEnd" )
+
+				if ( EffectDoesExist( fxTrackerBeam[ "fxID" ] ) )
+					EffectStop( fxTrackerBeam[ "fxID" ], true, false )
+			}
+		}
+
+		WaitSignal( fileLevel.signalDummy, "LootCeremonyInspectModeEndComplete" )
+
+		int newFxIndexBeam = StartParticleEffectOnEntity( fileLevel.lootTickModel, GetParticleSystemIndex( TICK_FX_HOLO_BEAM_BASE ), FX_PATTACH_POINT_FOLLOW, animAttachID )
+		EffectSetControlPointVector( newFxIndexBeam, 1, rarityColor )
+		fxTrackerBeam[ "fxID" ] = newFxIndexBeam
+	}
+}
+
+
+
+const float TURNTABLE_MAX_TURN_DEGREES = 360.0
+const float TURNTABLE_MAX_PITCH_DEGREES_WEAPON = 60.0
+
+
+void function TurntableModelController( entity model, entity mover, int itemType, ItemFlavor item, entity additionalModel = null, float maxYaw = TURNTABLE_MAX_TURN_DEGREES )
+{
+	EndSignal( fileLevel.signalDummy, "LootCeremonyExit" )
+	EndSignal( fileLevel.signalDummy, "LootCeremonyAnimSeqStart" )
+	EndSignal( fileLevel.signalDummy, "LootCeremonyInspectModeEnd" )
+
+	MenuModelData modelData
+	ModelData_SetMover( modelData, mover )
+	ModelData_SetBaseAngles( modelData, <0, fileLevel.cameraMover.GetAngles().y + 90, 0> )
+	ModelData_SetModel( modelData, model )
+	float[2] delta = [0.0, 0.0]
+	modelData.rotationDelta[0] = delta[0]
+	modelData.rotationDelta[1] = delta[1]
+
+	vector cameraOffset = ItemFlavor_GetInspectMenuCameraOffset( item )
+	vector focalPoint = model.GetOrigin()
+	float zoomMinDist = 0.0
+	float zoomMaxDist = 64.0
+	if ( itemType == eItemType.weapon_skin || itemType == eItemType.melee_skin )
+	{
+		float zoomScale = 1.0
+		if ( itemType == eItemType.weapon_skin )
+		{
+			ItemFlavor weaponFlavor = WeaponSkin_GetWeaponFlavor( item )
+			zoomScale = min( 1.0 - WeaponItemFlavor_GetArmoryVectorScale( weaponFlavor ), 1.5 ) 
+		}
+		focalPoint = model.GetAttachmentOrigin( model.LookupAttachment( "MENU_ROTATE" ) )
+		zoomMaxDist = 52.0 * zoomScale
+	}
+	else if ( itemType == eItemType.weapon_charm )
+	{
+		focalPoint = GetCharmForWeaponEntity( model ).GetWorldSpaceCenter()
+		zoomMinDist = 0.0
+		zoomMaxDist = 30.0
+	}
+	else if ( itemType == eItemType.character_skin || itemType == eItemType.character || itemType == eItemType.character_emote )
+	{
+		focalPoint = model.GetAttachmentOrigin( model.LookupAttachment( "HEADFOCUS" ) )
+		zoomMaxDist = 64.0
+	}
+	else if ( itemType == eItemType.character_execution )
+	{
+		focalPoint = model.GetAttachmentOrigin( model.LookupAttachment( "HEADFOCUS" ) )
+		zoomMaxDist = 52.0
+	}
+	else if ( itemType == eItemType.account_pack )
+	{
+		focalPoint = model.GetAttachmentOrigin( model.LookupAttachment( "HEADFOCUS" ) )
+		zoomMaxDist = 52.0
+	}
+	else if ( itemType == eItemType.account_currency_bundle )
+	{
+		focalPoint = model.GetOrigin()
+		zoomMaxDist = 38.0
+	}
+	else if ( itemType == eItemType.emote_icon )
+	{
+		zoomMaxDist = 0.0
+	}
+
+	CameraZoomData cameraData
+	cameraData.mover = fileLevel.cameraMover
+	vector camPos = fileLevel.cameraMover.GetOrigin()
+	camPos += cameraOffset
+	fileLevel.cameraMover.SetOrigin( camPos )
+	cameraData.startPos = camPos + (Normalize( focalPoint - camPos ) * zoomMinDist)
+	cameraData.endPos = camPos + (Normalize( focalPoint - camPos ) * zoomMaxDist)
+	cameraData.maxDist = Distance( cameraData.startPos, cameraData.endPos )
+	cameraData.normVec = Normalize( cameraData.endPos - cameraData.startPos )
+
+	thread CameraZoomThread( cameraData )
+
+	OnThreadEnd(
+		function() : ( model, additionalModel )
+		{
+			CameraZoomThreadEnd()
+
+			HideEntityAndChildren( model )
+
+			if ( IsValid( additionalModel ) )
+				HideEntityAndChildren( additionalModel )
+
+			ClearInspectMenuDetails()
+		}
+	)
+
+	float maxPitchDegrees = 0.0
+	if ( itemType == eItemType.weapon_skin || itemType == eItemType.weapon_charm || itemType == eItemType.melee_skin )
+		maxPitchDegrees = TURNTABLE_MAX_PITCH_DEGREES_WEAPON
+
+	bool hasStopped = false
+
+	while( true )
+	{
+		bool hasPlayerTurned = TurntableUpdateAnglesFromInput( modelData, maxYaw, maxPitchDegrees, !hasStopped )
+
+		if ( !hasStopped && hasPlayerTurned )
+		{
+			if ( itemType != eItemType.character_skin )
+				mover.NonPhysicsStop()
+
+			hasStopped = true
+		}
+
+		WaitFrame()
+	}
+}
+
+
+
+
+bool function WaitForInspectCompleteOrBackout()
+{
+	array<string> signalsToWait = ["LootCeremonyInspectModeStartComplete", "LootCeremonyInspectModeEnd", "LootCeremonyExit", "LootCeremonyAnimSeqStart"]
+	string resultSignal         = GetWaitMultipleSignal( fileLevel.signalDummy, signalsToWait, "LootCeremonyInspectCompleteOrBackout" )
+
+	if ( resultSignal == "LootCeremonyInspectModeStartComplete" )
+		return true
+
+	return false
+}
+
+
+
+
+bool function WaitForInspectTimeCompleteOrBackout( float timeToWait )
+{
+	thread WaitForTimeComplete( timeToWait )
+	array<string> signalsToWait = ["LootCeremonyTimeComplete", "LootCeremonyInspectModeEnd", "LootCeremonyExit", "LootCeremonyAnimSeqStart"]
+	string resultSignal         = GetWaitMultipleSignal( fileLevel.signalDummy, signalsToWait, "LootCeremonyInspectTimeCompleteOrBackout" )
+
+	if ( resultSignal == "LootCeremonyTimeComplete" )
+		return true
+
+	return false
+}
+
+
+
+
+bool function WaitForInspectVideoCompleteOrBackout()
+{
+	array<string> signalsToWait = ["LootCeremonyVideoComplete", "LootCeremonyInspectModeEnd", "LootCeremonyExit", "LootCeremonyAnimSeqStart"]
+	string resultSignal         = GetWaitMultipleSignal( fileLevel.signalDummy, signalsToWait, "LootCeremonyInspectVideoCompleteOrBackout" )
+
+	if ( resultSignal == "LootCeremonyVideoComplete" )
+		return true
+
+	return false
+}
+
+
+
+
+void function WaitForTimeComplete( float timeToWait )
+{
+	EndSignal( fileLevel.signalDummy, "LootCeremonyInspectModeEnd" )
+	EndSignal( fileLevel.signalDummy, "LootCeremonyExit" )
+	EndSignal( fileLevel.signalDummy, "LootCeremonyAnimSeqStart" )
+
+	wait timeToWait
+
+	Signal( fileLevel.signalDummy, "LootCeremonyTimeComplete" )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+bool function IsSpecialItemPresentationModeActive()
+{
+	return fileLevel.specialItemPresentationModeActive
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const float BLACK_FADE_TIME = 0.25
+const float BLACK_FADE_TIME_HOLD = 0.25
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/rtk/menus/mass_pack_opening/rtk_mass_pack_opening_controller.nut.client
+[dump] scripts/vscripts/rtk/menus/mass_pack_opening/rtk_mass_pack_opening_controller.nut.client (21678 bytes)
+global function CLMassLootBoxCeremony_Init
+global function UIToClient_MassLootCeremonyExit
+global function OnGRXMassPackOpeningResultsAvailable
+global function UIToClient_AllLootTick_Sequence
+global function UIToClient_MassLootCeremony_SetGlobalAnimationEventsTokenize
+global function UIToClient_MassLootCeremony_DeleteGlobalAnimationEventsTokenize
+
+
+
+
+
+
+
+
+
+
+
+
+const float BLACK_FADE_TIME = 0.25
+const float BLACK_FADE_TIME_HOLD = 0.25
+const float CAMERA_FOV = 35.5
+
+
+const asset TICK_FX_RARITY_BEAM = $"P_lobby_m_eye_opening"
+const asset TICK_FX_TRAIL = $"P_loot_tick_m_jump_jet_trail"
+
+const asset TICK_FX_FIREWORK_T1 = $"P_lobby_m_fireworks_sparkler"
+const asset TICK_FX_FIREWORK_T2 = $"P_lobby_m_fireworks_sparkler"
+const asset TICK_FX_FIREWORK_T3 = $"P_lobby_m_fireworks_grp"
+const asset TICK_FX_FIREWORK_T4 = $"P_lobby_m_fireworks"
+const asset TICK_FX_FIREWORK_T5 = $"P_lobby_m_fireworks"
+
+const string ATTACHNAME_LEFT = "FX_L_EYE_X"
+const string ATTACHNAME_CENTER = "FX_R_EYE_X"        
+const string ATTACHNAME_RIGHT = "FX_C_EYE_X"        
+
+const table<int, string> MassLootCeremonyRarityToFireworkFX = {
+	[eRarityTier.COMMON] 	= TICK_FX_FIREWORK_T1,
+	[eRarityTier.RARE] 		= TICK_FX_FIREWORK_T2,
+	[eRarityTier.EPIC] 		= TICK_FX_FIREWORK_T3,
+	[eRarityTier.LEGENDARY] = TICK_FX_FIREWORK_T4,
+	[eRarityTier.ICONIC] 	= TICK_FX_FIREWORK_T5,
+	[eRarityTier.MYTHIC] 	= TICK_FX_FIREWORK_T5
+}
+
+
+const string SOUND_LIGHT_FLASH = "LootCeremony_Tick_LightFlash"
+const string SOUND_HOLOGRAM_LOOP = "LootCeremony_Inspect_HologramLoop"
+
+const string SOUND_BEAM_SWEETEN_TIER1 = "LootCeremony_MassPack_Tick_Deploy_BeamSweet_Rare"
+const string SOUND_BEAM_SWEETEN_TIER2 = "LootCeremony_MassPack_Tick_Deploy_BeamSweet_Epic"
+const string SOUND_BEAM_SWEETEN_TIER3 = "LootCeremony_MassPack_Tick_Deploy_BeamSweet_Legendary"
+const string SOUND_BEAM_SWEETEN_TIER4 = "LootCeremony_MassPack_Tick_Deploy_BeamSweet_Heirloom"
+
+const string SOUND_FIREWORK_SWEETEN_TIER1 = "LootCeremony_MassPack_Tick_FireworksSweet_Rare"
+const string SOUND_FIREWORK_SWEETEN_TIER2 = "LootCeremony_MassPack_Tick_FireworksSweet_Epic"
+const string SOUND_FIREWORK_SWEETEN_TIER3 = "LootCeremony_MassPack_Tick_FireworksSweet_Legendary"
+const string SOUND_FIREWORK_SWEETEN_TIER4 = "LootCeremony_MassPack_Tick_FireworksSweet_Heirloom"
+
+const table<int, string> MassLootCeremonyRarityToBeamSFX = {
+	[eRarityTier.RARE] 		= SOUND_BEAM_SWEETEN_TIER1,
+	[eRarityTier.EPIC] 		= SOUND_BEAM_SWEETEN_TIER2,
+	[eRarityTier.LEGENDARY] = SOUND_BEAM_SWEETEN_TIER3,
+	[eRarityTier.ICONIC] 	= SOUND_BEAM_SWEETEN_TIER4,
+	[eRarityTier.MYTHIC] 	= SOUND_BEAM_SWEETEN_TIER4
+}
+
+
+const table<int, string> MassLootCeremonyRarityToFireworkSFX = {
+	[eRarityTier.RARE] 		= SOUND_FIREWORK_SWEETEN_TIER1,
+	[eRarityTier.EPIC] 		= SOUND_FIREWORK_SWEETEN_TIER2,
+	[eRarityTier.LEGENDARY] = SOUND_FIREWORK_SWEETEN_TIER3,
+	[eRarityTier.ICONIC] 	= SOUND_FIREWORK_SWEETEN_TIER4,
+	[eRarityTier.MYTHIC] 	= SOUND_FIREWORK_SWEETEN_TIER4
+}
+
+
+const array<string> ANIMSEQ_DEPLOYMENT_MULTI = [ 
+	"loot_ceremony_tick_deployment_multi_base", 
+	"loot_ceremony_tick_deployment_multi_base_2",
+	"loot_ceremony_tick_deployment_multi_base_3",
+	"loot_ceremony_tick_deployment_multi_base_4",
+	"loot_ceremony_tick_deployment_multi_base_5",
+	"loot_ceremony_tick_deployment_multi_base_6",
+	"loot_ceremony_tick_deployment_multi_base_7",
+	"loot_ceremony_tick_deployment_multi_base_8",
+]
+
+struct FileLevelStruct
+{
+
+		table  signalDummy
+
+		var                           menu
+		bool                          inspectMenuIsNavigatingBack = false
+		entity lootTickMover
+		entity lootTickModel
+		entity cameraMover
+		entity cameraEnt
+		array<entity> multiPackMovers
+		array<entity> multiPackTicks
+
+		
+		ItemFlavor& currentPackFlav
+		bool        grxRewardsReceived = false
+
+		
+		array<int> rarityBeamFXHandles
+		bool       tickRandomFlashFXStarted = false
+		array<int> highestsRarities
+		int		   highestRarityItem = 4
+		int		   vfxTrailsPlayedCounter = 0
+		int		   vfxFireworksPlayedCounter = 0
+
+
+
+
+
+
+
+	bool menuActive = false
+}
+FileLevelStruct& fileLevel
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function CLMassLootBoxCeremony_Init()
+{
+	RegisterSignal( "MassLootCeremonyExit" )
+	RegisterSignal( "MassLootCeremonyAnimSeqStart" )
+	RegisterSignal( "MassTickAnimStartDisplayLoot" )
+	RegisterSignal( "MassTickAnimStartDeployment" )
+	RegisterSignal( "MassLootCeremonyTickCancelAnim" )
+
+	AddCallback_FullUpdate( MassLootCeremonyOnFullUpdate )
+	AddCallback_EntitiesDidLoad( EntitiesDidLoad )
+}
+
+
+
+void function EntitiesDidLoad()
+{
+	entity targetAnimRef = GetEntByScriptName( "target_loot_ceremony_ref" )
+	fileLevel.lootTickMover = CreateClientsideScriptMover( $"mdl/dev/empty_model.rmdl", targetAnimRef.GetOrigin(), targetAnimRef.GetAngles() )
+	fileLevel.lootTickModel = CreatePropDynamic( TICK_MODEL_DEFAULT, fileLevel.lootTickMover.GetOrigin(), fileLevel.lootTickMover.GetAngles() )
+
+	for ( int i = 0; i < ANIMSEQ_DEPLOYMENT_MULTI.len() - 1; i++ ) 
+	{
+		entity multiPackMover = CreateClientsideScriptMover( $"mdl/dev/empty_model.rmdl", targetAnimRef.GetOrigin(), targetAnimRef.GetAngles() )
+		entity multiPackTick = CreatePropDynamic( TICK_MODEL_DEFAULT, fileLevel.lootTickMover.GetOrigin(), fileLevel.lootTickMover.GetAngles() )
+		fileLevel.multiPackTicks.append( multiPackTick )
+		fileLevel.multiPackMovers.append( multiPackMover )
+		multiPackTick.SetParent( multiPackMover )
+		thread PlayAnim( multiPackTick, ANIMSEQ_ENTRANCE_NORMAL_IDLE, multiPackMover )
+		HideEntityAndChildren( multiPackTick )
+	}
+
+	
+	table< string, table< string, vector > > tickAttachmentOriginsAngles
+	Attachment camResult = fileLevel.lootTickModel.Anim_GetAttachmentAtTime( ANIMSEQ_TRIADS_IDLE, "CAMERA", 0 )
+	foreach ( string attachment in TICK_LOOT_ATTACHMENTS )
+	{
+		tickAttachmentOriginsAngles[attachment] <- {}
+
+		Attachment attachResult = fileLevel.lootTickModel.Anim_GetAttachmentAtTime( ANIMSEQ_TRIADS_IDLE, attachment, 0 )
+		vector pos              = attachResult.position
+		vector angles           = VectorToAngles( FlattenVec( camResult.position - pos ) )
+
+		tickAttachmentOriginsAngles[ attachment ]["origin"] <- pos
+		tickAttachmentOriginsAngles[ attachment ]["angles"] <- angles
+	}
+	InitLootCeremonyLightingRigs( tickAttachmentOriginsAngles )
+
+	fileLevel.lootTickModel.SetParent( fileLevel.lootTickMover )
+	thread PlayAnim( fileLevel.lootTickModel, ANIMSEQ_ENTRANCE_NORMAL_IDLE, fileLevel.lootTickMover )
+	HideEntityAndChildren( fileLevel.lootTickModel )
+
+	fileLevel.cameraMover = CreateClientsideScriptMover( $"mdl/dev/empty_model.rmdl", targetAnimRef.GetOrigin(), targetAnimRef.GetAngles() )
+	fileLevel.cameraEnt = CreateClientSidePointCamera( targetAnimRef.GetOrigin(), targetAnimRef.GetAngles(), CAMERA_FOV )
+	fileLevel.cameraEnt.SetParent( fileLevel.cameraMover, "REF" )
+	fileLevel.cameraMover.SetParent( fileLevel.lootTickModel, "CAMERA" )
+}
+
+
+
+void function MassLootCeremonyOnFullUpdate()
+{
+	if ( !fileLevel.menuActive )
+		return
+
+	printt( "#################" )
+	printf( "%s() ", FUNC_NAME() )
+	printt( "#################" )
+
+	entity localClientPlayer = GetLocalClientPlayer()
+	if ( IsValid( localClientPlayer ) && IsValid( fileLevel.cameraEnt ) )
+		localClientPlayer.SetMenuCameraEntityWithAudio( fileLevel.cameraEnt )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function OnGRXMassPackOpeningResultsAvailable()
+{
+	ItemFlavorBag bag = GRX_GetMostRecentPackOpeningResults()
+
+	
+	int error = GRX_INVENTORYERROR_NONE
+	if ( bag.associatedError != GRX_INVENTORYERROR_NONE )
+		error = bag.associatedError
+	GRXPackOpened_ErrorHandling( error )
+
+	
+	fileLevel.grxRewardsReceived = true
+	fileLevel.highestsRarities = ItemFlavorBag_GetHighestRarities( bag, ANIMSEQ_DEPLOYMENT_MULTI.len() )
+
+	foreach ( ItemFlavor reward in bag.flavors )
+	{
+		if ( Mythics_IsItemFlavorMythicSkin( reward ) )
+		{
+			Remote_ServerCallFunction( "ClientCallback_UpdateMythicChallenges" )
+			break
+		}
+	}
+}
+
+
+
+array<int> function ItemFlavorBag_GetHighestRarities( ItemFlavorBag bag, int quantity )
+{
+	array<int> highestQualities
+	array<ItemFlavor> items = clone(bag.flavors)
+	items.sort( ItemFlavor_SortByTier )
+
+	for ( int i = 0; i < quantity; i++ )
+	{
+		if ( items.len() > i )
+			highestQualities.append( ItemFlavor_GetQuality( items[i] ) )
+		else
+			highestQualities.append( eRarityTier.COMMON )
+	}
+
+	return highestQualities
+}
+
+
+
+void function UIToClient_AllLootTick_Sequence( int packFlavGUID )
+{
+	ItemFlavor packFlav = GetItemFlavorByGUID( packFlavGUID )
+	fileLevel.menuActive = true
+	Chroma_LootCeremonyStart()
+	LootCeremonySceneLightsUpdateShadows( true )
+	ShowEntityAndChildren( fileLevel.lootTickModel )
+	fileLevel.currentPackFlav = packFlav
+	fileLevel.grxRewardsReceived = false
+	thread TickAnimationSequence( packFlav )
+}
+
+
+
+
+void function TickAnimationSequence( ItemFlavor packFlav )
+{
+	
+	Signal( fileLevel.signalDummy, "MassLootCeremonyAnimSeqStart" )
+
+	EndSignal( fileLevel.signalDummy, "MassLootCeremonyExit" )
+	EndSignal( fileLevel.signalDummy, "MassLootCeremonyAnimSeqStart" )
+
+	
+	fileLevel.lootTickModel.SetModel( GRXPack_GetTickModel( packFlav ) )
+	fileLevel.lootTickModel.SetSkin( fileLevel.lootTickModel.GetSkinIndexByName( GRXPack_GetTickModelSkin( packFlav ) ) )
+
+	array<string> deployAnims = clone ANIMSEQ_DEPLOYMENT_MULTI
+	OnThreadEnd(
+		function() : ()
+		{
+			Signal( fileLevel.lootTickModel, "MassLootCeremonyTickCancelAnim" )
+			if ( IsFullyConnected() && IsLobby() )
+				RunUIScript( "PlayCustomUIMusic", "" )
+		}
+	)
+
+	if ( !IsValid( fileLevel.cameraMover.GetParent() ) )
+		fileLevel.cameraMover.SetParent( fileLevel.lootTickModel, "CAMERA" )
+
+	GetLocalClientPlayer().SetMenuCameraEntityWithAudio( fileLevel.cameraEnt )
+
+	wait 0.25 
+
+	RunUIScript( "PlayCustomUIMusic", MASS_LOOT_CEREMONY_MUSIC_P1 )
+
+	
+	PlayAnim( fileLevel.lootTickModel, ANIMSEQ_ENTRANCE_NORMAL, fileLevel.lootTickMover )
+	thread PlayAnim( fileLevel.lootTickModel, ANIMSEQ_IDLE, fileLevel.lootTickMover )
+
+	
+	wait 0.5
+
+	
+	while( !fileLevel.grxRewardsReceived )
+		WaitFrame()
+
+	
+	Signal( fileLevel.lootTickModel, "MassTickAnimStartDeployment" )
+
+	
+	RunUIScript( "PlayCustomUIMusic", MASS_LOOT_CEREMONY_MUSIC_P2 )
+
+	
+	string longestSeq = deployAnims[0]
+	float maxDuration = fileLevel.lootTickModel.GetSequenceDuration( longestSeq )
+	entity longestAnimatingTick = fileLevel.lootTickModel
+	foreach ( int deployIdx, string deployAnim in deployAnims )
+	{
+		if ( deployIdx == 0 )
+		{
+			thread PlayAnim( fileLevel.lootTickModel, deployAnim, fileLevel.lootTickMover )
+		}
+		else
+		{
+			ShowEntityAndChildren( fileLevel.multiPackTicks[deployIdx-1] )
+			thread PlayAnim( fileLevel.multiPackTicks[deployIdx-1], deployAnim, fileLevel.multiPackMovers[deployIdx-1] )
+			float seqDuration = fileLevel.lootTickModel.GetSequenceDuration( deployAnim )
+			if ( seqDuration > maxDuration )
+			{
+				maxDuration = seqDuration
+				longestSeq = deployAnim
+				longestAnimatingTick = fileLevel.multiPackTicks[deployIdx-1]
+			}
+		}
+	}
+
+	thread WaitForTickAnimCompleteAndSignalDisplayLoot( longestAnimatingTick, longestSeq )
+
+	
+	bool animReachedDisplayEvent = false
+	array<string> signalsToWait  = ["MassTickAnimStartDisplayLoot", "TickAnimSkip", "MassLootCeremonyTickCancelAnim"]
+	string resultSignal          = GetWaitMultipleSignal_Entity( fileLevel.lootTickModel, signalsToWait, "LootCeremonyAnimShowLootOrSkip" )
+
+	if ( resultSignal == "MassTickAnimStartDisplayLoot" )
+		animReachedDisplayEvent = true
+	
+	if ( animReachedDisplayEvent )
+	{
+		thread OpenRewardDisplayMenu()
+		WaittillAnimDone( fileLevel.lootTickModel )
+	}
+	else
+	{
+		MassLootCeremony_RarityBeamFX_Stop( true )
+		thread PlayAnim( fileLevel.lootTickModel, ANIMSEQ_TRIADS_IDLE, fileLevel.lootTickMover )
+		thread OpenRewardDisplayMenu()
+	}
+
+	WaitForever()
+}
+
+
+
+void function OpenRewardDisplayMenu()
+{
+	EndSignal( fileLevel.signalDummy, "MassLootCeremonyExit" )
+	EndSignal( fileLevel.signalDummy, "MassLootCeremonyAnimSeqStart" )
+	RunUIScript( "ClientToUI_OpenMassPackRewardsMenu" )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+void function LootCeremony_RandomFlashFX_Thread( entity tickModel )
+{
+	EndSignal( fileLevel.signalDummy, "MassLootCeremonyExit" )
+	EndSignal( fileLevel.signalDummy, "MassLootCeremonyAnimSeqStart" )
+	EndSignal( fileLevel.lootTickModel, "MassTickAnimStartDeployment" )
+
+	if ( fileLevel.tickRandomFlashFXStarted )
+		return
+
+	fileLevel.tickRandomFlashFXStarted = true
+
+	OnThreadEnd(
+		function() : ()
+		{
+			fileLevel.tickRandomFlashFXStarted = false
+		}
+	)
+
+	int attachID = tickModel.LookupAttachment( "FX_C_EYE" )
+
+	while( true )
+	{
+		int rarity  = 0
+		int randInt = RandomInt( 1000 )
+
+		if ( randInt > 995 )
+			rarity = 4
+		if ( randInt > 970 )
+			rarity = 3
+		else if ( randInt > 900 )
+			rarity = 2
+		else if ( randInt > 600 )
+			rarity = 1
+
+		vector rarityColor = GetFXRarityColorForUnlockable( rarity )
+
+		int fxIndex = StartParticleEffectOnEntity( tickModel, GetParticleSystemIndex( TICK_FX_RARITY_IDLE ), FX_PATTACH_POINT_FOLLOW, attachID )
+		EffectSetControlPointVector( fxIndex, 1, rarityColor )
+
+		
+
+		Wait( RandomFloatRange( 0.2, 0.4 ) )
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function UIToClient_MassLootCeremonyExit()
+{
+	Signal( fileLevel.signalDummy, "MassLootCeremonyExit" )
+	fileLevel.menuActive = false
+	if ( IsValid( GetLocalClientPlayer() ) )
+		GetLocalClientPlayer().ClearMenuCameraEntity()
+	LootCeremonySceneLightsUpdateShadows( false )
+	MassLootCeremony_RarityBeamFX_Stop( true )
+	Chroma_Lobby()
+
+	if ( IsFullyConnected() && IsLobby() )
+		RunUIScript( "CancelCustomUIMusic" )
+}
+
+
+
+void function UIToClient_MassLootCeremony_SetGlobalAnimationEventsTokenize()
+{
+	AddGlobalAnimEventTokenize( "loot_tick_m_rarity_random_flash_fx", OnLootTickAnimEvent )
+	AddGlobalAnimEventTokenize( "loot_tick_m_rarity_beam_start_fx", OnLootTickAnimEvent )
+	AddGlobalAnimEventTokenize( "loot_tick_m_rarity_beam_start_sfx", OnLootTickAnimEvent )
+	AddGlobalAnimEventTokenize( "loot_tick_m_rarity_beam_stop_fx", OnLootTickAnimEvent )
+	AddGlobalAnimEventTokenize( "loot_tick_m_rarity_flash_start_fx", OnLootTickAnimEvent )
+	AddGlobalAnimEventTokenize( "loot_tick_m_play_sound", OnLootTickAnimEvent )
+	AddGlobalAnimEventTokenize( "loot_tick_m_rarity_firework_fx", OnLootTickAnimEvent )
+	AddGlobalAnimEventTokenize( "loot_tick_m_jump_jet_trail_fx", OnLootTickAnimEvent )
+
+	fileLevel.vfxTrailsPlayedCounter = 0
+	fileLevel.vfxFireworksPlayedCounter = 0
+}
+
+
+
+void function UIToClient_MassLootCeremony_DeleteGlobalAnimationEventsTokenize()
+{
+	DeleteGlobalAnimEventTokenize( "loot_tick_m_rarity_random_flash_fx")
+	DeleteGlobalAnimEventTokenize( "loot_tick_m_rarity_beam_start_fx" )
+	DeleteGlobalAnimEventTokenize( "loot_tick_m_rarity_beam_start_sfx" )
+	DeleteGlobalAnimEventTokenize( "loot_tick_m_rarity_beam_stop_fx" )
+	DeleteGlobalAnimEventTokenize( "loot_tick_m_rarity_flash_start_fx" )
+	DeleteGlobalAnimEventTokenize( "loot_tick_m_play_sound" )
+	DeleteGlobalAnimEventTokenize( "loot_tick_m_rarity_firework_fx" )
+	DeleteGlobalAnimEventTokenize( "loot_tick_m_jump_jet_trail_fx" )
+}
+
+
+
+void function OnLootTickAnimEvent( entity ent, array<string> tokens )
+{
+	switch ( tokens[0] )
+	{
+		case "loot_tick_m_rarity_random_flash_fx":
+		{
+			thread MassLootCeremony_RandomFlashFX_Thread( ent )
+			break
+		}
+
+		case "loot_tick_m_rarity_beam_start_fx":
+		{
+			MassLootCeremony_RarityBeamFX( ent, tokens[1] )
+			break
+		}
+
+		case "loot_tick_m_rarity_beam_start_sfx":
+		{
+			MassLootCeremony_RarityBeamSFX( ent, tokens[1] )
+			break
+		}
+
+		case "loot_tick_m_rarity_beam_stop_fx":
+		{
+			MassLootCeremony_RarityBeamFX_Stop()
+			break
+		}
+
+		case "loot_tick_m_rarity_flash_start_fx":
+		{
+			MassLootCeremony_RarityFlashFX( ent, tokens[1], tokens[2] )
+			break
+		}
+
+		case "loot_tick_m_play_sound":
+		{
+			MassLootCeremony_PlayLootTickSound( ent, tokens[1] )
+			break
+		}
+
+		case "loot_tick_m_rarity_firework_fx":
+		{
+			MassLootCeremony_FireworkFX( ent, tokens[1] )
+			break
+		}
+
+		case "loot_tick_m_jump_jet_trail_fx":
+		{
+			MassLootCeremony_TrailFX( ent, tokens[1] )
+			break
+		}
+
+		default: Assert( false )
+	}
+}
+
+
+
+void function WaitForTickAnimCompleteAndSignalDisplayLoot( entity tickModel, string tickAnim )
+{
+	
+	EndSignal( fileLevel.signalDummy, "MassLootCeremonyExit" )
+	EndSignal( fileLevel.signalDummy, "MassLootCeremonyAnimSeqStart" )
+
+	Wait( tickModel.GetSequenceDuration( tickAnim ) )
+
+	Signal( fileLevel.lootTickModel, "MassTickAnimStartDisplayLoot" )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function MassLootCeremony_RandomFlashFX_Thread( entity tickModel )
+{
+	EndSignal( fileLevel.signalDummy, "MassLootCeremonyExit" )
+	EndSignal( fileLevel.signalDummy, "MassLootCeremonyAnimSeqStart" )
+	EndSignal( fileLevel.lootTickModel, "MassTickAnimStartDeployment" )
+
+	if ( fileLevel.tickRandomFlashFXStarted )
+		return
+
+	fileLevel.tickRandomFlashFXStarted = true
+
+	OnThreadEnd(
+		function() : ()
+		{
+			fileLevel.tickRandomFlashFXStarted = false
+		}
+	)
+
+	int attachID = tickModel.LookupAttachment( "FX_C_EYE" )
+
+	while( true )
+	{
+		int rarity  = 0
+		int randInt = RandomInt( 1000 )
+
+		if ( randInt > 995 )
+			rarity = 4
+		if ( randInt > 970 )
+			rarity = 3
+		else if ( randInt > 900 )
+			rarity = 2
+		else if ( randInt > 600 )
+			rarity = 1
+
+		vector rarityColor = GetFXRarityColorForUnlockable( rarity )
+
+		int fxIndex = StartParticleEffectOnEntity( tickModel, GetParticleSystemIndex( TICK_FX_RARITY_IDLE ), FX_PATTACH_POINT_FOLLOW, attachID )
+		EffectSetControlPointVector( fxIndex, 1, rarityColor )
+
+		
+
+		Wait( RandomFloatRange( 0.2, 0.4 ) )
+	}
+}
+
+
+
+void function MassLootCeremony_RarityBeamFX( entity tickModel, string fxAttachment )
+{
+	int rarity
+	switch ( fxAttachment )
+	{
+		case ATTACHNAME_LEFT:
+			rarity = fileLevel.highestsRarities[0]
+			break
+		case ATTACHNAME_CENTER :
+			rarity = fileLevel.highestsRarities[1]
+			break
+		case ATTACHNAME_RIGHT:
+			rarity = fileLevel.highestsRarities[2]
+			break
+	}
+
+	vector rarityColor = GetFXRarityColorForUnlockable( rarity )
+	Chroma_LootCeremonyBeam( rarity )
+	int attachID = tickModel.LookupAttachment( fxAttachment )
+	int fxIndex = StartParticleEffectOnEntity( tickModel, GetParticleSystemIndex( TICK_FX_RARITY_BEAM ), FX_PATTACH_POINT_FOLLOW, attachID )
+
+	EffectSetControlPointVector( fxIndex, 1, rarityColor )
+
+	fileLevel.rarityBeamFXHandles.append( fxIndex )
+}
+
+
+
+void function MassLootCeremony_RarityBeamSFX( entity tickModel, string fxAttachment )
+{
+	int rarity
+	switch ( fxAttachment )
+	{
+		case TICK_LOOT_ATTACHMENTS[0]:
+			rarity = fileLevel.highestsRarities[0]
+			break
+		case TICK_LOOT_ATTACHMENTS[1]:
+			rarity = fileLevel.highestsRarities[1]
+			break
+		case TICK_LOOT_ATTACHMENTS[2]:
+			rarity = fileLevel.highestsRarities[2]
+			break
+	}
+
+	vector rarityColor = GetFXRarityColorForUnlockable( rarity )
+
+	if ( rarity in MassLootCeremonyRarityToBeamSFX )
+		RunUIScript( "ClientToUI_PlayLootCeremonySound", MassLootCeremonyRarityToBeamSFX[rarity] )
+}
+
+
+
+void function MassLootCeremony_RarityBeamFX_Stop( bool stopImmediately = false )
+{
+	foreach ( int fxID in fileLevel.rarityBeamFXHandles )
+	{
+		if ( EffectDoesExist( fxID ) )
+		{
+			if ( stopImmediately )
+				EffectStop( fxID, true, false )
+			else
+				EffectStop( fxID, false, true )
+		}
+	}
+
+	fileLevel.rarityBeamFXHandles.clear()
+}
+
+
+
+void function MassLootCeremony_PlayLootTickSound( entity tickModel, string soundKindRef )
+{
+	string soundAlias = GRXPack_GetTickSoundAlias( fileLevel.currentPackFlav, eGRXPackTickSoundKind[soundKindRef] )
+	if ( soundAlias != "" )
+		EmitSoundOnEntity( tickModel, soundAlias )
+}
+
+
+
+void function MassLootCeremony_RarityFlashFX( entity tickModel, string attachmentHead, string attachmentEye )
+{
+	int rarity         = fileLevel.highestRarityItem
+	vector rarityColor = GetFXRarityColorForUnlockable( rarity )
+
+	int attachID  = tickModel.LookupAttachment( attachmentHead )
+	vector origin = tickModel.GetAttachmentOrigin( attachID )
+	vector angles = tickModel.GetAttachmentAngles( attachID )
+
+	Chroma_LootCeremonyFlash( rarity )
+
+	int fxIndex = LootCeremony_GetRarityFlashFXIndex( rarity, origin, angles )
+	EffectSetControlPointVector( fxIndex, 1, rarityColor )
+}
+
+
+
+void function MassLootCeremony_FireworkFX( entity tickModel, string fxAttachment )
+{
+	int highestRarity = fileLevel.highestsRarities[0]
+	array<int> highestRaritiesReversed = clone(fileLevel.highestsRarities)
+	highestRaritiesReversed.reverse()
+
+	int rarity = eRarityTier.COMMON
+	if ( highestRarity == eRarityTier.MYTHIC )
+		rarity = eRarityTier.MYTHIC
+	else
+		rarity = highestRaritiesReversed[fileLevel.vfxFireworksPlayedCounter]
+
+	vector rarityColor = GetFXRarityColorForUnlockable( rarity )
+
+	int attachID = tickModel.LookupAttachment( fxAttachment )
+	if ( rarity in MassLootCeremonyRarityToFireworkFX )
+	{
+		int fxIndex = StartParticleEffectOnEntity( tickModel, GetParticleSystemIndex( MassLootCeremonyRarityToFireworkFX[rarity] ), FX_PATTACH_POINT_FOLLOW, attachID )
+		EffectSetControlPointVector( fxIndex, 1, rarityColor )
+	}
+
+	if ( rarity in MassLootCeremonyRarityToFireworkSFX )
+		RunUIScript( "ClientToUI_PlayLootCeremonySound", MassLootCeremonyRarityToFireworkSFX[rarity] )
+
+	fileLevel.vfxFireworksPlayedCounter++
+}
+
+
+
+void function MassLootCeremony_TrailFX( entity tickModel, string fxAttachment )
+{
+	int highestRarity = fileLevel.highestsRarities[0]
+	array<int> highestRaritiesReversed = clone(fileLevel.highestsRarities)
+	highestRaritiesReversed.reverse()
+
+	int rarity = eRarityTier.COMMON
+	if ( highestRarity == eRarityTier.MYTHIC )
+		rarity = eRarityTier.MYTHIC
+	else
+		rarity = highestRaritiesReversed[fileLevel.vfxTrailsPlayedCounter]
+
+	vector rarityColor = GetFXRarityColorForUnlockable( rarity )
+
+	int attachID = tickModel.LookupAttachment( fxAttachment )
+	int fxIndex = StartParticleEffectOnEntity( tickModel, GetParticleSystemIndex( TICK_FX_TRAIL ), FX_PATTACH_POINT_FOLLOW, attachID )
+
+	EffectSetControlPointVector( fxIndex, 1, rarityColor )
+	fileLevel.vfxTrailsPlayedCounter++
+}
+
+[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/sh_reward_summary_sequence.gnut.client
+[dump] scripts/vscripts/sh_reward_summary_sequence.gnut.client (8089 bytes)global function RewardSummarySequence_Init
+
+
+
+
+
+
+global function UIToClient_RewardSummarySequence_Play
+global function UIToClient_RewardSummarySequence_Stop
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const bool REWARD_SUMMARY_SEQUENCE_DEBUG = false
+
+global const string REWARD_SUMMARY_SEQUENCE_MUSIC = "Music_LootCeremony_MassPack_Pt1" 
+
+const string TARGET_REF_NAME = "target_loot_ceremony_ref" 
+
+const float BLACK_FADE_TIME = 0.25
+const float BLACK_FADE_TIME_HOLD = 0.25
+
+const float CAMERA_FOV = 35.5
+
+const string REWARD_SUMMARY_SEQUENCE_THREAD_STARTING_SIGNAL_NAME = "reward_summary_sequence_starting"
+const string REWARD_SUMMARY_SEQUENCE_THREAD_STOP_SIGNAL_NAME = "reward_summary_sequence_stop"
+const string STOP_HIDE_LOBBY_WHILE_WAITING_FOR_EARNED_REWARDS_SIGNAL_NAME = "stop_hide_lobby_while_waiting_for_earned_rewards"
+const string STOP_MUSIC_SIGNAL_NAME = "reward_summary_sequence_stop_music"
+
+const string ANIM_EVENT_NAME_SET_CAMERA_FOV = "reward_summary_sequence_set_camera_fov"
+const string ANIM_EVENT_NAME_CREATE_RARITY_FX = "reward_summary_sequence_create_rarity_fx"
+const string ANIM_EVENT_NAME_EMIT_UI_SOUND = "reward_summary_sequence_emit_ui_sound"
+
+
+
+const array<asset> ANIM_EVENT_FX_ASSETS = [
+	$"P_pod_door_glow_cine_CP"
+]
+
+struct FileLevelStruct
+{
+	table signalDummy
+
+
+	entity rootModelMover
+	entity rootModel
+	entity camera
+
+	bool isPlayingSequence = false
+	float startTime = 0.0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	int highestRarity
+
+}
+FileLevelStruct fileLevel
+
+
+
+
+
+
+
+
+void function RewardSummarySequence_Init()
+{
+
+		Remote_RegisterServerFunction( "ClientToServer_SendRewardSummarySequenceFinishedToPIN", "bool", "float", 0.0, 9999.9, 32 )
+		Remote_RegisterServerFunction( "ClientCallback_ResetRewardSummarySequenceWasConnectedToMatch" )
+
+		foreach ( asset fxAsset in ANIM_EVENT_FX_ASSETS )
+		{
+			PrecacheParticleSystem( fxAsset )
+		}
+
+
+
+		RegisterSignal( REWARD_SUMMARY_SEQUENCE_THREAD_STARTING_SIGNAL_NAME )
+		RegisterSignal( REWARD_SUMMARY_SEQUENCE_THREAD_STOP_SIGNAL_NAME )
+
+		AddCallback_FullUpdate( OnFullUpdate )
+
+
+
+
+
+
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function OnFullUpdate()
+{
+	if ( !fileLevel.isPlayingSequence )
+		return
+
+	printf( "[RewardSummarySequence] OnFullUpdate" )
+
+	entity localClientPlayer = GetLocalClientPlayer()
+	if ( IsValid( localClientPlayer ) && IsValid( fileLevel.camera ) )
+	{
+		localClientPlayer.SetMenuCameraEntityWithAudio( fileLevel.camera )
+	}
+}
+
+
+
+void function OnAnimEvent( entity ent, array<string> tokens )
+{
+	switch ( tokens[0] )
+	{
+		case ANIM_EVENT_NAME_SET_CAMERA_FOV:
+		{
+			Assert( tokens.len() >= 2 )
+			float fov = float( tokens[1] )
+			float changeDuration = 0.5
+			if ( tokens.len() > 2 )
+			{
+				changeDuration = float( tokens[2] )
+			}
+			fileLevel.camera.SetTargetFOV( fov, true, EASING_CUBIC_INOUT, changeDuration )
+			if ( REWARD_SUMMARY_SEQUENCE_DEBUG )
+			{
+				printf( "[%s] %f (%f)", ANIM_EVENT_NAME_SET_CAMERA_FOV, fov, changeDuration )
+			}
+			break
+		}
+
+		case ANIM_EVENT_NAME_CREATE_RARITY_FX:
+		{
+			Assert( tokens.len() == 3 )
+			string fxName = tokens[1]
+			string attachmentName = tokens[2]
+			int attachmentID = ent.LookupAttachment( attachmentName )
+			int fxIndex = StartParticleEffectOnEntity( ent, GetParticleSystemIndex( CastStringToAsset( fxName ) ), FX_PATTACH_POINT_FOLLOW, attachmentID )
+
+			vector rarityColor = GetFXRarityColorForUnlockable( fileLevel.highestRarity )
+			EffectSetControlPointVector( fxIndex, 1, rarityColor )
+
+			if ( REWARD_SUMMARY_SEQUENCE_DEBUG )
+			{
+				printf( "[%s] %s @ %s", ANIM_EVENT_NAME_CREATE_RARITY_FX, fxName, attachmentName )
+			}
+			break
+		}
+
+		case ANIM_EVENT_NAME_EMIT_UI_SOUND:
+		{
+			Assert( tokens.len() == 2 )
+			string soundName = tokens[1]
+			EmitUISound( soundName )
+
+			if ( REWARD_SUMMARY_SEQUENCE_DEBUG )
+			{
+				printf( "[%s] %s", ANIM_EVENT_NAME_EMIT_UI_SOUND, soundName )
+			}
+			break
+		}
+
+		default: Assert( false )
+	}
+}
+
+
+
+void function UIToClient_RewardSummarySequence_Play( int highestRarity )
+{
+	printf( "[RewardSummarySequence] UIToClient_RewardSummarySequence_Play. highestRarity=%d", highestRarity )
+
+	fileLevel.highestRarity = highestRarity
+
+	thread PlayRewardSummarySequence_Thread()
+}
+
+
+
+void function UIToClient_RewardSummarySequence_Stop()
+{
+	printf( "[RewardSummarySequence] UIToClient_RewardSummarySequence_Stop" )
+
+	Signal( fileLevel.signalDummy, REWARD_SUMMARY_SEQUENCE_THREAD_STOP_SIGNAL_NAME )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function AddGlobalAnimEvents()
+{
+	AddGlobalAnimEventTokenize( ANIM_EVENT_NAME_SET_CAMERA_FOV, OnAnimEvent )
+	AddGlobalAnimEventTokenize( ANIM_EVENT_NAME_CREATE_RARITY_FX, OnAnimEvent )
+	AddGlobalAnimEventTokenize( ANIM_EVENT_NAME_EMIT_UI_SOUND, OnAnimEvent )
+}
+
+
+
+void function DeleteGlobalAnimEvents()
+{
+	DeleteGlobalAnimEventTokenize( ANIM_EVENT_NAME_SET_CAMERA_FOV )
+	DeleteGlobalAnimEventTokenize( ANIM_EVENT_NAME_CREATE_RARITY_FX )
+	DeleteGlobalAnimEventTokenize( ANIM_EVENT_NAME_EMIT_UI_SOUND )
+}
+
+
+
+const int CHARACTER_LOBA_GUID = 1579967516
+const string LOBA_REWARD_SEQ = "medium_lootceremony_cinematic_character_loba"
+void function PlayRewardSummarySequence_Thread()
+{
+	
+	Signal( fileLevel.signalDummy, REWARD_SUMMARY_SEQUENCE_THREAD_STARTING_SIGNAL_NAME )
+
+	EndSignal( fileLevel.signalDummy, REWARD_SUMMARY_SEQUENCE_THREAD_STARTING_SIGNAL_NAME )
+	EndSignal( fileLevel.signalDummy, REWARD_SUMMARY_SEQUENCE_THREAD_STOP_SIGNAL_NAME )
+
+	OnThreadEnd(
+		function() : ()
+		{
+			printf( "[RewardSummarySequence] PlayRewardSummarySequence_Thread Cleanup..." )
+
+			bool wasSkipped = fileLevel.isPlayingSequence
+			float timeElapsedBeforeSkipped = 0.0
+			if ( wasSkipped )
+			{
+				timeElapsedBeforeSkipped = Time() - fileLevel.startTime
+			}
+			Remote_ServerCallFunction( "ClientToServer_SendRewardSummarySequenceFinishedToPIN", wasSkipped, timeElapsedBeforeSkipped )
+			fileLevel.isPlayingSequence = false
+
+			DeleteGlobalAnimEvents()
+
+			entity player = GetLocalClientPlayer()
+			if ( IsValid( player ) )
+			{
+				player.ClearMenuCameraEntity()
+			}
+
+			if ( IsValid( fileLevel.camera ) )
+			{
+				fileLevel.camera.Destroy()
+			}
+
+			if ( IsValid( fileLevel.rootModel ) )
+			{
+				fileLevel.rootModel.Destroy()
+			}
+
+			if ( IsValid( fileLevel.rootModelMover ) )
+			{
+				fileLevel.rootModelMover.Destroy()
+			}
+
+			RunUIScript( "ClientToUI_NotifyRewardSummarySequenceFinished" )
+		}
+	)
+
+	printf( "[RewardSummarySequence] PlayRewardSummarySequence_Thread Running..." )
+
+	fileLevel.isPlayingSequence = true
+	fileLevel.startTime = Time()
+
+	AddGlobalAnimEvents()
+
+	entity targetRef = GetEntByScriptName( TARGET_REF_NAME )
+	fileLevel.rootModelMover = CreateClientsideScriptMover( $"mdl/dev/empty_model.rmdl", targetRef.GetOrigin(), targetRef.GetAngles() )
+	fileLevel.rootModelMover.MakeSafeForUIScriptHack()
+	fileLevel.rootModel = CreateClientSidePropDynamic( targetRef.GetOrigin(), targetRef.GetAngles(), $"mdl/dev/empty_model.rmdl" )
+	fileLevel.rootModel.MakeSafeForUIScriptHack()
+	fileLevel.rootModel.SetParent( fileLevel.rootModelMover )
+
+	EHI playerEHI = LocalClientEHI()
+	ItemFlavor character = LoadoutSlot_WaitForItemFlavor( playerEHI, Loadout_Character() )
+	ItemFlavor characterSkin = LoadoutSlot_WaitForItemFlavor( playerEHI, Loadout_CharacterSkin( character ) )
+	CharacterSkin_Apply( fileLevel.rootModel, characterSkin )
+
+	fileLevel.camera = CreateClientSidePointCamera( targetRef.GetOrigin(), targetRef.GetAngles(), CAMERA_FOV )
+	fileLevel.camera.SetParent( fileLevel.rootModel, "VDU" )
+
+	ShowEntityAndChildren( fileLevel.rootModel )
+
+	GetLocalClientPlayer().SetMenuCameraEntityWithAudio( fileLevel.camera )
+
+	RunUIScript( "ClientToUI_PlayRewardSummarySequenceMusic" )
+
+	if ( ItemFlavor_GetGUID( character ) == CHARACTER_LOBA_GUID )
+		thread PlayAnim( fileLevel.rootModel, LOBA_REWARD_SEQ, fileLevel.rootModelMover )
+	else
+		thread PlayAnim( fileLevel.rootModel, "ACT_MP_MENU_REWARD_SUMMARY_SEQUENCE", fileLevel.rootModelMover )
+
+	const float DURATION = 4
+	wait DURATION
+
+	fileLevel.isPlayingSequence = false
+}
+
+
+
+
+
+
+
+
+
+
+
+[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/menu_camera.gnut.client
+[dump] scripts/vscripts/menu_camera.gnut.client (1765 bytes)
+
+
+
+
+
+
+global function MenuCamera_Init
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global struct MenuCameraControllerConfig
+{
+	string name = "unknown"
+
+	entity camera
+	entity cameraMover
+}
+
+
+
+
+global struct MenuCameraController
+{
+	
+}
+
+
+
+
+
+
+
+
+
+
+
+struct MenuCameraControllerState
+{
+	MenuCameraControllerConfig& cfg
+
+
+}
+
+
+
+struct FileStruct_LifetimeLevel
+{
+
+		table<MenuCameraController, MenuCameraControllerState> menuCameraControllerStateMap
+
+}
+
+
+FileStruct_LifetimeLevel fileLevel 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function MenuCamera_Init()
+{
+
+
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+MenuCameraControllerConfig function MenuCameraController_GetConfig( MenuCameraController handle )
+{
+	return fileLevel.menuCameraControllerStateMap[handle].cfg
+}
+
+
+
+
+MenuCameraController function StartMenuCameraController( MenuCameraControllerConfig cfg )
+{
+	MenuCameraController handle
+	MenuCameraControllerState state
+	state.cfg = cfg
+	DbgPrint( cfg.name, "StartMenuCameraController" )
+	
+	return handle
+}
+
+
+
+
+void function MenuCameraController_Stop( MenuCameraController handle )
+{
+	DbgPrint( MenuCameraController_GetConfig( handle ).name, "MenuCameraController_Stop" )
+	Signal( handle, "MenuCameraController_Stop" )
+}
+
+
+
+
+void function MenuCameraController_Refresh( MenuCameraController handle )
+{
+	DbgPrint( MenuCameraController_GetConfig( handle ).name, "MenuCameraController_Refresh" )
+	Signal( handle, "MenuCameraController_Refresh", { visible = null } )
+}
+
+
+
+
+
+
+
+
+
+
+
+void function DbgPrint( string name, string fmt, ... )
+{
+	printt( format( "[MenuCameraController %s %s] %s", name, VM_NAME(),
+		format( fmt, vargc > 0 ? vargv[0] : 0, vargc > 1 ? vargv[1] : 0, vargc > 2 ? vargv[2] : 0, vargc > 3 ? vargv[3] : 0, vargc > 4 ? vargv[4] : 0, vargc > 5 ? vargv[5] : 0, vargc > 6 ? vargv[6] : 0, vargc > 7 ? vargv[7] : 0 ) ) )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/menu_scene.gnut.client
+[dump] scripts/vscripts/menu_scene.gnut.client (33299 bytes)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global function MenuScene_Init
+
+
+
+global function MenuScene_GetConfig
+global function StartMenuScene
+global function MenuScene_Stop
+global function MenuScene_Refresh
+global function MenuScene_SetVisible
+global function TEMP_MenuScene_GetCameraPos
+
+
+
+
+
+
+
+
+
+
+
+global struct MenuSceneHighlightConfig
+{
+	vector color = <0, 0, 0>
+	float  intensityScalar = 100.0
+	float  fadeInTime = 0.2
+	float  fadeOutTime = 0.75
+	float  lifeTime = 1.0
+	float  radius = 1.0
+}
+
+
+
+
+global struct MenuSceneTweakLightConfig
+{
+	vector col = <1, 1, 1>
+	float  brightness = 2.0
+	float  specularIntensity = 1.0
+	float  distance = 300.0
+	float  innerCone = 10.0
+	float  outerCone = 30.0
+	float  halfBrightFrac = 0.75
+	bool   pbrFalloff = true
+	bool   castsShadows = false
+}
+
+
+
+
+global struct MenuSceneConfig
+{
+	string name = "unknown"
+
+	entity ornull refEnt
+	vector ornull refPos 
+	vector ornull refAng 
+	bool          startVisible = true
+	float         scale = 1.0 
+	bool          animReplayOnRefresh = false
+	bool          preferVideo = false
+	bool          switchAfterVideo = false
+
+	ItemFlavor&                     subjectFlav 
+	ItemFlavor ornull               associatedFlav 
+	ItemFlavor ornull               accompanyingSkinFlav 
+	ItemFlavor ornull               accompanyingCharmFlav 
+	MenuSceneHighlightConfig ornull subjectHighlightCfg 
+	
+	
+	
+	
+	float ornull                    subjectRotateSpeed = null
+
+	array<entity>                    directTweakLights
+	array<MenuSceneTweakLightConfig> directLightConfigs
+	asset                            lightingRigModel = $"mdl/empty/lights/empty_lights.rmdl" 
+	asset                            lightingRigAnim = $"" 
+	array<string>                    lightingRigLightAttachmentNames
+
+	array<entity> ambientTweakLights
+}
+
+
+
+
+global struct MenuScene
+{
+	
+}
+
+
+
+
+
+
+
+
+
+
+
+const asset MDL_QUIP_BACKING = $"mdl/menu/loot_ceremony_quip_bg.rmdl"
+const asset MDL_EXECUTION_VICTIM = $"mdl/humans/class/medium/dummy_v20_base_w.rmdl"
+const asset MDL_TRACKER_BACKING = $"mdl/menu/loot_ceremony_stat_tracker_bg.rmdl"
+
+
+
+
+struct MenuSceneState
+{
+	MenuSceneConfig& cfg
+
+	vector     refPos
+	vector     refAng
+	bool       shouldShow = true
+	bool       didSwitchFromVideo = false
+	array<int> fxHandles
+
+	entity            subjectMover
+	ItemFlavor ornull activeSubjectFlav
+	array<entity>     subjectModels
+	entity            lightingRig
+	var               subjectRuiTopo
+	var               subjectRui
+	asset             subjectVideoAsset
+	int               subjectVideoChannel = -1
+}
+
+
+
+
+struct TypeConfig
+{
+	float         extraScale = 1.0
+	float         zOffset = 0.0
+	int           modelsRequired = 1
+	bool          ruiRequired = false
+	asset         ruiAsset = $""
+	UISize        ruiSize
+	float         ruiPixelScale = 1.0
+	string ornull placementAttachment = null
+	vector        defaultRotation = <0, 0, 0>
+	float         zoomDistMin = 0.0
+	float         zoomDistMax = 0.0
+	vector        zoomOffset = <30.0, 0.0, 30.0>
+
+	asset functionref( MenuSceneConfig cfg, MenuSceneState state )  getVideoAsset
+	vector functionref( MenuSceneConfig cfg, MenuSceneState state ) getZoomFocusPos
+
+	void functionref( MenuSceneConfig cfg, MenuSceneState state, bool isFirst, bool flavChanged )        updateFunc
+	void functionref( MenuSceneConfig cfg, MenuSceneState state, bool functionref() waitForRefreshFunc ) updateFunc_Thread
+}
+
+
+
+
+struct FileStruct_LifetimeLevel
+{
+
+		table<MenuScene, MenuSceneState> menuSceneStateMap
+
+		table<int, TypeConfig> typeConfigMap
+		TypeConfig&            videoConfig
+		table<entity, int>     ambientTweakLightUseStackCountMap
+
+
+
+
+}
+
+
+FileStruct_LifetimeLevel fileLevel 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function MenuScene_Init()
+{
+
+
+
+
+
+
+		PrecacheModel( MDL_QUIP_BACKING )
+		PrecacheModel( MDL_EXECUTION_VICTIM )
+		PrecacheModel( MDL_TRACKER_BACKING )
+
+
+
+		RegisterSignal( "MenuScene_Refresh" )
+		RegisterSignal( "MenuScene_Stop" )
+		RegisterSignal( "MenuSceneUpdateThread_Refresh" )
+		RegisterSignal( "MenuSceneUpdateThread_Stop" )
+
+		fileLevel.typeConfigMap = {
+			[eItemType.character] = InitTypeConfig_Character(),
+			[eItemType.character_skin] = InitTypeConfig_CharacterSkin(),
+			[eItemType.character_execution] = InitTypeConfig_CharacterExecution(),
+			[eItemType.skydive_emote] = InitTypeConfig_SkydiveEmote(),
+			[eItemType.skydive_trail] = InitTypeConfig_SkydiveTrail(),
+			[eItemType.gladiator_card_stance] = InitTypeConfig_GladiatorCardFrameOrStance(),
+			[eItemType.gladiator_card_frame] = InitTypeConfig_GladiatorCardFrameOrStance(),
+			[eItemType.gladiator_card_intro_quip] = InitTypeConfig_GladiatorCardIntroQuip(),
+			[eItemType.gladiator_card_kill_quip] = InitTypeConfig_GladiatorCardKillQuip(),
+			[eItemType.gladiator_card_stat_tracker] = InitTypeConfig_GladiatorCardStatTracker(),
+			[eItemType.gladiator_card_badge] = InitTypeConfig_GladiatorCardBadge(),
+			[eItemType.melee_skin] = InitTypeConfig_MeleeSkin(),
+			[eItemType.loot_main_weapon] = InitTypeConfig_LootMainWeapon(),
+			[eItemType.weapon_skin] = InitTypeConfig_WeaponSkin(),
+			[eItemType.weapon_charm] = InitTypeConfig_WeaponCharm(),
+			[eItemType.music_pack] = InitTypeConfig_MusicPack(),
+			[eItemType.loadscreen] = InitTypeConfig_Loadscreen(),
+			[eItemType.account_currency] = InitTypeConfig_AccountCurrency(),
+			[eItemType.account_currency_bundle] = InitTypeConfig_AccountCurrencyBundle(),
+			[eItemType.account_pack] = InitTypeConfig_AccountPack(),
+			
+		}
+		fileLevel.videoConfig = InitTypeConfig_BinkVideo()
+
+}
+
+
+
+
+
+
+
+
+
+
+
+MenuSceneConfig function MenuScene_GetConfig( MenuScene handle )
+{
+	return fileLevel.menuSceneStateMap[handle].cfg
+}
+
+
+
+
+MenuScene function StartMenuScene( MenuSceneConfig cfg )
+{
+	MenuScene handle
+	MenuSceneState state
+	state.cfg = cfg
+	state.shouldShow = cfg.startVisible
+	DbgPrint( cfg.name, "StartMenuScene" )
+	thread RunMenuScene_Thread( handle, cfg, state )
+	return handle
+}
+
+
+
+
+void function MenuScene_Stop( MenuScene handle )
+{
+	if ( !(handle in fileLevel.menuSceneStateMap) )
+	{
+		Warning( "[MenuScene] Tried to stop a scene that was not started, ignoring. Callstack:\n%s", GetStack() )
+		return
+	}
+	DbgPrint( MenuScene_GetConfig( handle ).name, "MenuScene_Stop" )
+	Signal( handle, "MenuScene_Stop" )
+}
+
+
+
+
+void function MenuScene_Refresh( MenuScene handle )
+{
+	if ( !(handle in fileLevel.menuSceneStateMap) )
+	{
+		Warning( "[MenuScene] Tried to refresh scene that was not started, ignoring. Callstack:\n%s", GetStack() )
+		return
+	}
+	DbgPrint( MenuScene_GetConfig( handle ).name, "MenuScene_Refresh" )
+	Signal( handle, "MenuScene_Refresh", { visible = null } )
+}
+
+
+
+
+void function MenuScene_SetVisible( MenuScene handle, bool shouldBeVisible )
+{
+	DbgPrint( MenuScene_GetConfig( handle ).name, "MenuScene_SetVisible( %s )", string(shouldBeVisible) )
+	Signal( handle, "MenuScene_Refresh", { visible = shouldBeVisible } )
+}
+
+
+
+
+Coord function TEMP_MenuScene_GetCameraPos( MenuScene handle, vector origCamPos, vector extraOffset )
+{
+	MenuSceneState state = fileLevel.menuSceneStateMap[handle]
+	TypeConfig typeCfg   = fileLevel.typeConfigMap[ItemFlavor_GetType( state.cfg.subjectFlav )]
+
+	vector focusPos = state.subjectModels[0].GetOrigin()
+	if ( typeCfg.getZoomFocusPos != null )
+		focusPos = typeCfg.getZoomFocusPos( state.cfg, state )
+
+	vector toCamAng      = VectorToAngles( FlattenVec( origCamPos - focusPos ) )
+	Coord out
+	out.pos = state.refPos + RotateVector( typeCfg.zoomOffset + extraOffset, toCamAng )
+	out.ang = VectorToAngles( FlattenVec( state.refPos - origCamPos ) )
+	return out
+}
+
+
+
+
+
+
+
+
+
+
+
+void function DbgPrint( string name, string fmt, ... )
+{
+	printt( format( "[MenuScene %s %s] %s", name, VM_NAME(),
+		format( fmt, vargc > 0 ? vargv[0] : 0, vargc > 1 ? vargv[1] : 0, vargc > 2 ? vargv[2] : 0, vargc > 3 ? vargv[3] : 0, vargc > 4 ? vargv[4] : 0, vargc > 5 ? vargv[5] : 0, vargc > 6 ? vargv[6] : 0, vargc > 7 ? vargv[7] : 0 ) ) )
+}
+
+
+
+
+
+
+
+
+
+
+
+void function RunMenuScene_Thread( MenuScene handle, MenuSceneConfig cfg, MenuSceneState state )
+{
+	EndSignal( handle, "MenuScene_Stop" )
+
+	fileLevel.menuSceneStateMap[handle] <- state
+
+	OnThreadEnd( void function() : ( handle, cfg, state ) {
+		delete fileLevel.menuSceneStateMap[handle]
+
+		bool fullCleanup = true
+		CleanupMenuScene( handle, state, fullCleanup )
+	} )
+
+	bool isFirstTime = true
+	UpdateRefCoords( cfg, state, isFirstTime )
+
+	state.subjectMover = CreateClientsideScriptMover( EMPTY_MODEL, state.refPos, state.refAng )
+	state.subjectMover.MakeSafeForUIScriptHack()
+
+	if ( cfg.directTweakLights.len() > 0 )
+	{
+		if ( cfg.lightingRigModel == $"" )
+			Warning( "[MenuScene %s] Scene has %d tweak lights but lighting rig model is $\"\".", cfg.name, cfg.directTweakLights.len() )
+
+		state.lightingRig = CreateClientSidePropDynamic( state.refPos, state.refAng, cfg.lightingRigModel )
+		foreach ( entity ambientTweakLight in cfg.ambientTweakLights )
+		{
+			if ( ambientTweakLight in fileLevel.ambientTweakLightUseStackCountMap )
+			{
+				fileLevel.ambientTweakLightUseStackCountMap[ambientTweakLight]++
+			}
+			else
+			{
+				fileLevel.ambientTweakLightUseStackCountMap[ambientTweakLight] <- 1
+				ambientTweakLight.SetTweakLightUpdateShadowsEveryFrame( true )
+			}
+		}
+
+
+
+
+
+
+
+
+
+
+
+
+
+	}
+
+
+	ItemFlavor currSubjectFlav
+	TypeConfig currTypeCfg
+	TypeConfig nextTypeCfg
+	bool wasShowing = true
+	while ( true )
+	{
+		bool didFlavChange = (cfg.subjectFlav != currSubjectFlav)
+		if ( didFlavChange )
+		{
+			DbgPrint( cfg.name, "Flav changed to %s (from %s)", DEV_DescItemFlavor( cfg.subjectFlav, true ), DEV_DescItemFlavor( currSubjectFlav, true ) )
+			currSubjectFlav = cfg.subjectFlav
+
+			nextTypeCfg = fileLevel.typeConfigMap[ItemFlavor_GetType( cfg.subjectFlav )]
+
+			if ( cfg.preferVideo && currTypeCfg.getVideoAsset != null )
+			{
+				asset videoAsset = currTypeCfg.getVideoAsset( cfg, state )
+				if ( videoAsset != $"" )
+				{
+					DbgPrint( cfg.name, "Switching to video: %s", string(videoAsset) )
+
+					nextTypeCfg = fileLevel.videoConfig
+					state.subjectVideoAsset = videoAsset
+					state.subjectVideoChannel = ReserveVideoChannel( void function( int channel ) : (cfg, handle) {
+						Signal( handle, "MenuSceneUpdateThread_Refresh", { visible = null, didVideoFinish = true } )
+					} )
+				}
+			}
+		}
+
+		bool didTypeChange = (nextTypeCfg != currTypeCfg)
+		if ( didTypeChange )
+		{
+			DbgPrint( cfg.name, "Type changed" )
+
+			CleanupMenuScene( handle, state, false )
+
+			currTypeCfg = nextTypeCfg
+
+			DbgPrint( cfg.name, "Making %d subject models", currTypeCfg.modelsRequired )
+			for ( int subjectModelIdx = 0; subjectModelIdx < currTypeCfg.modelsRequired; subjectModelIdx++ )
+			{
+				entity subjectModel = CreateClientSidePropDynamic( state.refPos, state.refAng, EMPTY_MODEL )
+				subjectModel.SetParent( state.subjectMover )
+				subjectModel.MakeSafeForUIScriptHack()
+				state.subjectModels.append( subjectModel )
+			}
+
+			if ( currTypeCfg.ruiRequired )
+			{
+				state.subjectRuiTopo = RuiTopology_CreatePlane( <0, 0, 0>, <0, 0, 0>, <0, 0, 0>, true )
+				state.subjectRui = RuiCreate( currTypeCfg.ruiAsset, state.subjectRuiTopo, RUI_DRAW_WORLD, 0 )
+				DbgPrint( cfg.name, "Making RUI: ", string(currTypeCfg.ruiAsset) )
+			}
+		}
+
+		state.subjectMover.SetOrigin( state.refPos + currTypeCfg.zOffset * AnglesToUp( state.refAng ) )
+		state.subjectMover.NonPhysicsStop()
+		if ( state.shouldShow && cfg.subjectRotateSpeed != null )
+			state.subjectMover.NonPhysicsRotate( <0, 0, 1>, expect float(cfg.subjectRotateSpeed) )
+
+		foreach ( entity subjectModel in state.subjectModels )
+		{
+			subjectModel.SetModelScale( cfg.scale * currTypeCfg.extraScale )
+			if ( didTypeChange )
+			{
+				vector subjectModelPosRelativeToMover = <0, 0, 0>
+				if ( currTypeCfg.placementAttachment != null )
+				{
+					int attachmentIdx = subjectModel.LookupAttachment( expect string(currTypeCfg.placementAttachment) )
+					if ( attachmentIdx > 0 )
+					{
+						vector attachmentWorldPos                  = subjectModel.GetAttachmentOrigin( attachmentIdx )
+						vector attachmentPosRelativeToSubjectModel = WorldPosToLocalPos( attachmentWorldPos, subjectModel )
+						subjectModelPosRelativeToMover = -attachmentPosRelativeToSubjectModel
+					}
+					else Warning( "[MenuScene %s] Could not find attachment '%s' on subject model '%s'.", cfg.name, expect string(currTypeCfg.placementAttachment), string(subjectModel.GetModelName()) )
+				}
+				subjectModel.SetLocalOrigin( subjectModelPosRelativeToMover )
+				subjectModel.SetLocalAngles( <0, 0, 0> )
+			}
+
+			if ( state.shouldShow )
+				ShowEntityAndChildren( subjectModel )
+		}
+
+		if ( didFlavChange || didTypeChange )
+		{
+			bool playEndCap = true
+			CleanupFXArray( state.fxHandles, false, playEndCap )
+		}
+
+		if ( state.subjectRui != null )
+		{
+			if ( state.shouldShow )
+			{
+				vector ruiWorldSize = <currTypeCfg.ruiSize.width, currTypeCfg.ruiSize.height, 0.0> * currTypeCfg.ruiPixelScale * cfg.scale
+				vector ruiPos       = state.refPos - 0.5 * ruiWorldSize.x * AnglesToRight( state.refAng ) + 0.5 * ruiWorldSize.y * AnglesToUp( state.refAng )
+				vector ruiRight     = ruiWorldSize.x * AnglesToRight( state.refAng )
+				vector ruiDown      = ruiWorldSize.y * -1.0 * AnglesToUp( state.refAng )
+				RuiTopology_UpdatePos( state.subjectRuiTopo, ruiPos, ruiRight, ruiDown )
+			}
+			else
+			{
+				RuiTopology_UpdatePos( state.subjectRuiTopo, <0, 0, 0>, <0, 0, 0>, <0, 0, 0> )
+			}
+		}
+
+		if ( currTypeCfg.updateFunc_Thread != null )
+		{
+			if ( didTypeChange )
+				thread RunUpdateFunc_Thread( currTypeCfg, handle, cfg, state )
+			else
+				Signal( handle, "MenuSceneUpdateThread_Refresh", { flavChanged = didFlavChange } )
+		}
+		else
+		{
+			currTypeCfg.updateFunc( cfg, state, didTypeChange, didFlavChange )
+		}
+
+		foreach ( entity subjectModel in state.subjectModels )
+		{
+			if ( !state.shouldShow )
+				HideEntityAndChildren( subjectModel )
+
+			if ( (didTypeChange || didFlavChange || (!wasShowing && state.shouldShow)) && cfg.subjectHighlightCfg != null )
+				HighlightSubject( expect MenuSceneHighlightConfig(cfg.subjectHighlightCfg), subjectModel )
+		}
+
+		bool updateTweakLightParams = true
+		UpdateTweakLights( cfg, state, false, updateTweakLightParams )
+
+		if ( !state.shouldShow )
+		{
+			bool destroyImmediately = true
+			CleanupFXArray( state.fxHandles, destroyImmediately, false )
+		}
+
+		table refreshRes = WaitSignal( handle, "MenuScene_Refresh" )
+		if ( refreshRes.visible != null )
+		{
+			wasShowing = state.shouldShow
+			state.shouldShow = expect bool(refreshRes.visible)
+		}
+		if ( "didVideoFinish" in refreshRes && refreshRes.didVideoFinish )
+		{
+			DbgPrint( cfg.name, "Video finished" )
+			nextTypeCfg = fileLevel.typeConfigMap[ItemFlavor_GetType( cfg.subjectFlav )]
+		}
+
+		
+
+		UpdateRefCoords( cfg, state, false )
+	}
+}
+
+
+
+
+void function CleanupMenuScene( MenuScene handle, MenuSceneState state, bool isFull )
+{
+	Signal( handle, "MenuSceneUpdateThread_Stop" )
+
+	DbgPrint( state.cfg.name, "Destroying %d subject models", state.subjectModels.len() )
+	foreach ( entity subjectModel in state.subjectModels )
+		subjectModel.Destroy()
+	state.subjectModels.clear()
+
+	bool destroyImmediately = true
+	CleanupFXArray( state.fxHandles, destroyImmediately, false )
+
+	if ( state.subjectRui != null )
+	{
+		RuiDestroyIfAlive( state.subjectRui )
+		DbgPrint( state.cfg.name, "Destroying RUI" )
+		state.subjectRui = null
+		RuiTopology_Destroy( state.subjectRuiTopo )
+		state.subjectRuiTopo = null
+	}
+
+	if ( state.subjectVideoAsset != $"" )
+	{
+		state.subjectVideoAsset = $""
+		ReleaseVideoChannel( state.subjectVideoChannel )
+		state.subjectVideoChannel = -1
+	}
+
+	if ( isFull )
+	{
+		foreach ( entity tweakLight in state.cfg.directTweakLights )
+		{
+			tweakLight.SetTweakLightRealtimeShadows( false )
+			tweakLight.SetTweakLightUpdateShadowsEveryFrame( false )
+			tweakLight.SetTweakLightDistance( 2.0 ) 
+
+
+
+		}
+
+		foreach ( entity ambientTweakLight in state.cfg.ambientTweakLights )
+		{
+			fileLevel.ambientTweakLightUseStackCountMap[ambientTweakLight]--
+			if ( fileLevel.ambientTweakLightUseStackCountMap[ambientTweakLight] == 0 )
+			{
+				delete fileLevel.ambientTweakLightUseStackCountMap[ambientTweakLight]
+				ambientTweakLight.SetTweakLightUpdateShadowsEveryFrame( false )
+			}
+		}
+	}
+}
+
+
+
+
+void function RunUpdateFunc_Thread( TypeConfig typeCfg, MenuScene handle, MenuSceneConfig cfg, MenuSceneState state )
+{
+	EndSignal( handle, "MenuSceneUpdateThread_Stop" )
+	typeCfg.updateFunc_Thread( cfg, state, bool function() : (handle) {
+		table waitRes = WaitSignal( handle, "MenuSceneUpdateThread_Refresh" )
+		return expect bool(waitRes.flavChanged)
+	} )
+	WaitForever()
+}
+
+
+
+
+TypeConfig function InitTypeConfig_Character()
+{
+	TypeConfig tc
+	tc.extraScale = 0.7
+	tc.zOffset = 0.7
+	tc.zoomDistMax = 64.0
+	tc.getZoomFocusPos = vector function( MenuSceneConfig cfg, MenuSceneState state ) {
+		return state.subjectModels[0].GetAttachmentOrigin( state.subjectModels[0].LookupAttachment( "HEADFOCUS" ) )
+	}
+	tc.updateFunc = void function( MenuSceneConfig cfg, MenuSceneState state, bool isFirst, bool flavChanged ) {
+		CharacterSkin_Apply( state.subjectModels[0], expect ItemFlavor(cfg.accompanyingSkinFlav) )
+	}
+	return tc
+}
+
+
+
+
+TypeConfig function InitTypeConfig_CharacterSkin()
+{
+	TypeConfig tc
+	tc.extraScale = 0.7
+	tc.zOffset = 4.0
+	tc.zoomDistMax = 64.0
+	tc.getZoomFocusPos = vector function( MenuSceneConfig cfg, MenuSceneState state ) {
+		return state.subjectModels[0].GetAttachmentOrigin( state.subjectModels[0].LookupAttachment( "HEADFOCUS" ) )
+	}
+	tc.updateFunc = void function( MenuSceneConfig cfg, MenuSceneState state, bool isFirst, bool flavChanged ) {
+		CharacterSkin_Apply( state.subjectModels[0], cfg.subjectFlav )
+		state.subjectModels[0].Anim_Play( "ACT_MP_MENU_LOOT_CEREMONY_IDLE" )
+	}
+	return tc
+}
+
+
+
+
+TypeConfig function InitTypeConfig_CharacterExecution()
+{
+	TypeConfig tc
+	tc.extraScale = 0.4
+	tc.zOffset = 12.0
+	tc.modelsRequired = 2
+	tc.zoomDistMax = 52.0
+	
+	tc.getZoomFocusPos = vector function( MenuSceneConfig cfg, MenuSceneState state ) {
+		entity attackerModel = state.subjectModels[0]
+		return attackerModel.GetAttachmentOrigin( attackerModel.LookupAttachment( "HEADFOCUS" ) )
+	}
+	tc.getVideoAsset = asset function( MenuSceneConfig cfg, MenuSceneState state )
+	{
+		return CharacterExecution_GetExecutionVideo( cfg.subjectFlav )
+	}
+	tc.updateFunc = void function( MenuSceneConfig cfg, MenuSceneState state, bool isFirst, bool flavChanged ) {
+		entity attackerModel = state.subjectModels[0]
+		entity victimModel   = state.subjectModels[1]
+
+		asset attackerAnimSeq = CharacterExecution_GetAttackerPreviewAnimSeq( cfg.subjectFlav )
+		asset victimAnimSeq   = CharacterExecution_GetVictimPreviewAnimSeq( cfg.subjectFlav )
+
+		if ( isFirst )
+			victimModel.SetModel( MDL_EXECUTION_VICTIM )
+
+		CharacterSkin_Apply( attackerModel, expect ItemFlavor(cfg.accompanyingSkinFlav) )
+
+		if ( flavChanged )
+		{
+			if ( attackerModel.Anim_HasSequence( attackerAnimSeq ) )
+			{
+				attackerModel.Anim_Play( attackerAnimSeq )
+			}
+			else Warning( "[MenuScene %s] Could not find execution anim on attacker: %s", cfg.name, string(attackerAnimSeq) )
+
+			if ( victimModel.Anim_HasSequence( victimAnimSeq ) )
+			{
+				victimModel.Anim_Play( victimAnimSeq )
+			}
+			else Warning( "[MenuScene %s] Could not find execution anim on victim: %s", cfg.name, string(victimAnimSeq) )
+		}
+	}
+	return tc
+}
+
+
+
+
+TypeConfig function InitTypeConfig_SkydiveEmote()
+{
+	TypeConfig tc
+	tc.extraScale = 1.0
+	tc.zOffset = 0.0
+	tc.updateFunc = void function( MenuSceneConfig cfg, MenuSceneState state, bool isFirst, bool flavChanged ) {
+		
+	}
+	return tc
+}
+
+
+
+
+TypeConfig function InitTypeConfig_SkydiveTrail()
+{
+	TypeConfig tc
+	tc.extraScale = 1.0
+	tc.zOffset = 0.0
+	tc.updateFunc = void function( MenuSceneConfig cfg, MenuSceneState state, bool isFirst, bool flavChanged ) {
+		
+	}
+	return tc
+}
+
+
+
+
+TypeConfig function InitTypeConfig_GladiatorCardFrameOrStance()
+{
+	TypeConfig tc
+	tc.zOffset = 2.0
+	tc.modelsRequired = 0
+	tc.ruiRequired = true
+	tc.ruiAsset = $"ui/loot_ceremony_glad_card.rpak"
+	tc.ruiSize.width = 528
+	tc.ruiSize.height = 912
+	tc.ruiPixelScale = 1.0 / 16.0
+	tc.updateFunc_Thread = void function( MenuSceneConfig cfg, MenuSceneState state, bool functionref() waitForRefreshFunc ) {
+		NestedGladiatorCardHandle gladCardHandle = CreateNestedGladiatorCard(
+			state.subjectRui, "card",
+			eGladCardDisplaySituation.MENU_LOOT_CEREMONY_ANIMATED, eGladCardPresentation.OFF )
+		ChangeNestedGladiatorCardOwner( gladCardHandle, LocalClientEHI() )
+		SetNestedGladiatorCardOverrideCharacter( gladCardHandle, cfg.associatedFlav )
+
+		if ( ItemFlavor_GetType( cfg.subjectFlav ) == eItemType.gladiator_card_frame )
+		{
+			ChangeNestedGladiatorCardPresentation( gladCardHandle, eGladCardPresentation.FRONT_FRAME_ONLY )
+			SetNestedGladiatorCardOverrideFrame( gladCardHandle, cfg.subjectFlav )
+		}
+		else if ( ItemFlavor_GetType( cfg.subjectFlav ) == eItemType.gladiator_card_stance )
+		{
+			ChangeNestedGladiatorCardPresentation( gladCardHandle, eGladCardPresentation.FRONT_STANCE_ONLY )
+			SetNestedGladiatorCardOverrideStance( gladCardHandle, cfg.subjectFlav )
+
+			ItemFlavor characterDefaultFrame = GetDefaultItemFlavorForLoadoutSlot( Loadout_GladiatorCardFrame( expect ItemFlavor(cfg.associatedFlav) ) )
+			SetNestedGladiatorCardOverrideFrame( gladCardHandle, characterDefaultFrame ) 
+		}
+
+		RuiSetBool( state.subjectRui, "firstTime", true )
+		RuiSetInt( state.subjectRui, "rarity", ItemFlavor_GetQuality( cfg.subjectFlav, eRarityTier.NONE ) )
+
+		OnThreadEnd( void function() : (gladCardHandle) {
+			CleanupNestedGladiatorCard( gladCardHandle )
+		} )
+	}
+	return tc
+}
+
+
+
+
+TypeConfig function InitTypeConfig_GladiatorCardIntroQuip()
+{
+	TypeConfig tc
+	tc.extraScale = 1.0 / 16.0
+	tc.zOffset = 24.0
+	tc.ruiRequired = true
+	tc.ruiAsset = $"ui/loot_reward_intro_quip.rpak"
+	tc.ruiSize.width = 390
+	tc.ruiSize.height = 208
+	tc.ruiPixelScale = 1.0 / 16.0
+	tc.updateFunc = void function( MenuSceneConfig cfg, MenuSceneState state, bool isFirst, bool flavChanged ) {
+		state.subjectModels[0].SetModel( MDL_QUIP_BACKING )
+
+		RuiSetBool( state.subjectRui, "isVisible", true )
+		RuiSetInt( state.subjectRui, "rarity", ItemFlavor_GetQuality( cfg.subjectFlav, eRarityTier.NONE ) )
+		RuiSetImage( state.subjectRui, "portraitImage", CharacterClass_GetGalleryPortrait( expect ItemFlavor(cfg.associatedFlav) ) )
+		RuiSetString( state.subjectRui, "quipTypeText", "#LOOT_QUIP_INTRO" )
+		RuiTrackFloat( state.subjectRui, "level", null, RUI_TRACK_SOUND_METER, 0 )
+	}
+	return tc
+}
+
+
+
+
+TypeConfig function InitTypeConfig_GladiatorCardKillQuip()
+{
+	TypeConfig tc
+	tc.extraScale = 1.0 / 16.0
+	tc.zOffset = 24.0
+	tc.ruiRequired = true
+	tc.ruiAsset = $"ui/loot_reward_kill_quip.rpak"
+	tc.ruiSize.width = 528
+	tc.ruiSize.height = 912
+	tc.ruiPixelScale = 1.0 / 16.0
+	tc.updateFunc = void function( MenuSceneConfig cfg, MenuSceneState state, bool isFirst, bool flavChanged ) {
+		state.subjectModels[0].SetModel( MDL_QUIP_BACKING )
+
+		RuiSetBool( state.subjectRui, "isVisible", true )
+		RuiSetInt( state.subjectRui, "rarity", ItemFlavor_GetQuality( cfg.subjectFlav, eRarityTier.NONE ) )
+		RuiSetImage( state.subjectRui, "portraitImage", CharacterClass_GetGalleryPortrait( expect ItemFlavor(cfg.associatedFlav) ) )
+		RuiSetString( state.subjectRui, "quipTypeText", "#LOOT_QUIP_KILL" )
+		RuiTrackFloat( state.subjectRui, "level", null, RUI_TRACK_SOUND_METER, 0 )
+	}
+	return tc
+}
+
+
+
+
+TypeConfig function InitTypeConfig_GladiatorCardStatTracker()
+{
+	TypeConfig tc
+	tc.extraScale = 1.0 / 24.0
+	tc.zOffset = 27.0
+	tc.ruiRequired = true
+	tc.ruiAsset = $"ui/loot_ceremony_stat_tracker.rpak"
+	tc.ruiSize.width = 594
+	tc.ruiSize.height = 230
+	tc.ruiPixelScale = 1.0 / 24.0
+	tc.updateFunc_Thread = void function( MenuSceneConfig cfg, MenuSceneState state, bool functionref() waitForRefreshFunc ) {
+		state.subjectModels[0].SetModel( MDL_TRACKER_BACKING )
+
+		RuiSetBool( state.subjectRui, "isVisible", true )
+		UpdateRuiWithStatTrackerData( state.subjectRui, "tracker", LocalClientEHI(), cfg.associatedFlav, -1, cfg.subjectFlav, null, true )
+		RuiSetColorAlpha( state.subjectRui, "trackerColor0", GladiatorCardStatTracker_GetColor0( cfg.subjectFlav ), 1.0 )
+	}
+	return tc
+}
+
+
+
+
+TypeConfig function InitTypeConfig_GladiatorCardBadge()
+{
+	TypeConfig tc
+	tc.extraScale = 0.06
+	tc.zOffset = 20.0
+	tc.updateFunc_Thread = void function( MenuSceneConfig cfg, MenuSceneState state, bool functionref() waitForRefreshFunc ) {
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+	}
+	return tc
+}
+
+
+
+
+TypeConfig function InitTypeConfig_MeleeSkin()
+{
+	TypeConfig tc
+	tc.extraScale = 1.0
+	tc.zOffset = 1.08
+	tc.zoomDistMax = 52.0
+	
+	tc.getZoomFocusPos = vector function( MenuSceneConfig cfg, MenuSceneState state ) {
+		return state.subjectModels[0].GetAttachmentOrigin( state.subjectModels[0].LookupAttachment( "MENU_ROTATE" ) )
+	}
+	tc.updateFunc = void function( MenuSceneConfig cfg, MenuSceneState state, bool isFirst, bool flavChanged ) {
+		
+	}
+	return tc
+}
+
+
+
+
+TypeConfig function InitTypeConfig_LootMainWeapon()
+{
+	TypeConfig tc
+	tc.extraScale = 1.0
+	tc.zOffset = 0.0
+	tc.placementAttachment = "MENU_ROTATE"
+	
+	tc.updateFunc = void function( MenuSceneConfig cfg, MenuSceneState state, bool isFirst, bool flavChanged ) {
+		ShowDefaultBodygroupsOnFakeWeapon( state.subjectModels[0], WeaponItemFlavor_GetClassname( cfg.subjectFlav ) )
+		WeaponCosmetics_Apply( state.subjectModels[0], cfg.accompanyingSkinFlav, cfg.accompanyingCharmFlav )
+	}
+	return tc
+}
+
+
+
+
+TypeConfig function InitTypeConfig_WeaponSkin()
+{
+	TypeConfig tc
+	tc.extraScale = 1.0
+	tc.zOffset = 28.0
+	tc.placementAttachment = "MENU_ROTATE"
+	tc.zoomDistMax = 52.0
+	
+	tc.getZoomFocusPos = vector function( MenuSceneConfig cfg, MenuSceneState state ) {
+		return state.subjectModels[0].GetAttachmentOrigin( state.subjectModels[0].LookupAttachment( "MENU_ROTATE" ) )
+	}
+	tc.updateFunc = void function( MenuSceneConfig cfg, MenuSceneState state, bool isFirst, bool flavChanged ) {
+		entity weaponEnt = state.subjectModels[0]
+
+		ShowDefaultBodygroupsOnFakeWeapon( weaponEnt, WeaponItemFlavor_GetClassname( expect ItemFlavor(cfg.associatedFlav) ) )
+		WeaponCosmetics_Apply( weaponEnt, cfg.subjectFlav, cfg.accompanyingCharmFlav )
+	}
+	return tc
+}
+
+
+
+
+TypeConfig function InitTypeConfig_WeaponCharm()
+{
+	TypeConfig tc
+	tc.extraScale = 1.0
+	tc.zOffset = 0.0
+	tc.placementAttachment = "CHARM"
+	tc.zoomDistMax = 30.0
+	
+	tc.getZoomFocusPos = vector function( MenuSceneConfig cfg, MenuSceneState state ) {
+		return GetCharmForWeaponEntity( state.subjectModels[0] ).GetWorldSpaceCenter()
+	}
+	tc.updateFunc = void function( MenuSceneConfig cfg, MenuSceneState state, bool isFirst, bool flavChanged ) {
+		entity weaponEnt = state.subjectModels[0]
+
+		ShowDefaultBodygroupsOnFakeWeapon( weaponEnt, WeaponItemFlavor_GetClassname( expect ItemFlavor(cfg.associatedFlav) ) )
+		WeaponCosmetics_Apply( weaponEnt, cfg.accompanyingSkinFlav, cfg.subjectFlav )
+
+		if ( cfg.accompanyingSkinFlav == null && GetSkinIndexByName_Safe( weaponEnt, "charm_preview_black" ) != -1 )
+			SetSkinByName_Safe( weaponEnt, "charm_preview_black" )
+
+		float WEAPON_CHARM_EXTRA_EXTRA_SCALE = 1.34
+
+		entity charmModel = GetCharmForWeaponEntity( weaponEnt )
+		if ( IsValid( charmModel ) )
+			charmModel.SetModelScale( weaponEnt.GetModelScale() * WEAPON_CHARM_EXTRA_EXTRA_SCALE )
+	}
+	return tc
+}
+
+
+
+
+TypeConfig function InitTypeConfig_MusicPack()
+{
+	TypeConfig tc
+	tc.extraScale = 1.0 / 16.0
+	tc.zOffset = 24.0
+	tc.ruiRequired = true
+	tc.ruiAsset = $"ui/loot_reward_intro_quip.rpak"
+	tc.ruiSize.width = 528
+	tc.ruiSize.height = 912
+	tc.ruiPixelScale = 1.0 / 16.0
+	tc.updateFunc = void function( MenuSceneConfig cfg, MenuSceneState state, bool isFirst, bool flavChanged ) {
+		state.subjectModels[0].SetModel( MDL_QUIP_BACKING )
+
+		RuiSetBool( state.subjectRui, "isVisible", true )
+		RuiSetInt( state.subjectRui, "rarity", ItemFlavor_GetQuality( cfg.subjectFlav, eRarityTier.NONE ) )
+		RuiSetImage( state.subjectRui, "portraitImage", MusicPack_GetPortraitImage( cfg.subjectFlav ) )
+		RuiSetFloat( state.subjectRui, "portraitBlend", MusicPack_GetPortraitBlend( cfg.subjectFlav ) )
+		RuiSetString( state.subjectRui, "quipTypeText", "#MUSIC_PACK" )
+		RuiTrackFloat( state.subjectRui, "level", null, RUI_TRACK_SOUND_METER, 0 )
+	}
+	return tc
+}
+
+
+
+
+TypeConfig function InitTypeConfig_Loadscreen()
+{
+	TypeConfig tc
+	tc.extraScale = 1.0
+	tc.zOffset = 30.0
+	tc.updateFunc = void function( MenuSceneConfig cfg, MenuSceneState state, bool isFirst, bool flavChanged ) {
+		
+	}
+	return tc
+}
+
+
+
+
+TypeConfig function InitTypeConfig_AccountCurrency()
+{
+	TypeConfig tc
+	tc.extraScale = 1.0
+	tc.zOffset = 26.0
+	tc.zoomDistMax = 38.0
+	
+	tc.updateFunc = void function( MenuSceneConfig cfg, MenuSceneState state, bool isFirst, bool flavChanged ) {
+		
+	}
+	return tc
+}
+
+
+
+
+TypeConfig function InitTypeConfig_AccountCurrencyBundle()
+{
+	TypeConfig tc
+	tc.extraScale = 1.0
+	tc.zOffset = 26.0
+	tc.zoomDistMax = 38.0
+	
+	tc.updateFunc = void function( MenuSceneConfig cfg, MenuSceneState state, bool isFirst, bool flavChanged ) {
+		
+	}
+	return tc
+}
+
+
+
+
+TypeConfig function InitTypeConfig_AccountPack()
+{
+	TypeConfig tc
+	tc.extraScale = 0.6
+	tc.zOffset = 15.0
+	tc.updateFunc = void function( MenuSceneConfig cfg, MenuSceneState state, bool isFirst, bool flavChanged ) {
+		entity subjectMdl = state.subjectModels[0]
+		subjectMdl.SetModel( GRXPack_GetTickModel( cfg.subjectFlav ) )
+		SetSkinByName_Safe( subjectMdl, GRXPack_GetTickModelSkin( cfg.subjectFlav ) )
+	}
+	return tc
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+TypeConfig function InitTypeConfig_BinkVideo()
+{
+	TypeConfig tc
+	tc.ruiRequired = true
+	tc.ruiAsset = $"ui/finisher_video.rpak"
+	tc.ruiSize.width = 1920
+	tc.ruiSize.height = 1080
+	tc.ruiPixelScale = 1.0 / 16.0
+	tc.updateFunc = void function( MenuSceneConfig cfg, MenuSceneState state, bool isFirst, bool flavChanged ) {
+		RuiSetInt( state.subjectRui, "channel", state.subjectVideoChannel )
+		if ( isFirst )
+		{
+			bool isLooping = !cfg.switchAfterVideo
+			StartVideoOnChannel( state.subjectVideoChannel, state.subjectVideoAsset, isLooping, 0.0 )
+		}
+	}
+	return tc
+}
+
+
+
+
+void function UpdateRefCoords( MenuSceneConfig cfg, MenuSceneState state, bool isFirstTime )
+{
+	state.refPos = <0, 0, 0>
+	state.refAng = <0, 0, 0>
+	if ( cfg.refPos != null )
+	{
+		if ( isFirstTime && IsValid( cfg.refEnt ) )
+			Warning( "[MenuScene %s] Both refPos (%s) and refEnt (%s) are specified. Ignoring refEnt.", cfg.name, string(cfg.refPos), string(expect entity(cfg.refEnt).GetOrigin()) )
+		if ( isFirstTime && cfg.refAng == null )
+			Warning( "[MenuScene %s] refPos was specified without refAng -- using 0,0,0 as angle which probably isn't what you want.", cfg.name, string(cfg.refPos), string(expect entity(cfg.refEnt).GetOrigin()) )
+		state.refPos = expect vector(cfg.refPos)
+	}
+	else if ( IsValid( cfg.refEnt ) )
+	{
+		state.refPos = expect entity(cfg.refEnt).GetOrigin()
+		state.refAng = expect entity(cfg.refEnt).GetAngles()
+	}
+	else if ( isFirstTime )
+	{
+		Warning( "[MenuScene %s] refEnt is invalid (and refPos was not specified) -- not sure where to put menu scene.", cfg.name )
+	}
+
+	if ( cfg.refAng != null )
+		state.refAng = expect vector(cfg.refAng)
+
+	DbgPrint( cfg.name, "UpdateRefCoords: refEnt = %s, refPos = %s, refAng = %s", string(cfg.refEnt), string(cfg.refPos), string(cfg.refAng) )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function HighlightSubject( MenuSceneHighlightConfig cfg, entity subject )
+{
+	int contextId = HighlightContext_GetId( "menu_scene" )
+	HighlightContext_SetRadius( contextId, cfg.radius )
+	HighlightContext_SetParam( contextId, 0, cfg.color )
+	HighlightContext_SetParam( contextId, 1, <cfg.intensityScalar, 1, 0> )
+
+	foreach ( entity ent in GetEntityAndImmediateChildren( subject ) )
+	{
+		ent.Highlight_ResetFlags()
+		ent.Highlight_SetVisibilityType( HIGHLIGHT_VIS_ALWAYS )
+		ent.Highlight_SetCurrentContext( contextId )
+		ent.Highlight_SetFadeInTime( cfg.fadeInTime )
+		ent.Highlight_SetFadeOutTime( cfg.fadeOutTime )
+		ent.Highlight_StartOn()
+
+		ent.Highlight_SetLifeTime( cfg.lifeTime )
+	}
+}
+
+
+
+
+void function UpdateTweakLights( MenuSceneConfig cfg, MenuSceneState state, bool doCoords, bool doParams )
+{
+	foreach ( int lightIdx, entity tweakLight in cfg.directTweakLights )
+	{
+		if ( lightIdx >= cfg.lightingRigLightAttachmentNames.len() || lightIdx > cfg.directLightConfigs.len() )
+			continue
+
+		if ( doCoords )
+		{
+			string attachmentName = cfg.lightingRigLightAttachmentNames[lightIdx]
+			int attachmentIdx     = state.lightingRig.LookupAttachment( attachmentName )
+			vector lightOrigin    = state.lightingRig.GetAttachmentOrigin( attachmentIdx )
+			vector lightAngles    = state.lightingRig.GetAttachmentAngles( attachmentIdx )
+			tweakLight.SetTweakLightOrigin( lightOrigin )
+			tweakLight.SetTweakLightAngles( lightAngles )
+		}
+
+		if ( doParams )
+		{
+			MenuSceneTweakLightConfig lightCfg = cfg.directLightConfigs[lightIdx]
+			tweakLight.SetTweakLightColor( lightCfg.col )
+			tweakLight.SetTweakLightBrightness( lightCfg.brightness )
+			tweakLight.SetTweakLightSpecIntensity( lightCfg.specularIntensity )
+			tweakLight.SetTweakLightDistance( lightCfg.distance )
+			tweakLight.SetTweakLightInnerCone( lightCfg.innerCone )
+			tweakLight.SetTweakLightCone( lightCfg.outerCone )
+			tweakLight.SetTweakLightHalfBrightFrac( lightCfg.halfBrightFrac )
+			tweakLight.SetTweakLightPBRFalloff( lightCfg.pbrFalloff )
+			tweakLight.SetTweakLightRealtimeShadows( lightCfg.castsShadows )
+			tweakLight.SetTweakLightUpdateShadowsEveryFrame( lightCfg.castsShadows )
+			
+		}
+	}
+}
+
+
+
+
+
+[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/vouchers.gnut.client
+[dump] scripts/vscripts/vouchers.gnut.client (8123 bytes)
+
+
+global function Vouchers_LevelInit
+global function Voucher_GetEffectBattlepassLevels
+global function Voucher_GetEffectBattlepassStars
+global function Voucher_GetEffectNPPLevels
+global function Voucher_GetEffectNPPCards
+global function Voucher_GetEffectAccountXP
+global function Voucher_GetEffectStatRef
+global function Voucher_GetEffectStatAmount
+global function Voucher_GetModel
+global function Voucher_GetVoucherActiveCount
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global enum eVoucherBehavior
+{
+	IMMEDIATE
+	GRX_STACKABLE
+	STACKABLE_SCRIPT_DRIVEN
+	GRX_CONSUMABLE_INSTANT
+}
+
+
+
+
+global enum eVoucherOverTimeExpiryBehavior
+{
+	DURATION
+	MATCHES_PLAYED
+	SCRIPT_CONTROLLED
+}
+
+
+
+
+
+
+
+
+
+
+
+struct FileStruct_LifetimeLevel
+{
+	table<asset, int functionref( entity player )> voucherFlavGetActiveQuantityFuncMap
+}
+
+
+FileStruct_LifetimeLevel fileLevel 
+
+
+
+
+
+
+
+
+const string ACCOLADE_VOUCHER_XP_OVERRIDE_POST_FIX_STRING = "_xp_override"
+
+
+
+
+
+
+
+
+void function Vouchers_LevelInit()
+{
+
+
+
+
+
+	InitScriptDrivenVoucherCallbacks()
+
+	AddCallback_RegisterRootItemFlavors( void function() {
+		foreach ( asset voucherAsset in GetBaseItemFlavorsFromArray( "vouchers" ) )
+		{
+			ItemFlavor ornull flav = RegisterItemFlavorFromSettingsAsset( voucherAsset )
+			if ( flav == null )
+				continue
+
+
+
+
+
+
+
+
+		}
+	})
+
+
+
+
+
+
+
+
+}
+
+
+
+
+void function InitScriptDrivenVoucherCallbacks()
+{
+	
+	
+	
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ItemFlavor ornull function Voucher_GetCalEventFlav( ItemFlavor flav )
+{
+	Assert( ItemFlavor_GetType( flav ) == eItemType.voucher )
+
+	asset calEventAsset = WORKAROUND_AssetAppend( GetGlobalSettingsAsset( ItemFlavor_GetAsset( flav ), "calEventFlav" ), ".rpak" )
+	if ( IsValidItemFlavorSettingsAsset( calEventAsset ) )
+		return GetItemFlavorByAsset( calEventAsset )
+	return null
+}
+
+
+
+
+int function Voucher_GetBehavior( ItemFlavor flav )
+{
+	Assert( ItemFlavor_GetType( flav ) == eItemType.voucher )
+
+	return eVoucherBehavior[GetGlobalSettingsString( ItemFlavor_GetAsset( flav ), "behavior" )]
+}
+
+
+
+
+string ornull function Voucher_GetPDefVarNameToIncrement( ItemFlavor flav )
+{
+	Assert( ItemFlavor_GetType( flav ) == eItemType.voucher )
+
+	string val = GetGlobalSettingsString( ItemFlavor_GetAsset( flav ), "effectPersistenceName" )
+	return val == "" ? null : val
+}
+
+
+
+
+int function Voucher_GetPDefVarNameToIncrementAmount( ItemFlavor flav )
+{
+	Assert( ItemFlavor_GetType( flav ) == eItemType.voucher )
+	Assert( Voucher_GetPDefVarNameToIncrement( flav ) != null )
+
+	return GetGlobalSettingsInt( ItemFlavor_GetAsset( flav ), "effectPersistenceAmount" )
+}
+
+
+
+
+string ornull function Voucher_GetConsumableUseCountPDefVarName( ItemFlavor flav )
+{
+	Assert( ItemFlavor_GetType( flav ) == eItemType.voucher )
+
+	string val = GetGlobalSettingsString( ItemFlavor_GetAsset( flav ), "consumableUseCountPDefVarName" )
+	return val == "" ? null : val
+}
+
+
+
+
+bool function Voucher_GetShouldShowToPlayer( ItemFlavor flav )
+{
+	Assert( ItemFlavor_GetType( flav ) == eItemType.voucher )
+
+	return GetGlobalSettingsBool( ItemFlavor_GetAsset( flav ), "shouldShowToPlayer" )
+}
+
+
+
+
+bool function Voucher_GetShouldAllowPlayerToActivate( ItemFlavor flav )
+{
+	Assert( ItemFlavor_GetType( flav ) == eItemType.voucher )
+
+	return GetGlobalSettingsBool( ItemFlavor_GetAsset( flav ), "shouldAllowPlayerToActivate" )
+}
+
+
+
+
+int function Voucher_GetOverTimeExpiryBehavior( ItemFlavor flav )
+{
+	Assert( ItemFlavor_GetType( flav ) == eItemType.voucher )
+
+	return eVoucherOverTimeExpiryBehavior[GetGlobalSettingsString( ItemFlavor_GetAsset( flav ), "overTimeExpiryBehavior" )]
+}
+
+
+
+
+float function Voucher_GetOverTimeExpiryDurationHours( ItemFlavor flav )
+{
+	Assert( ItemFlavor_GetType( flav ) == eItemType.voucher )
+
+	return GetGlobalSettingsFloat( ItemFlavor_GetAsset( flav ), "overTimeExpiryDurationHours" )
+}
+
+
+
+
+int function Voucher_GetOverTimeExpiryMatchCount( ItemFlavor flav )
+{
+	Assert( ItemFlavor_GetType( flav ) == eItemType.voucher )
+
+	return GetGlobalSettingsInt( ItemFlavor_GetAsset( flav ), "overTimeExpiryMatchCount" )
+}
+
+
+
+
+string function Voucher_GetOverTimeExpiryDescLocKey( ItemFlavor flav )
+{
+	Assert( ItemFlavor_GetType( flav ) == eItemType.voucher )
+
+	return GetGlobalSettingsString( ItemFlavor_GetAsset( flav ), "overTimeExpiryDescLocKey" )
+}
+
+
+
+
+int function Voucher_GetEffectBattlepassLevels( ItemFlavor flav )
+{
+	Assert( ItemFlavor_GetType( flav ) == eItemType.voucher )
+
+	return GetGlobalSettingsInt( ItemFlavor_GetAsset( flav ), "effectBattlepassLevels" )
+}
+
+
+
+int function Voucher_GetEffectBattlepassStars( ItemFlavor flav )
+{
+	Assert( ItemFlavor_GetType( flav ) == eItemType.voucher )
+
+	return GetGlobalSettingsInt( ItemFlavor_GetAsset( flav ), "effectBattlepassStars" )
+}
+
+
+
+int function Voucher_GetEffectNPPLevels( ItemFlavor flav )
+{
+	Assert( ItemFlavor_GetType( flav ) == eItemType.voucher )
+
+	return GetGlobalSettingsInt( ItemFlavor_GetAsset( flav ), "effectNPPLevels" )
+}
+
+
+
+int function Voucher_GetEffectNPPCards( ItemFlavor flav )
+{
+	Assert( ItemFlavor_GetType( flav ) == eItemType.voucher )
+
+	return GetGlobalSettingsInt( ItemFlavor_GetAsset( flav ), "effectNPPCards" )
+}
+
+
+
+int function Voucher_GetEffectPlayerPassLevels( ItemFlavor flav )
+{
+	Assert( ItemFlavor_GetType( flav ) == eItemType.voucher )
+
+	return GetGlobalSettingsInt( ItemFlavor_GetAsset( flav ), "effectPlayerPassLevels" )
+}
+
+
+
+int function Voucher_GetEffectPlayerPassXP( ItemFlavor flav )
+{
+	Assert( ItemFlavor_GetType( flav ) == eItemType.voucher )
+
+	return GetGlobalSettingsInt( ItemFlavor_GetAsset( flav ), "effectPlayerPassXP" )
+}
+
+
+
+int function Voucher_GetEffectAccountXP( ItemFlavor flav )
+{
+	Assert( ItemFlavor_GetType( flav ) == eItemType.voucher )
+
+	return GetGlobalSettingsInt( ItemFlavor_GetAsset( flav ), "effectAccountXP" )
+}
+
+
+
+string ornull function Voucher_GetEffectStatRef( ItemFlavor flav )
+{
+	Assert( ItemFlavor_GetType( flav ) == eItemType.voucher )
+
+	string val = GetGlobalSettingsString( ItemFlavor_GetAsset( flav ), "effectStatRef" )
+	return val == "" ? null : val
+}
+
+
+
+
+int function Voucher_GetEffectStatAmount( ItemFlavor flav )
+{
+	Assert( ItemFlavor_GetType( flav ) == eItemType.voucher )
+	Assert( Voucher_GetEffectStatRef( flav ) != null )
+
+	return GetGlobalSettingsInt( ItemFlavor_GetAsset( flav ), "effectStatAmount" )
+}
+
+
+
+
+asset function Voucher_GetModel( ItemFlavor flav )
+{
+	Assert( ItemFlavor_GetType( flav ) == eItemType.voucher )
+
+	return GetGlobalSettingsAsset( ItemFlavor_GetAsset( flav ), "model" )
+}
+
+
+
+
+int function Voucher_GetVoucherActiveCount( entity player, ItemFlavor voucherFlav )
+{
+	switch ( Voucher_GetBehavior( voucherFlav ) )
+	{
+		case eVoucherBehavior.IMMEDIATE:
+			return 0
+
+		case eVoucherBehavior.STACKABLE_SCRIPT_DRIVEN:
+			if ( !(ItemFlavor_GetAsset( voucherFlav ) in fileLevel.voucherFlavGetActiveQuantityFuncMap) )
+			{
+				Assert( false, format( "Voucher %s registered with type eVoucherBehavior.STACKABLE_SCRIPT_DRIVEN but doesn't have a voucherFlavGetActiveQuantityFuncMap", string(ItemFlavor_GetAsset( voucherFlav )) ) )
+				return 0
+			}
+
+			return fileLevel.voucherFlavGetActiveQuantityFuncMap[ItemFlavor_GetAsset( voucherFlav )]( player )
+
+		case eVoucherBehavior.GRX_STACKABLE:
+
+
+
+			return GRX_GetConsumableCount( ItemFlavor_GetGRXIndex( voucherFlav ) )
+
+
+		case eVoucherBehavior.GRX_CONSUMABLE_INSTANT:
+
+
+
+			return GRX_GetConsumableCount( ItemFlavor_GetGRXIndex( voucherFlav ) )
+
+	}
+	Assert( false )
+	return 0
+}
+
+
+
+
+int function GetVoucherRedeemedCount( entity player, ItemFlavor voucherFlav )
+{
+	switch ( Voucher_GetBehavior( voucherFlav ) )
+	{
+		case eVoucherBehavior.IMMEDIATE:
+		case eVoucherBehavior.STACKABLE_SCRIPT_DRIVEN:
+		case eVoucherBehavior.GRX_STACKABLE:
+			return 0 
+
+		case eVoucherBehavior.GRX_CONSUMABLE_INSTANT:
+			string ornull pDefVarName = Voucher_GetConsumableUseCountPDefVarName( voucherFlav )
+			Assert( pDefVarName != null )
+
+			expect string( pDefVarName )
+			return player.GetPersistentVarAsInt( pDefVarName )
+	}
+	Assert( false )
+	return 0
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[LoadScriptFile] self 0x7f

@@ -1,0 +1,1404 @@
+
+
+
+
+global function DigitalGarments_Init
+global function DigitalGarments_IsEnabled
+
+global function Loadout_DigitalGarment
+global function Loadout_DigitalGarmentTier
+
+global function DigitalGarments_GetGarmentTier
+global function DigitalGarments_GetTierData
+global function DigitalGarments_IsTheEmpty
+global function DigitalGarments_IsTiered
+global function DigitalGarments_GetSortOrdinal
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global function DigitalGarments_StopGameplay
+global function DigitalGarments_StopMenu
+global function ServerToClient_DigitalGarments_TriggerGameplayStateChange
+global function ServerToClient_DigitalGarments_RefreshMenuModel
+global function OnNetVarChanged_DigitalGarmentStatus
+
+global function DigitalGarments_StartWithLoadout
+global function DigitalGarments_StartMenuGarmentWithFlav
+global function DigitalGarments_StartMenuGarmentWithFullOverride
+
+
+
+global function DigitalGarments_SetLoadout
+
+
+#if DEV
+
+
+
+
+
+global const int DIGITAL_GARMENTS_RESET = -1
+#endif
+
+
+
+
+
+global const string DIGITAL_GARMENTS_NETVAR = "digital_garment_status"
+global const string DIGITAL_GARMENTS_THREAD_KILL = "DigitalGarment_DestroyProp"
+global const string DIGITAL_GARMENTS_SIGNAL_EXECUTION_PARENTED = "DigitalGarment_Signal_ExecutionParented"
+global const string DIGITAL_GARMENTS_RPC_TRIGGER_GAMEPLAY_STATE = "ServerToClient_DigitalGarments_TriggerGameplayStateChange"
+global const string DIGITAL_GARMENTS_RPC_TRIGGER_STOP = "DigitalGarments_StopGameplay"
+global const string DIGITAL_GARMENT_MENU_THREAD_SIGNAL = "GarmentMenuModelThread"
+
+
+
+global enum eDigitalGarmentTier
+{
+	ROOKIE,
+	BRONZE,
+	SILVER,
+	GOLD,
+	PLATINUM,
+	DIAMOND,
+	MASTER,
+	APEX_PREDATOR,
+	_COUNT,
+}
+
+global enum eDigitalGarmentContext
+{
+	
+	OFF_IMMEDIATELY_CLEANUP = -11,
+	OFF = -10,
+	EXECUTION = -9,
+	REVIVE = -8,
+
+	
+	INGAME = 0,
+	MENU = 1,
+	SKYDIVE = 2,
+	EMOTE = 3,
+}
+
+global struct DigitalGarmentTierData
+{
+	asset fx = $""
+	string attachName = ""
+	vector offset = < 0, 0, 0 >
+	string startupSFX = ""
+
+	bool useEmoteOverride = false
+	asset emoteFX = $""
+	vector emoteOffset = < 0, 0, 0 >,
+
+	bool useMenuOverride = false
+	asset menuFX = $""
+	vector menuOffset = < 0, 0, 0 >,
+
+	bool useSkydiveOverride = false
+	asset skydiveFX = $""
+	vector skydiveOffset = < 0, 0, 0 >,
+}
+
+
+global struct DigitalGarmentEntities
+{
+	entity   prop
+	FXHandle fx
+	int      context
+}
+
+
+global const int DIGITAL_GARMENT_RANKED_GUID = 172981169 
+
+struct FileStruct_LifetimeLevel
+{
+	LoadoutEntry& loadoutDigitalGarment
+	LoadoutEntry& loadoutDigitalGarmentTier
+
+	table< ItemFlavor, int > digitalGarmentSortOrdinalMap
+	table< SettingsAssetGUID, table< int, DigitalGarmentTierData > > guidToGarmentDataMap
+
+
+
+
+
+
+
+
+
+
+		table< entity, DigitalGarmentEntities > hostToFXEntitiesMap
+		table< EHI, int > cachedNetVarByEHI
+
+}
+
+FileStruct_LifetimeLevel& fileLevel
+
+void function DigitalGarments_Init()
+{
+	FileStruct_LifetimeLevel newFileLevel
+	fileLevel = newFileLevel
+
+	AddCallback_RegisterRootItemFlavors( RegisterDigitalGarments )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+		AddCallback_OnVictoryCharacterModelSpawned( OnPodiumCharacterModelSpawned )
+		AddCallback_OnIntroPodiumCharacterModelSpawned( OnPodiumCharacterModelSpawned )
+		RegisterSignal( DIGITAL_GARMENT_MENU_THREAD_SIGNAL )
+
+
+
+		RegisterSignal( DIGITAL_GARMENTS_THREAD_KILL )
+		RegisterSignal( DIGITAL_GARMENTS_SIGNAL_EXECUTION_PARENTED )
+
+		RegisterNetworkedVariable( DIGITAL_GARMENTS_NETVAR, SNDC_PLAYER_GLOBAL, SNVT_INT, eDigitalGarmentContext.OFF )
+
+
+			RegisterNetVarIntChangeCallback( DIGITAL_GARMENTS_NETVAR, OnNetVarChanged_DigitalGarmentStatus )
+
+
+		Remote_RegisterClientFunction( DIGITAL_GARMENTS_RPC_TRIGGER_GAMEPLAY_STATE, "entity", "bool" )
+		Remote_RegisterClientFunction( DIGITAL_GARMENTS_RPC_TRIGGER_STOP, "entity", "bool", "bool" )
+		Remote_RegisterClientFunction( "ServerToClient_DigitalGarments_RefreshMenuModel" )
+
+}
+
+
+bool function DigitalGarments_IsEnabled()
+{
+	return GetConVarBool( "mtx_digital_garments_enabled" )
+}
+
+int function DigitalGarments_GetSortOrdinal( ItemFlavor flav )
+{
+	Assert( ItemFlavor_GetType( flav ) == eItemType.digital_garment )
+	return fileLevel.digitalGarmentSortOrdinalMap[ flav ]
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function RegisterDigitalGarments()
+{
+	array< ItemFlavor > allGarments
+	foreach ( asset garmentAsset in GetBaseItemFlavorsFromArray( "digitalGarments" ) )
+	{
+		ItemFlavor ornull flav = RegisterItemFlavorFromSettingsAsset( garmentAsset )
+		if ( flav == null )
+		{
+			continue
+		}
+
+		expect ItemFlavor( flav )
+		SetupDigitalGarment( flav )
+		allGarments.append( flav )
+	}
+
+	if ( allGarments.len() == 0 )
+	{
+#if DEV
+			printt( FUNC_NAME() + ": No digital garments were registered, no loadout slots will be registered." )
+#endif
+
+		return
+	}
+
+
+
+
+
+
+
+
+	MakeItemFlavorSet( allGarments, fileLevel.digitalGarmentSortOrdinalMap, false ) 
+
+	LoadoutEntry entry = RegisterLoadoutSlot( eLoadoutEntryType.ITEM_FLAVOR, "digital_garment", eLoadoutEntryClass.ACCOUNT )
+	entry.category = eLoadoutCategory.DIGITAL_GARMENTS
+	entry.defaultItemFlavor   		= allGarments[0]
+	entry.validItemFlavorList 		= allGarments
+	entry.isSlotLocked        		= bool function( EHI playerEHI ) { return !IsLobby() }
+	entry.networkTo           		= eLoadoutNetworking.PLAYER_GLOBAL
+	entry.networkVarName 	  		= "DigitalGarment"
+	entry.stryderCharDataArrayIndex = ePlayerStryderCharDataArraySlots.DIGITAL_GARMENT
+
+#if DEV
+		entry.DEV_name = "DigitalGarment"
+#endif
+
+	fileLevel.loadoutDigitalGarment = entry
+
+	LoadoutEntry tierEntry = RegisterLoadoutSlot( eLoadoutEntryType.INTEGER, "tier_for_digital_garment", eLoadoutEntryClass.ACCOUNT )
+	tierEntry.category = eLoadoutCategory.DIGITAL_GARMENT_TIER
+	tierEntry.networkVarName = "DigitalGarmentTier"
+	tierEntry.networkTo = eLoadoutNetworking.PLAYER_GLOBAL
+	tierEntry.associatedCharacterOrNull = null
+	tierEntry.stryderCharDataArrayIndex = ePlayerStryderCharDataArraySlots.DIGITAL_GARMENT_TIER
+
+#if DEV
+		tierEntry.DEV_name = "DigitalGarmentTier"
+#endif
+
+	fileLevel.loadoutDigitalGarmentTier = tierEntry
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+}
+
+void function SetupDigitalGarment( ItemFlavor garmentFlav )
+{
+	SettingsAssetGUID guid = ItemFlavor_GetGUID( garmentFlav )
+	Assert( !( guid in fileLevel.guidToGarmentDataMap ), format( "%s has already been set up as a digital garment; don't do this twice." ) )
+
+	if ( DigitalGarments_IsTheEmpty( garmentFlav ) )
+	{
+		return
+	}
+
+	asset garmentAsset = ItemFlavor_GetAsset( garmentFlav )
+
+	fileLevel.guidToGarmentDataMap[ guid ] <- {}
+
+	if ( DigitalGarments_IsTiered( garmentFlav ) )
+	{
+		foreach( var tierBlock in IterateSettingsAssetArray( garmentAsset, "tiers" ) )
+		{
+			string tierString = GetSettingsBlockString( tierBlock, "tier" )
+			Assert( tierString in eDigitalGarmentTier, format( "Digital garment %s has invalid tier kind: %s", ItemFlavor_GetAssetString( garmentFlav ), tierString ) )
+			int tier = eDigitalGarmentTier[ tierString ]
+
+			DigitalGarmentTierData data
+			data.fx = GetSettingsBlockStringAsAsset( tierBlock, "fxAsset" )
+			data.attachName = GetSettingsBlockString( tierBlock, "attachName" )
+			data.offset = GetSettingsBlockVector( tierBlock, "offset" )
+			data.startupSFX = GetSettingsBlockString( tierBlock, "startupSFX" )
+
+
+
+
+
+			if ( GetSettingsBlockBool( tierBlock, "useSkydiveOverride" ) )
+			{
+				data.useSkydiveOverride = true
+				data.skydiveFX = GetSettingsBlockStringAsAsset( tierBlock, "fxAssetSkydive" )
+				data.skydiveOffset = GetSettingsBlockVector( tierBlock, "offsetSkydive" )
+
+
+
+
+			}
+
+			if ( GetSettingsBlockBool( tierBlock, "useMenuOverride" ) )
+			{
+				data.useMenuOverride = true
+				data.menuFX = GetSettingsBlockStringAsAsset( tierBlock, "fxAssetMenu" )
+				data.menuOffset = GetSettingsBlockVector( tierBlock, "offsetMenu" )
+
+
+
+
+			}
+
+			if ( GetSettingsBlockBool( tierBlock, "useEmoteOverride" ) )
+			{
+				data.useEmoteOverride = true
+				data.emoteFX = GetSettingsBlockStringAsAsset( tierBlock, "fxAssetEmote" )
+				data.emoteOffset = GetSettingsBlockVector( tierBlock, "offsetEmote" )
+
+
+
+
+			}
+
+			fileLevel.guidToGarmentDataMap[ guid ][ tier ] <- data
+		}
+	}
+	
+}
+
+DigitalGarmentTierData function DigitalGarments_GetTierData( SettingsAssetGUID guid, int tier )
+{
+	if ( !DigitalGarments_IsEnabled() )
+	{
+		Assert( false, "Cannot fetch digital garment tier data while feature is turned off - check convar: mtx_digital_garments_disabled" )
+	}
+
+	if ( !DigitalGarments_IsTiered( GetItemFlavorByGUID( guid ) ) )
+	{
+		Assert( false, "NYI - no support for non-tiered garments yet!" )
+	}
+
+	
+	int fallbackTier = tier
+	if ( !IsValidEnumValue( "eDigitalGarmentTier", fallbackTier ) )
+	{
+		fallbackTier = eDigitalGarmentTier.ROOKIE
+	}
+
+	if ( !( fallbackTier in fileLevel.guidToGarmentDataMap[ guid ] ) )
+	{
+		Assert( false, format( "Digital garment with id %d did not have registered data for tier %d", guid, fallbackTier ) )
+
+		
+		int firstAvailableTier = 0
+		foreach ( int dataTier, DigitalGarmentTierData data in fileLevel.guidToGarmentDataMap[ guid ] )
+		{
+			firstAvailableTier = dataTier
+			break
+		}
+		return fileLevel.guidToGarmentDataMap[ guid ][ firstAvailableTier ]
+	}
+
+	return fileLevel.guidToGarmentDataMap[ guid ][ fallbackTier ]
+}
+
+LoadoutEntry function Loadout_DigitalGarment()
+{
+	return fileLevel.loadoutDigitalGarment
+}
+
+LoadoutEntry function Loadout_DigitalGarmentTier()
+{
+	return fileLevel.loadoutDigitalGarmentTier
+}
+
+bool function DigitalGarments_IsTheEmpty( ItemFlavor flav )
+{
+	Assert( ItemFlavor_GetType( flav ) == eItemType.digital_garment )
+	return GetGlobalSettingsBool( ItemFlavor_GetAsset( flav ), "isTheEmpty" )
+}
+
+bool function DigitalGarments_IsTiered( ItemFlavor flav )
+{
+	Assert( ItemFlavor_GetType( flav ) == eItemType.digital_garment )
+	return GetGlobalSettingsBool( ItemFlavor_GetAsset( flav ), "usesTiers" )
+}
+
+
+void function DigitalGarments_SetLoadout( ItemFlavor digitalGarmentFlav )
+{
+	if ( !DigitalGarments_IsEnabled() )
+	{
+		return
+	}
+
+	Assert( ItemFlavor_GetType( digitalGarmentFlav ) == eItemType.digital_garment )
+
+	RequestSetItemFlavorLoadoutSlot( LocalClientEHI(), Loadout_DigitalGarment(), digitalGarmentFlav )
+}
+
+
+
+bool function UpdateCachedNetVarByEHI( EHI playerEHI, int nextValue )
+{
+	if ( !( playerEHI in fileLevel.cachedNetVarByEHI ) )
+	{
+		fileLevel.cachedNetVarByEHI[ playerEHI ] <- nextValue
+		return true
+	}
+	else if ( fileLevel.cachedNetVarByEHI[ playerEHI ] != nextValue )
+	{
+		fileLevel.cachedNetVarByEHI[ playerEHI ] <- nextValue
+		return true
+	}
+	else
+	{
+		return false
+	}
+
+	unreachable
+}
+
+void function ServerToClient_DigitalGarments_TriggerGameplayStateChange( entity host, bool playSound )
+{
+	if ( !DigitalGarments_IsEnabled() )
+	{
+		return
+	}
+
+	if ( !IsValidPlayer( host ) )
+	{
+		return
+	}
+
+	DigitalGarments_StartWithLoadout( host, ToEHI( host ), eDigitalGarmentContext.INGAME, playSound )
+}
+
+void function ServerToClient_DigitalGarments_RefreshMenuModel()
+{
+	if ( !DigitalGarments_IsEnabled() || !IsLobby() )
+		return
+
+	thread RefreshMenuModelThread()
+}
+
+void function RefreshMenuModelThread()
+{
+	Signal( GetLocalClientPlayer(), DIGITAL_GARMENT_MENU_THREAD_SIGNAL )
+	EndSignal( GetLocalClientPlayer(), DIGITAL_GARMENT_MENU_THREAD_SIGNAL )
+	while ( !GRX_IsInventoryReady( GetLocalClientPlayer() ) )
+		wait 1.0
+	UpdateMenuCharacterModel( GetLocalClientPlayer() )
+}
+
+void function OnNetVarChanged_DigitalGarmentStatus( entity player, int nextValue )
+{
+	if ( !DigitalGarments_IsEnabled() )
+	{
+		return
+	}
+
+	if ( !IsValidPlayer( player ) )
+	{
+		return
+	}
+
+	EHI playerEHI = ToEHI( player )
+	if ( !UpdateCachedNetVarByEHI( playerEHI, nextValue ) )
+	{
+		return
+	}
+
+	if ( nextValue == eDigitalGarmentContext.OFF )
+	{
+		DigitalGarments_StopGameplay( player, false, true )
+	}
+	else if ( nextValue == eDigitalGarmentContext.OFF_IMMEDIATELY_CLEANUP )
+	{
+		DigitalGarments_StopGameplay( player, true, true )
+	}
+	else if ( nextValue == eDigitalGarmentContext.REVIVE )
+	{
+		
+		
+
+		
+		if ( PlayerHasPassive( player, ePassives.PAS_MIRAGE ) )
+		{
+			return
+		}
+
+		
+		entity patient = player.GetParent()
+		if ( !IsValidPlayer( patient ) )
+		{
+			return
+		}
+
+		
+		if ( GetLocalViewPlayer() == player || GetLocalViewPlayer() == patient || GetLocalViewPlayer().IsObserver() )
+		{
+			DigitalGarments_StartWithLoadout( player, playerEHI, eDigitalGarmentContext.INGAME, false )
+		}
+	}
+	else if ( nextValue == eDigitalGarmentContext.EXECUTION )
+	{
+		
+		
+		return
+	}
+	else if ( nextValue == eDigitalGarmentContext.EMOTE )
+	{
+		
+		DigitalGarments_StartWithLoadout( player, playerEHI, eDigitalGarmentContext.EMOTE, true )
+
+		
+		if ( PlayerHasPassive( player, ePassives.PAS_MIRAGE ) )
+		{
+			foreach ( entity decoy in GetPlayerDecoyArray() )
+			{
+				if ( decoy.GetOwner() == player && decoy.GetScriptName() == CONTROLLED_DECOY_SCRIPTNAME )
+				{
+					
+					DigitalGarments_StartWithLoadout( decoy, playerEHI, eDigitalGarmentContext.EMOTE, false )
+				}
+			}
+		}
+	}
+	else if ( nextValue == eDigitalGarmentContext.SKYDIVE )
+	{
+		
+		DigitalGarments_StartWithLoadout( player, playerEHI, eDigitalGarmentContext.SKYDIVE, false )
+	}
+	else
+	{
+		Assert( false, "Unhandled context: " + nextValue )
+	}
+}
+
+void function DigitalGarments_StartWithLoadout( entity host, EHI loadoutEHI, int context, bool playSound )
+{
+	if ( !DigitalGarments_IsEnabled() )
+	{
+		return
+	}
+
+	if ( !IsValidEnumValue( "eDigitalGarmentContext", context ) )
+	{
+		Assert( false, format( "Invalid context: %d", context ) )
+		return
+	}
+
+	
+	DigitalGarments_StopMenu( host )
+	thread StartGarmentThread_Internal( host, true, loadoutEHI, null, null, context, playSound )
+}
+
+void function DigitalGarments_StartMenuGarmentWithFlav( entity host, ItemFlavor garment, int context )
+{
+	StartMenuGarmentThread_Internal( host, garment, null, context )
+}
+
+void function DigitalGarments_StartMenuGarmentWithFullOverride( entity host, ItemFlavor garment, int tier, int context )
+{
+	StartMenuGarmentThread_Internal( host, garment, tier, context )
+}
+
+void function StartMenuGarmentThread_Internal( entity host, ItemFlavor garment, int ornull tierOrNull, int context )
+{
+	if ( !DigitalGarments_IsEnabled() )
+	{
+		return
+	}
+
+	if ( !IsValidEnumValue( "eDigitalGarmentContext", context ) )
+	{
+		Assert( false, format( "Invalid context: %d", context ) )
+		return
+	}
+
+	if ( ItemFlavor_GetType( garment ) != eItemType.digital_garment )
+	{
+		Assert ( false, format( "Cannot use a non-garment flav: %s", ItemFlavor_GetAssetString( garment ) ) )
+		return
+	}
+
+	
+	if ( DigitalGarments_IsTheEmpty( garment ) )
+	{
+		DigitalGarments_StopMenu( host )
+		return
+	}
+
+	int tier
+	if ( tierOrNull != null )
+	{
+		expect int( tierOrNull )
+		if ( !IsValidEnumValue( "eDigitalGarmentTier", tierOrNull ) )
+		{
+			
+			
+			Assert( false, format( "Invalid tier requested; only the empty flav may have a non-valid tier: %d", tierOrNull ) )
+			tier = eDigitalGarmentTier.ROOKIE
+		}
+		else
+		{
+			tier = tierOrNull
+		}
+	}
+	else
+	{
+		
+		
+		tier = GRX_GetItemTier( ItemFlavor_GetGRXIndex( garment ) )
+		if ( tier == -1 )
+		{
+			tier = eDigitalGarmentTier.ROOKIE
+		}
+	}
+
+	
+	DigitalGarments_StopMenu( host )
+	thread StartGarmentThread_Internal( host, false, EHI_null, garment, tier, context, false )
+}
+
+void function StartGarmentThread_Internal( entity host, bool useLoadout, EHI loadoutEHI, ItemFlavor ornull garment, int ornull tier, int context, bool playSound )
+{
+	EndSignal( host, "OnDestroy" )
+
+	DigitalGarmentTierData data
+	if ( useLoadout )
+	{
+		ItemFlavor loadoutGarmentFlav = LoadoutSlot_WaitForItemFlavor( loadoutEHI, Loadout_DigitalGarment() )
+		if ( DigitalGarments_IsTheEmpty( loadoutGarmentFlav ) )
+		{
+			return
+		}
+
+		int grxTier = DigitalGarments_GetGarmentTier( loadoutEHI, loadoutGarmentFlav )
+		data = DigitalGarments_GetTierData( ItemFlavor_GetGUID( loadoutGarmentFlav ), grxTier )
+	}
+	else
+	{
+		if ( DigitalGarments_IsTheEmpty( expect ItemFlavor( garment ) ) )
+		{
+			return
+		}
+
+		data = DigitalGarments_GetTierData( ItemFlavor_GetGUID( expect ItemFlavor( garment ) ), expect int( tier ) )
+	}
+
+	asset targetAsset = $""
+	vector targetOffset = ZERO_VECTOR
+
+	switch ( context )
+	{
+		case eDigitalGarmentContext.INGAME:
+			targetAsset = data.fx
+			targetOffset = data.offset
+			break
+
+		case eDigitalGarmentContext.EMOTE:
+			targetAsset = data.useEmoteOverride ? data.emoteFX : data.fx
+			targetOffset = data.useEmoteOverride ? data.emoteOffset : data.offset
+			break
+
+		case eDigitalGarmentContext.MENU:
+			targetAsset = data.useMenuOverride ? data.menuFX : data.fx
+			targetOffset = data.useMenuOverride ? data.menuOffset : data.offset
+			break
+
+		case eDigitalGarmentContext.SKYDIVE:
+			targetAsset = data.useSkydiveOverride ? data.skydiveFX : data.fx
+			targetOffset = data.useSkydiveOverride ? data.skydiveOffset : data.offset
+			break
+
+		default:
+			Assert( false, "Unmapped context: " + context )
+			return
+	}
+
+	entity prop = CreatePropDynamic( EMPTY_MODEL, host.GetOrigin(), host.GetAngles() )
+	prop.MakeSafeForUIScriptHack()
+
+	prop.SetParent( host, data.attachName )
+	prop.SetLocalOrigin( targetOffset )
+	prop.SetLocalAngles( < 0, 0, 0 > )
+
+	int attachID = host.LookupAttachment( data.attachName )
+	if ( attachID == 0 )
+	{
+		Assert( false, format( "Attach point %s was not valid on host: LookupAttachment() returned 0", data.attachName ) )
+		return
+	}
+
+	
+	FXHandle fx = StartEntityFXWithHandle( prop, targetAsset, FX_PATTACH_POINT_FOLLOW, prop.LookupAttachment( "ORIGIN" ) )
+	if ( playSound && data.startupSFX != "" )
+	{
+		EmitSoundOnEntity( prop, data.startupSFX )
+	}
+
+	DigitalGarmentEntities fxEnts
+	fxEnts.fx = fx
+	fxEnts.prop = prop
+	fxEnts.context = context
+	fileLevel.hostToFXEntitiesMap[ host ] <- fxEnts
+
+	OnThreadEnd( function() : ( host, context ) {
+		if ( IsGameplayContext( context ) )
+		{
+			DigitalGarments_StopGameplay( host, true, true )
+		}
+		else
+		{
+			DigitalGarments_StopMenu( host )
+		}
+	} )
+
+	WaitForever()
+}
+
+void function DigitalGarments_StopMenu( entity host )
+{
+	StopGarments_Internal( host, false, false )
+}
+
+void function DigitalGarments_StopGameplay( entity host, bool immediatelyOff, bool cleanupClones )
+{
+	StopGarments_Internal( host, immediatelyOff, cleanupClones )
+}
+
+void function StopGarments_Internal( entity host, bool immediatelyOff, bool cleanupClones )
+{
+	if ( !DigitalGarments_IsEnabled() )
+	{
+		return
+	}
+
+	CleanupDigitalGarment( host, immediatelyOff )
+
+	if ( cleanupClones )
+	{
+		if ( !IsValidPlayer( host ) )
+		{
+			return
+		}
+
+		bool isDecoy = ( host.GetScriptName() == DECOY_SCRIPTNAME || host.GetScriptName() == CONTROLLED_DECOY_SCRIPTNAME )
+		if ( IsLobby() || isDecoy || !PlayerHasPassive( host, ePassives.PAS_MIRAGE ) )
+		{
+			return
+		}
+
+		foreach ( entity decoy in GetPlayerDecoyArray() )
+		{
+			if ( decoy.GetOwner() == host )
+			{
+				CleanupDigitalGarment( decoy, immediatelyOff )
+			}
+		}
+	}
+}
+
+void function CleanupDigitalGarment( entity host, bool doImmediateCleanup )
+{
+	if ( !( host in fileLevel.hostToFXEntitiesMap ) )
+	{
+		return
+	}
+
+	DigitalGarmentEntities data = fileLevel.hostToFXEntitiesMap[ host ]
+	if ( IsValid( data.prop ) )
+	{
+		
+		if ( doImmediateCleanup )
+		{
+			CleanupFXHandle( data.fx, true, false )
+		}
+
+		
+		
+		else if ( IsGameplayContext( data.context ) )
+		{
+			if ( host == GetLocalViewPlayer() )
+			{
+				
+				CleanupFXHandle( data.fx, true, false )
+			}
+			else
+			{
+				
+				CleanupFXHandle( data.fx, false, true )
+			}
+		}
+
+		
+		else
+		{
+			
+			CleanupFXHandle( data.fx, true, false )
+		}
+
+		data.prop.Destroy()
+		delete fileLevel.hostToFXEntitiesMap[ host ]
+	}
+}
+
+bool function IsGameplayContext( int context )
+{
+	if ( !IsValidEnumValue( "eDigitalGarmentContext", context ) )
+	{
+		Assert( false, format( "Invalid context: %d", context ) )
+		return false
+	}
+
+	switch ( context )
+	{
+		case eDigitalGarmentContext.REVIVE:
+		case eDigitalGarmentContext.SKYDIVE:
+		case eDigitalGarmentContext.EMOTE:
+		case eDigitalGarmentContext.INGAME:
+		case eDigitalGarmentContext.EXECUTION:
+			return true
+
+		case eDigitalGarmentContext.MENU:
+		case eDigitalGarmentContext.OFF:
+		default:
+			return false
+	}
+
+	unreachable
+}
+
+void function OnPodiumCharacterModelSpawned( entity model, ItemFlavor characterFlav, int playerEHI )
+{
+	if ( !DigitalGarments_IsEnabled() )
+	{
+		return
+	}
+
+	DigitalGarments_StartWithLoadout( model, playerEHI, eDigitalGarmentContext.MENU, false )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+int function DigitalGarments_GetRankedTier( entity player )
+{
+	if ( !DigitalGarments_IsEnabled() )
+	{
+		return 0
+	}
+
+	
+	
+	
+
+	ItemFlavor ornull currentRankedPeriod = Ranked_GetCurrentActiveRankedPeriod()
+	if ( currentRankedPeriod == null )
+	{
+		Warning( "No currently active ranked period; ranked digital garment will default to ROOKIE tier." )
+		return 0
+	}
+
+	
+	
+
+	expect ItemFlavor( currentRankedPeriod )
+	ItemFlavor previousRankedPeriod = expect ItemFlavor( GetPrecedingRankedPeriod( currentRankedPeriod ) )
+	string previousRankedPeriodGUID = ItemFlavor_GetGUIDString( previousRankedPeriod )
+	string currentRankedPeriodGUID = ItemFlavor_GetGUIDString( currentRankedPeriod )
+
+	int currentScore = GetPlayerRankScore( player )
+	int previousScore = Ranked_GetHistoricalRankScore( player, previousRankedPeriodGUID, false )
+
+	
+	bool checkPrevious = !Ranked_PlayedGamesInPeriod( player, currentRankedPeriodGUID ) && currentScore == SHARED_RANKED_ROOKIE_FLOOR_VALUE
+
+	SharedRankedDivisionData data
+	if ( checkPrevious )
+	{
+		data = GetCurrentRankedDivisionFromScore( previousScore )
+	}
+	else
+	{
+		int ladderPosition = Ranked_GetLadderPosition( player )
+		data = GetCurrentRankedDivisionFromScoreAndLadderPosition( currentScore, ladderPosition )
+	}
+
+	
+	return data.tier.index
+}
+
+int function DigitalGarments_GetGarmentTier( EHI playerEHI, ItemFlavor garment )
+{
+	if ( !DigitalGarments_IsEnabled() )
+	{
+		return 0
+	}
+
+	if ( !DigitalGarments_IsTiered( garment ) )
+	{
+		return 0
+	}
+
+	
+	int loadoutTier = LoadoutSlot_GetInteger( playerEHI, Loadout_DigitalGarmentTier() )
+	if ( !IsLobby() )
+	{
+		return loadoutTier
+	}
+
+	
+	int grxTier = -1
+	int grxMode = ItemFlavor_GetGRXMode( garment )
+
+	if ( grxMode == eItemFlavorGRXMode.REGULAR )
+	{
+		
+		if ( GRX_IsInventoryReady( FromEHI( playerEHI ) ) )
+		{
+			if ( GRX_IsItemOwnedByPlayer( garment, FromEHI( playerEHI ) ) )
+			{
+
+
+
+					grxTier = GRX_GetItemTier( ItemFlavor_GetGRXIndex( garment ) )
+
+			}
+		}
+
+		
+		else
+		{
+			return maxint( loadoutTier, 0 )
+		}
+	}
+
+	
+	
+
+	
+	if ( grxTier == -1 )
+	{
+		return 0
+	}
+
+	return grxTier
+}
+
+#if DEV
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#endif

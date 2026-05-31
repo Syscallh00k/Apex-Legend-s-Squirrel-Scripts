@@ -1,0 +1,2864 @@
+global function EvoXP_Init
+global function EvoXp_LobbyInit
+global function EvoXP_InitTuningValues
+
+global function EvoXp_IsEnabled
+
+global function EvoXp_GetXP
+
+
+	global function EvoXP_IsSharingEvoAtMaxLevel
+
+
+
+global function EvoXP_RegisterXpSystem
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global function EvoXp_SetProgressionLocked
+global function EvoXp_ProgressionLocked_ForPlayer_Set
+global function EvoXp_IsProgressionLocked_ForPlayer
+
+global function EvoXp_UsePersonalObituaryNotifications
+global function EvoXp_GetEvoXPEventOffActionID
+
+global function EvoXp_IsPlayerAtMaxXP
+
+global function EvoXP_GetShieldRestoredOnPickup
+
+
+
+
+
+global function ServerToClient_EvoXp_XPAwarded
+global function ServerCallback_Play1P_EvoGain_VFX
+
+
+
+
+
+
+global enum eUpgradeXPActions
+{
+	INVALID = -1,
+	RESPAWN,
+	REVIVE,
+	KNOCK,
+	ASSIST,
+	SQUADWIPE,
+	LOOTBIN,
+	BEACONSCAN,
+	RINGSCAN,
+	PERKBIN,
+	CRATEREVEAL,
+	XPSTATION,
+	EXPLORATION,
+	RINGCLOSE,
+	WILDLIFE,
+	BANNERPICKUP,
+	FINISHER,
+	CRATELOOT,
+	VAULT,
+	BOUNTY,
+	DAMAGE,
+	EXPLOSIVEHOLD,
+	FLYERKILL,
+	XPCACHE,
+	XPCACHE_SMALL,
+	XPCACHE_LARGE,
+	XPCACHE_DYNAMIC,
+
+	XPCACHE_TINY,
+
+	CACHESHARE,
+	SHARED_CACHE,
+	BLOODHOUNDTRIALS,
+	MODESTARTXP,
+	HUNTSUCCESS,
+	HUNTSURVIVED,
+	UNDERDOGBONUS,
+	ARMORY,
+	MINGUARANTEEDLOOT_RESPAWN,
+	RESPAWN_TOKEN_PRESERVED,
+	HOPUP_ULT_ACCEL,
+	SET_EVO_LEVEL,
+
+	FREESPAWNS_NO_DEATH_FEAT,
+
+
+
+
+
+	MYTHIC_BIN_LOOTED,
+
+
+
+
+
+
+
+
+
+
+
+	MAXLEVEL_SHARED,
+	BECOME_KILL_LEADER,
+	KILLED_KILL_LEADER,
+	OTHER_SQUAD_ELIM,
+	ZIPLINE_RIDER,
+
+		COLLECTED_ENDORSEMENT,
+
+	
+
+	EVENT_MELEE_HEIRLOOM_BAT_01,
+	EVENT_MELEE_HEIRLOOM_BAT_02,
+	EVENT_MELEE_HEIRLOOM_BAT_03,
+
+
+	EVENT_MYTHIC_WEAPON_S26_01,
+	EVENT_MYTHIC_WEAPON_S26_02,
+	EVENT_MYTHIC_WEAPON_S26_03,
+
+
+
+
+
+
+	
+	REVENGE_KILL,
+	NEMESIS_KILL,
+	COMEBACK_KILL,
+	FIRST_STRIKE_KILL,
+	IN_AIR_KNOCK,
+	ON_ZIPLINE_KNOCK,
+	KNOCK_ENEMY_IN_AIR,
+	KNOCK_ENEMY_ON_ZIPLINE,
+
+
+	INHERITED_EVO_FROM_PREVIOUS_OWNER,
+
+
+	HOVERBOARD_TRICK_COMBO_1,
+	HOVERBOARD_TRICK_COMBO_2,
+	HOVERBOARD_TRICK_COMBO_3,
+	HOVERBOARD_TRICK_COMBO_4,
+	HOVERBOARD_RAM_KNOCK,
+
+
+
+
+	DEV_TESTING, 
+	COUNT
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global enum eXpSystemType
+{
+	NONE,
+	LEVEL_BASED,
+	CUSTOM,
+	COUNT
+}
+
+global struct XpSystem
+{
+	int systemType = eXpSystemType.NONE
+
+
+
+
+
+
+	bool functionref( entity ) IsPlayerAtMaxXpCallback
+}
+
+
+global struct EvoXPEvent
+{
+	string xpEvent 				= "EVENT_NAME_MISSING"
+	string locString 			= "LOC_STRING_MISSING"
+	bool isDelayed 				= false
+	bool isDynamicXP 			= false
+	int baseXP 					= 0
+	bool baseIsTeamXP 			= false
+	string scoreEvent			= ""
+	bool notifyPlayerWithPrompt = false
+	bool isSharerMessage 		= false
+#if DEV
+	bool updatedFromDT 			= false
+#endif
+}
+
+struct
+{
+
+	table< entity, bool > playerProgressionBlockStatus
+	bool progressionLocked = false
+
+	XpSystem& xp
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	table < int, int > xpActionIDToAmountAwardedDuringDelayedMsgInterval
+
+
+	table< int, EvoXPEvent> xpEventDT
+} file
+
+struct Tuning
+{
+	
+	bool isEnabled = false
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+		bool overflowEvoXPToTeammatesWhenMaxLevel = false
+
+
+
+	int largeXpThreshold = 250
+	bool  usePersonalObitNotifications = true
+
+		float xpCacheTinyScoreDelay = 1.0
+		int    healthOnOrbPickupAmnt = 10
+		int    shieldOnOrbPickupAmnt = 10
+
+
+}
+Tuning tunings
+
+
+
+global const string FUNCNAME_ServerToClient_UpgradeCore_Play1pEvoGainVfx = "ServerCallback_Play1P_EvoGain_VFX"
+const string FUNCNAME_ServerToClient_EvoXp_XPAwarded = "ServerToClient_EvoXp_XPAwarded"
+
+
+
+
+
+const FX_EVO_GAIN_FEEDBACK_1P = $"P_Lgnd_Upgrade_xp"
+const vector EVO_VFX_COLOR = <255, 195, 0>
+
+
+
+global const string EVO_XP_NETINT = "evo_xp"
+
+
+
+
+	const float WAIT_BEFORE_NEXT_ORB_SPAWN = 0.05
+	global const string EVO_CACHE_TINY_INFO_TARGET_NAME = "evo_consolidate_parent"
+#if DEV
+		const int EVO_ORB_SMALL_SPAWN_TEST_LIMIT = 50
+		const int EVO_ORB_MEDIUM_SPAWN_TEST_LIMIT = 75
+		const int EVO_ORB_LARGE_SPAWN_TEST_LIMIT = 100
+		const int EVO_ORB_XLARGE_SPAWN_TEST_LIMIT = 125
+		const int EVO_ORB_MAX_SPAWN_TEST_LIMIT = 250
+		const vector DEV_EVO_ORB_SPAWN_AT_CROSSHAIR_OFFSET = <0,0,30>
+#endif
+
+
+const float GRANTXP_MIN_AIR_HEIGHT_FOR_ACTION = 300.0
+
+
+const table<string, asset> EVOXP_DATATABLE = {
+	
+	[ "DEFAULT" ] = $"datatable/evo_xp.rpak",
+
+
+	[ "UNHINGED" ] = $"datatable/evo_xp_unhinged.rpak",
+
+}
+
+const bool EVO_XP_DEBUG = false
+
+void function EvoXP_Init()
+{
+	EvoXP_InitTuningValues()
+
+	if( !EvoXp_IsEnabled() )
+		return
+
+	EvoXP_NetvarsInit()
+
+
+	Remote_RegisterClientFunction( FUNCNAME_ServerToClient_UpgradeCore_Play1pEvoGainVfx, "entity" )
+	Remote_RegisterClientFunction( FUNCNAME_ServerToClient_EvoXp_XPAwarded, "int", -1, eUpgradeXPActions.COUNT, "int", -1, INT_MAX, "bool" )
+
+	PrecacheParticleSystem( FX_EVO_GAIN_FEEDBACK_1P )
+	EvoXP_RegisterEvoXPDatatable()
+	SetUpScoreEvents()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+}
+
+void function EvoXP_InitTuningValues()
+{
+
+		RunUIScript( "EvoXP_InitTuningValues" )
+
+
+	
+	Tuning defaultTunings
+
+	tunings.isEnabled = GetCurrentPlaylistVarBool( "evo_xp_enabled", true )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+		tunings.overflowEvoXPToTeammatesWhenMaxLevel = GetCurrentPlaylistVarBool( "passive_upgrade_core_share_evo_at_max_level", defaultTunings.overflowEvoXPToTeammatesWhenMaxLevel )
+
+
+
+	tunings.largeXpThreshold = GetCurrentPlaylistVarInt( "passive_upgrade_core_xp_notification_thresholds", defaultTunings.largeXpThreshold )
+	tunings.usePersonalObitNotifications = EvoXp_IsEnabled() && GetCurrentPlaylistVarBool( "passive_upgrade_use_personal_obituary_notifications", defaultTunings.usePersonalObitNotifications )
+
+		tunings.healthOnOrbPickupAmnt = GetCurrentPlaylistVarInt( "passive_upgrade_core_xpcache_health_on_orb_pickup_amt", defaultTunings.healthOnOrbPickupAmnt )
+		tunings.shieldOnOrbPickupAmnt = GetCurrentPlaylistVarInt( "passive_upgrade_core_xpcache_shield_on_orb_pickup_amt", defaultTunings.shieldOnOrbPickupAmnt )
+
+
+
+}
+
+void function EvoXP_NetvarsInit()
+{
+	RegisterNetworkedVariable( EVO_XP_NETINT, SNDC_PLAYER_GLOBAL, SNVT_BIG_INT , 0.0 )
+}
+
+void function EvoXp_LobbyInit()
+{
+	EvoXP_NetvarsInit()
+	EvoXP_InitTuningValues()
+}
+
+bool function EvoXp_IsEnabled()
+{
+	return LegendUpgrades_IsEnabled()
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function SetUpScoreEvents()
+{
+	if( !EvoXp_UsePersonalObituaryNotifications() )
+		return
+
+	ScoreEvent downedEvent = GetScoreEvent( "Sur_DownedPilot" )
+	ScoreEvent_SetSplashText( downedEvent, "#SCORE_EVENT_SUR_DOWNED_PILOT_HUD_WITH_XP" )
+
+	ScoreEvent eliminateEvent = GetScoreEvent( "EliminatePilot" )
+	ScoreEvent_SetSplashText( eliminateEvent, "#SCORE_EVENT_SUR_ELIMINATE_PILOT_WITH_ICON" )
+
+	ScoreEvent eliminateAssistEvent = GetScoreEvent( "EliminatePilotAssist" )
+	ScoreEvent_SetSplashText( eliminateAssistEvent, "#SCORE_EVENT_SUR_ELIMINATE_PILOT_ASSIST_WITH_ICON" )
+
+	EvoXPEvent squadWipeEventData = EvoXp_GetEvoXPEventOffActionID( eUpgradeXPActions.SQUADWIPE )
+	ScoreEvent squadWipe = GetScoreEvent( "Sur_SquadWipe" )
+	ScoreEvent_SetXpValue( squadWipe, squadWipeEventData.baseXP, squadWipeEventData.baseIsTeamXP )
+
+
+		ScoreEvent_SetMessagingDelay( GetScoreEvent( "Evo_Cache_Tiny" ), tunings.xpCacheTinyScoreDelay )
+
+}
+
+
+#if INTELLIJ_OUTLINE_SECTION_MARKER
+void function _____________XP_DataTables___________________________(){}
+#endif
+
+
+void function EvoXP_RegisterEvoXPDatatable()
+{
+	for ( int i = 0; i < eUpgradeXPActions.COUNT; i++ )
+	{
+		EvoXPEvent evoXpEvent
+		file.xpEventDT[i] <- evoXpEvent
+	}
+
+	asset dataTableAsset = EVOXP_DATATABLE["DEFAULT"]
+	array< EvoXPEvent > evoXpDataTable = ReadEvoXPDataTable( dataTableAsset )
+	foreach ( EvoXPEvent evoXpEvent in evoXpDataTable)
+	{
+		if ( evoXpEvent.xpEvent in eUpgradeXPActions )
+		{
+			file.xpEventDT[ eUpgradeXPActions[evoXpEvent.xpEvent] ] <- evoXpEvent
+#if EVO_XP_DEBUG
+				evoXpEvent.updatedFromDT = true
+#endif
+		}
+		else
+		{
+			Warning( "EvoXP_RegisterEvoXPDatatable: DataTable contains a value that is not in eUpgradeXPActions" )
+		}
+	}
+
+	
+	string evoXpDataTableOverrideID = PVAR_GetEvoXPDataTableID()
+	if( evoXpDataTableOverrideID != "" )
+	{
+		if ( HasEvoXPTableDefined( evoXpDataTableOverrideID ) )
+		{
+			dataTableAsset = GetEvoXPDataTable_Asset( evoXpDataTableOverrideID )
+		}
+		else
+		{
+			Assert( false,evoXpDataTableOverrideID + " evo xp datatable override is not defined. Failed to initialize custom xp table. Please add your custom key and data table asset to EVOXP_DATATABLE." )
+		}
+	}
+
+	array< EvoXPEvent > overrideXpTable = ReadEvoXPDataTable( dataTableAsset )
+
+	foreach ( EvoXPEvent evoXpEvent in overrideXpTable )
+	{
+		if ( evoXpEvent.xpEvent in eUpgradeXPActions )
+		{
+			file.xpEventDT[ eUpgradeXPActions[evoXpEvent.xpEvent] ] = evoXpEvent
+#if EVO_XP_DEBUG
+				evoXpEvent.updatedFromDT = true
+#endif
+		}
+		else
+		{
+			Warning( "EvoXP_RegisterEvoXPDatatable: Override DataTable contains a value that is not in eUpgradeXPActions" )
+		}
+	}
+
+	EvoXP_OverrideEvoActionXP()
+
+#if EVO_XP_DEBUG
+		foreach ( key, evoXpEvent in file.xpEventDT )
+		{
+			if ( evoXpEvent.updatedFromDT == false )
+			{
+				printt( "EvoXP_RegisterEvoXPDatatable(): eUpgradeXPActions." + GetEnumString( "eUpgradeXPActions", key ) + " was not updated from the dataTable, using default struct values."  )
+			}
+		}
+#endif
+}
+
+array< EvoXPEvent > function ReadEvoXPDataTable( asset dataTableAsset )
+{
+	var dataTable = GetDataTable( dataTableAsset )
+	int numRows   = GetDataTableRowCount( dataTable )
+
+	int featureFlagColumn   	= GetDataTableColumnByName( dataTable, "featureFlag" )
+	int xpEventColumn   		= GetDataTableColumnByName( dataTable, "xpEvent" )
+	int locStringColumn   		= GetDataTableColumnByName( dataTable, "locString" )
+	int isDelayedColumn   		= GetDataTableColumnByName( dataTable, "isDelayed" )
+	int dynamicXpColumn   		= GetDataTableColumnByName( dataTable, "dynamicXP" )
+	int baseXpColumn   			= GetDataTableColumnByName( dataTable, "baseXP" )
+	int baseIsTeamXpColumn		= GetDataTableColumnByName( dataTable, "baseIsTeamXP" )
+	int scoreEventColumn		= GetDataTableColumnByName( dataTable, "scoreEvent" )
+	int notifyWithPrompt		= GetDataTableColumnByName( dataTable, "notifyPlayerWithPrompt" )
+	int isSharerMessage			= GetDataTableColumnByName( dataTable, "isSharerMessage" )
+
+	array< EvoXPEvent > result
+	for ( int i = 0; i < numRows; i++ )
+	{
+		EvoXPEvent evoXpEvent
+
+		evoXpEvent.xpEvent 						= GetDataTableString( dataTable, i, xpEventColumn )
+		evoXpEvent.locString 					= GetDataTableString( dataTable, i, locStringColumn )
+		evoXpEvent.isDelayed 					= GetDataTableBool( dataTable, i, isDelayedColumn )
+		evoXpEvent.isDynamicXP 					= GetDataTableBool( dataTable, i, dynamicXpColumn )
+		evoXpEvent.baseXP 						= GetDataTableInt( dataTable, i, baseXpColumn )
+		evoXpEvent.baseIsTeamXP 				= GetDataTableBool( dataTable, i, baseIsTeamXpColumn )
+		evoXpEvent.scoreEvent 					= GetDataTableString( dataTable, i, scoreEventColumn )
+		evoXpEvent.notifyPlayerWithPrompt	 	= GetDataTableBool( dataTable, i, notifyWithPrompt )
+		evoXpEvent.isSharerMessage	 			= GetDataTableBool( dataTable, i, isSharerMessage )
+
+		Assert( evoXpEvent.xpEvent in eUpgradeXPActions, "EvoXPEvent does not exist" )
+		result.append( evoXpEvent)
+	}
+
+	return result
+}
+
+void function EvoXP_OverrideEvoActionXP()
+{
+	string playlistOverrides = PVAR_EvoActionXPOverrides()
+
+	if( playlistOverrides == "" )
+		return
+
+	foreach ( string xpEvent in GetTrimmedSplitLoweredString( playlistOverrides, " " ) )
+	{
+		array<string> splitPair = GetTrimmedSplitString( xpEvent, ":" )
+
+		if ( splitPair.len() == 2 )
+		{
+			string actionEventName = splitPair[0].toupper()
+			int actionXp           = int(splitPair[1])
+
+			if ( actionEventName in eUpgradeXPActions )
+			{
+				EvoXPEvent evoXpEvent = EvoXp_GetEvoXPEventOffActionID( eUpgradeXPActions[actionEventName] )
+				evoXpEvent.baseXP = actionXp
+			}
+		}
+		else
+		{
+			Assert( false, "EvoXP_OverrideEvoActionXP: Can only provide one XP override value" )
+		}
+	}
+}
+
+string function PVAR_GetEvoXPDataTableID()
+{
+	return GetCurrentPlaylistVarString( "evo_xp_custom_xp_data_table_id", "" )
+}
+
+bool function HasEvoXPTableDefined ( string evoXpTableID )
+{
+	return evoXpTableID in EVOXP_DATATABLE
+}
+
+asset function GetEvoXPDataTable_Asset( string evoXpTableID ) {
+	return EVOXP_DATATABLE[ evoXpTableID ]
+}
+
+string function PVAR_EvoActionXPOverrides()
+{
+	return GetCurrentPlaylistVarString( "evo_xp_action_override", "" )
+}
+
+
+
+#if INTELLIJ_OUTLINE_SECTION_MARKER
+void function _____________Xp_API___________________________(){}
+#endif
+
+int function EvoXp_GetXP( entity player )
+{
+	if( !EvoXp_IsEnabled() )
+		return 0
+
+	return player.GetPlayerNetInt( EVO_XP_NETINT )
+}
+
+
+void function EvoXP_RegisterXpSystem( XpSystem system )
+{
+	if ( !EvoXp_IsEnabled() )
+	{
+		Warning( "Registering Evo XP System, but the Evo XP System is disabled!" )
+	}
+
+	Assert( file.xp.systemType == eXpSystemType.NONE, ("" + file.xp.systemType + " has already been registered as the XP system!" ) )
+	Assert( system.systemType != eXpSystemType.NONE, "Trying to register a blank XP system!" )
+
+
+
+
+
+	Assert( system.IsPlayerAtMaxXpCallback != null, "XP system is missing IsPlayerAtMaxXpCallback granted callback!" )
+	file.xp = system
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+bool function EvoXp_IsPlayerAtMaxXP( entity player )
+{
+	if ( file.xp.systemType != eXpSystemType.NONE )
+	{
+		return file.xp.IsPlayerAtMaxXpCallback( player )
+	}
+
+	return false
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#if INTELLIJ_OUTLINE_SECTION_MARKER
+void function _____________GameStateCallbacks___________________________(){}
+#endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#if INTELLIJ_OUTLINE_SECTION_MARKER
+void function _____________PlayerStateCallbacks___________________________(){}
+#endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#if INTELLIJ_OUTLINE_SECTION_MARKER
+void function _____________LockProgression___________________________(){}
+#endif
+
+void function EvoXp_SetProgressionLocked( bool val )
+{
+	file.progressionLocked = val
+}
+
+void function EvoXp_ProgressionLocked_ForPlayer_Set( entity player, bool val )
+{
+	file.playerProgressionBlockStatus[ player ] <- val
+}
+
+bool function EvoXp_IsProgressionLocked_ForPlayer( entity player )
+{
+	if( player in file.playerProgressionBlockStatus )
+	{
+		return file.playerProgressionBlockStatus[ player ]
+	}
+
+	return false
+}
+
+
+#if INTELLIJ_OUTLINE_SECTION_MARKER
+void function _____________Messaging___________________________(){}
+#endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function ServerToClient_EvoXp_XPAwarded( int actionID, int amount, bool teamAward )
+{
+	entity player = GetLocalViewPlayer()
+
+	EvoXPEvent evoXpEvent = EvoXp_GetEvoXPEventOffActionID( actionID )
+
+	string xpAction       = evoXpEvent.locString
+	bool sharerMessage    = evoXpEvent.isSharerMessage
+	bool isDelayedMessage = evoXpEvent.isDelayed
+	string xpSound        = amount >= tunings.largeXpThreshold ? "UI_InGame_XP_Gain_Large" : "UI_InGame_XP_Gain_Small"
+
+	if ( isDelayedMessage )
+	{
+		if ( actionID in file.xpActionIDToAmountAwardedDuringDelayedMsgInterval )
+		{
+			int xpAwarded = file.xpActionIDToAmountAwardedDuringDelayedMsgInterval[ actionID ]
+			xpAwarded += amount
+			file.xpActionIDToAmountAwardedDuringDelayedMsgInterval[ actionID ] = xpAwarded
+		}
+		else
+		{
+			file.xpActionIDToAmountAwardedDuringDelayedMsgInterval[ actionID ] <- amount
+			thread DisplayXPAwardedMessagingDelayed_Thread( player, sharerMessage, teamAward, actionID, xpAction, xpSound )
+		}
+	}
+	else
+	{
+		DisplayXPAwardedMessaging( player, sharerMessage, teamAward, xpAction, xpSound, amount )
+	}
+}
+
+void function DisplayXPAwardedMessaging( entity player, bool isSharerMessage, bool isTeamAward, string xpActionString, string xpSound, int amount )
+{
+	entity localViewPlayer = GetLocalViewPlayer()
+	if ( localViewPlayer == player && !EvoLevels_IsDisplayingLevelUpMessage() )
+	{
+		if ( isSharerMessage )
+		{
+			AnnouncementMessageRight( localViewPlayer, Localize( xpActionString ), "", <214, 214, 214>, $"", 2.5, xpSound )
+		}
+		else
+		{
+			if ( !isTeamAward )
+			{
+				AnnouncementMessageRight( localViewPlayer, Localize( "#LEGEND_UPGRADE_CURRENCY_AWARD", Localize( xpActionString ), amount ), "", <214, 214, 214>, $"", 2.5, xpSound ) 
+			}
+			else
+			{
+				AnnouncementMessageRight( localViewPlayer, Localize( "#LEGEND_UPGRADE_CURRENCY_AWARDTEAM", Localize( xpActionString ), amount ), "", <214, 214, 214>, $"", 2.5, xpSound )
+			}
+		}
+	}
+}
+
+const float SCORE_MESSAGING_DELAY = 1.0
+
+void function DisplayXPAwardedMessagingDelayed_Thread( entity player, bool isSharerMessage, bool isTeamAward, int actionID, string xpActionString, string xpSound )
+{
+#if DEV
+		Assert( IsNewThread(), "Must be threaded off" )
+#endif
+
+	if ( !( actionID in file.xpActionIDToAmountAwardedDuringDelayedMsgInterval ) )
+	{
+		Assert( false, "OBJECTIVE BR: " + FUNC_NAME() + " was run with a actionID: " + actionID + " that wasn't entered in the file.xpActionIDToAmountAwardedDuringDelayedMsgInterval table first." )
+		return
+	}
+
+	if ( GetGameState() > eGameState.Playing )
+		return
+
+	if ( !IsValid( clGlobal.levelEnt ) )
+		return
+
+	EndSignal( clGlobal.levelEnt, "OnDestroy" )
+
+	entity localPlayer = GetLocalClientPlayer()
+	if ( !IsValid( localPlayer ) )
+		return
+
+	EndSignal( localPlayer, "OnDestroy", "OnDeath" )
+
+	OnThreadEnd(
+		function() : ( actionID )
+		{
+			delete file.xpActionIDToAmountAwardedDuringDelayedMsgInterval[ actionID ]
+		}
+	)
+
+	int currentPointsTotal = file.xpActionIDToAmountAwardedDuringDelayedMsgInterval[ actionID ]
+	int updatedPointsTotal = currentPointsTotal
+
+	
+	while ( true )
+	{
+		wait SCORE_MESSAGING_DELAY
+
+		updatedPointsTotal = file.xpActionIDToAmountAwardedDuringDelayedMsgInterval[ actionID ]
+
+		if ( currentPointsTotal == updatedPointsTotal ) 
+			break
+
+		
+		currentPointsTotal = updatedPointsTotal
+	}
+
+	DisplayXPAwardedMessaging( player, isSharerMessage, isTeamAward, xpActionString, xpSound, currentPointsTotal )
+}
+
+void function ServerCallback_Play1P_EvoGain_VFX( entity player )
+{
+	if ( !IsValid( player ) )
+		return
+
+	entity cockpit = player.GetCockpit()
+	if ( !cockpit )
+		return
+
+	int fxHandle = StartParticleEffectOnEntity( cockpit, GetParticleSystemIndex( FX_EVO_GAIN_FEEDBACK_1P ), FX_PATTACH_ABSORIGIN_FOLLOW, ATTACHMENTID_INVALID )
+
+	EffectSetControlPointVector( fxHandle, 1, EVO_VFX_COLOR )
+
+	EffectSetIsWithCockpit( fxHandle, true )
+}
+
+
+
+#if INTELLIJ_OUTLINE_SECTION_MARKER
+void function _____________Utilities___________________________(){}
+#endif
+
+
+bool function EvoXp_UsePersonalObituaryNotifications()
+{
+	return tunings.usePersonalObitNotifications && !file.progressionLocked
+}
+
+
+
+EvoXPEvent function EvoXp_GetEvoXPEventOffActionID( int actionID )
+{
+	EvoXPEvent evoEvent
+
+	Assert( actionID in file.xpEventDT, "Action ID can not be found in Evo XP Datatable. Be sure your actionID exists in the dt and use EvoXP_IncrementXPByEvoXPEvent() to grant Evo XP." )
+
+	evoEvent = file.xpEventDT[ actionID ]
+	return evoEvent
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+bool function EvoXP_IsSharingEvoAtMaxLevel()
+{
+	return tunings.overflowEvoXPToTeammatesWhenMaxLevel
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#if INTELLIJ_OUTLINE_SECTION_MARKER
+void function _____________Tiny_Evo_and_Lootbin_Jackpot___________________________(){}
+#endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+int function EvoXP_GetShieldRestoredOnPickup()
+{
+	return tunings.shieldOnOrbPickupAmnt
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

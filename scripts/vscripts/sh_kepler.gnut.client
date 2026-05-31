@@ -1,0 +1,325 @@
+
+
+
+
+global function Sh_Kepler_Init
+global function Kepler_IsPlayerInVariant
+global function Kepler_IsPlayerEligibleForItemFlavor
+global function Kepler_GetAssetForScenario
+global function Kepler_GetAssetForScenarioKey
+global function Kepler_GetScenarioFromKey
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global const string KEPLER_CONVAR_KILL_SWITCH = "kepler_isEnabled"
+
+
+global enum eKeplerScenario
+{
+	NPP_VARIANT_23_1,
+	FTUE_LANDING_FLOW_24_0,
+	RETURNING_PLAYER_PASS_24_0,
+	ANYB_ROLLOUT_28_1,
+	RPP_MATCH_MAKING_29_0,
+
+	COUNT
+}
+
+table<int, string> keplerActiveScenarios = {
+	[eKeplerScenario.NPP_VARIANT_23_1] = "23-1-npp-variant",
+	[eKeplerScenario.FTUE_LANDING_FLOW_24_0] = "24-0-ftue-landing-flow",
+	[eKeplerScenario.RETURNING_PLAYER_PASS_24_0] = "24-0-rpp-inclusion",
+	[eKeplerScenario.ANYB_ROLLOUT_28_1] = "28-1-anyb-rollout",
+	[eKeplerScenario.RPP_MATCH_MAKING_29_0] = "29-0-rpx-bot-matches",
+}
+
+struct KeplerVariantData
+{
+	string variantName
+	array<asset> controlledAssets
+}
+
+struct KeplerScenarioData
+{
+	ItemFlavor& flavor
+	string scenarioKey
+	array<KeplerVariantData> variants
+}
+
+struct FileStruct_Kepler
+{
+	table<string, KeplerScenarioData> loadedScenarios
+	bool isInitialized = false
+
+
+
+
+}
+
+FileStruct_Kepler& file
+
+void function AddControlledAssetToVariant( var variant, KeplerVariantData variantData, string field )
+{
+	asset controlledAsset = GetSettingsBlockAsset( variant, field )
+	if ( controlledAsset != $"" )
+	{
+		variantData.controlledAssets.append( controlledAsset )
+	}
+}
+
+
+void function InitializeScenarioData( asset scenarioAsset, ItemFlavor flavor )
+{
+	var settingsBlock = GetSettingsBlockForAsset( scenarioAsset )
+
+	KeplerScenarioData scenario
+	scenario.scenarioKey = GetSettingsBlockString( settingsBlock, "scenarioKey" )
+	scenario.flavor = flavor
+
+	var variantArray = GetSettingsBlockArray( settingsBlock, "variants" )
+	foreach ( var variant in IterateSettingsArray( variantArray ) )
+	{
+		KeplerVariantData variantData
+		variantData.variantName = GetSettingsBlockString( variant, "variantName" )
+
+		
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+		
+		AddControlledAssetToVariant( variant, variantData, "controlledChallengeTile" )
+		AddControlledAssetToVariant( variant, variantData, "controlledCollection" )
+		AddControlledAssetToVariant( variant, variantData, "controlledImage" )
+
+		scenario.variants.append( variantData )
+	}
+
+	var challengeArray = GetSettingsBlockArray( settingsBlock, "scenarioChallenges" )
+	foreach ( var challengeBlock in IterateSettingsArray( challengeArray ) )
+	{
+		asset challenge = GetSettingsBlockAsset( challengeBlock, "scenarioChallenge" )
+
+		ItemFlavor newChallenge = expect ItemFlavor(RegisterItemFlavorFromSettingsAsset( challenge ))
+
+		Assert( ItemFlavor_GetType( newChallenge ) == eItemType.challenge )
+	}
+
+	file.loadedScenarios[scenario.scenarioKey] <- scenario
+}
+
+void function Sh_Kepler_Init()
+{
+
+	Assert( keplerActiveScenarios.len() <= KEPLER_MAX_SCENARIO_COUNT, format( "Kepler scenario max count is %i which cannot account for our %i scenarios", KEPLER_MAX_SCENARIO_COUNT, keplerActiveScenarios.len() ) )
+
+
+	if ( !GetConVarBool( KEPLER_CONVAR_KILL_SWITCH ) )
+	{
+		return
+	}
+
+	AddCallback_RegisterRootItemFlavors( void function()
+	{
+		foreach ( asset scenario in GetBaseItemFlavorsFromArray( "keplerScenarios" ) )
+		{
+			ItemFlavor ornull flavor = RegisterItemFlavorFromSettingsAsset( scenario )
+			InitializeScenarioData( scenario, expect ItemFlavor( flavor ) )
+		}
+
+		file.isInitialized = true
+		printf( "Kepler initialized with %d scenarios", file.loadedScenarios.len() )
+	} )
+
+
+
+
+}
+
+bool function Kepler_IsPlayerEligibleForItemFlavor( entity player, ItemFlavor itemFlavor )
+{
+	AssertLocalOrServerValidPlayer( player )
+
+	bool isReferencedByAnyScenario = false
+
+	asset itemAsset = GetSettingsAssetForUniqueId( itemFlavor.guid )
+	if( itemAsset == $"" )
+	{
+		Warning( "Checking Kepler eligibility of unknown item flavor" )
+		return true
+	}
+
+	foreach ( int scenario, string scenarioKey in keplerActiveScenarios )
+	{
+		if ( !( scenarioKey in file.loadedScenarios ) )
+		{
+			Warning( "Active scenario %s does not have a loaded Bakery asset", scenarioKey )
+			continue
+		}
+
+		KeplerScenarioData scenarioData = file.loadedScenarios[scenarioKey]
+		foreach (KeplerVariantData variant in scenarioData.variants )
+		{
+			foreach ( asset controlledAsset in variant.controlledAssets )
+			{
+				if ( controlledAsset == itemAsset )
+				{
+					isReferencedByAnyScenario = true
+					if ( Kepler_IsPlayerInVariant( player, scenario, variant.variantName ) )
+					{
+						return true
+					}
+				}
+			}
+		}
+	}
+
+	return !isReferencedByAnyScenario
+}
+
+int function Kepler_GetScenarioFromKey( string scenarioKey )
+{
+	foreach( int scenario, string key in keplerActiveScenarios )
+	{
+		if ( scenarioKey == key )
+			return scenario
+	}
+
+#if DEV
+	Assert( false, "The scenario key " + scenarioKey + " is invalid" )
+#endif
+	return -1
+}
+
+asset ornull function Kepler_GetAssetForScenarioKey( entity player, string scenarioKey )
+{
+	if ( !( scenarioKey in file.loadedScenarios ) )
+	{
+		Warning( "Active scenario %s does not have a loaded Bakery asset", scenarioKey )
+		return null
+	}
+
+	KeplerScenarioData scenarioData = file.loadedScenarios[scenarioKey]
+
+	foreach ( KeplerVariantData variant in scenarioData.variants )
+	{
+		if ( Kepler_IsPlayerInVariant( player, Kepler_GetScenarioFromKey( scenarioKey ), variant.variantName ) )
+		{
+			if ( variant.controlledAssets.len() > 0 )
+			{
+#if DEV
+					if ( variant.controlledAssets.len() > 1 )
+					{
+						Warning( "Scenario \"%s\" has multiple controlled assets and is trying to fetch only one", scenarioKey )
+					}
+#endif
+				return variant.controlledAssets[0]
+			}
+
+			break
+		}
+	}
+
+	return null
+}
+
+asset ornull function Kepler_GetAssetForScenario( entity player, int scenario )
+{
+	string scenarioKey = keplerActiveScenarios[scenario]
+
+	return Kepler_GetAssetForScenarioKey( player, scenarioKey )[dump] scripts/vscripts/clui_ranked.nut.client (16142 bytes)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global function CLUI_Ranked_Init
+global function PopulateRuiWithRankedBadgeDetails
+global function PopulateRuiWithPreviousSeasonRankedBadgeDetails
+global function CreateNestedRankedRui
+global function SharedRanked_FillInRuiEmblemText
+global function Ranked_PartyMeetsRankedDifferenceRequirements
+global function Ranked_GetCurrentRankedPlaylistName
+global function Ranked_PartyMeetsRankedSquadRankRequirements
+global function Ranked_PartyAboveSoloQueueRankThreshold
+global function Ranked_HasSoloQueueRankScoreThreshold
+
+
+
+global function ShRanked_RegisterNetworkFunctions
+global function ServerToClient_Ranked_UpdatePlayerPrevRankedScore
+global function ServerToClient_Ranked_UpdatePlayerPrevLadderPos
+
+
+struct
+{
+
+
+
+
+
+} file
+
+void function CLUI_Ranked_Init()
+{
+
+		if ( !GameModeVariant_IsActive( eGameModeVariants.SURVIVAL_RANKED ) )
+			return
+
+		AddCallback_OnScoreboardCreated( OnScoreboardCreated )
+		AddCallback_OnGameStateChanged( OnGameStateChanged )
+
+		Obituary_SetHorizontalOffset( -25 ) 
+		AddOnSpectatorTargetChangedCallback( Ranked_OnSpectateTargetChanged )
+
+}
+
+
+void function ShRanked_RegisterNetworkFunctions()
+{
+	if ( !GetConVarBool( RANKED_ENABLE_NON_RANKED_SCORE_POSITION ) )
+	{
+		if ( !GameModeVariant_IsActive( eGameModeVariants.SU

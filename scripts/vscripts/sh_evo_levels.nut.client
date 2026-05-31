@@ -1,0 +1,755 @@
+global function EvoLevels_Init
+global function EvoLevels_InitTuningValues
+
+global function EvoLevels_IsEnabled
+global function EvoLevels_RegisterEvoLevelSystem
+global function EvoLevels_GetSystemType
+
+global function EvoLevels_GetPlayerLevel
+global function EvoLevels_IsLevelMaxLevel
+global function EvoLevels_IsPlayerAtMaxLevel
+global function EvoLevels_GetLevelFromXp
+global function EvoLevels_GetMaxUpgradeLevels
+
+
+global function EvoLevels_GetUnspentUpgradePoints
+global function EvoLevels_GetXpRequiredForNextLevel
+global function EvoLevels_AddCallback_OnPlayerLevelUp
+global function EvoLevels_AddCallback_OnPlayerLevelDown
+global function EvoLevels_GetNumUpgradePoints
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global function ServerToClient_NotifyLeveledUp
+
+global function EvoLevels_UpgradeReminderThread
+global function EvoLevels_IsDisplayingLevelUpMessage
+
+
+const string EVO_LEVELUP_LVL1_SFX_1P = "LevelUp_LegendsUpgrade_lvl1_1P"
+const string EVO_LEVELUP_LVL1_SFX_3P = "LevelUp_LegendsUpgrade_lvl1_3P"
+
+global enum eEvoLevelSystemType
+{
+	NONE,
+	UPGRADE_CORE,
+
+
+
+
+	LINEAR_UPGRADE_CORE,
+
+
+
+
+	COUNT
+}
+
+global struct EvoLevelSystem
+{
+	int systemType = eEvoLevelSystemType.NONE
+
+	array<int> functionref() GetLevelXpThresholdsCallback
+
+
+	int functionref( entity ) GetSpentLevelsForPlayerCallback
+
+
+
+
+
+
+}
+
+struct
+{
+
+	array<void functionref( entity, int )> playerLeveledUpCallbacks
+	array<void functionref( entity, int )> playerLeveledDownCallbacks
+
+
+
+
+
+
+	array<int> xpLevelThresholds
+
+	EvoLevelSystem& sys
+
+
+
+
+
+
+
+
+	bool displayingLevelUpMessage
+
+} file
+
+struct Tuning
+{
+	bool isEnabled = true
+
+	int modesInitialLevel = 0
+
+	bool awardXpBeyondMaxLevel = false
+
+}
+Tuning tunings
+
+
+const string FUNCNAME_ServerToClient_NotifyLeveledUp = "ServerToClient_NotifyLeveledUp"
+
+
+
+
+const float UPGRADE_CORE_LEVEL_UP_NOTI_DURATION = 4.0
+
+void function EvoLevels_Init()
+{
+	EvoLevels_InitTuningValues()
+
+	if( !EvoLevels_IsEnabled() || !EvoXp_IsEnabled() )
+		return
+
+
+		Remote_RegisterClientFunction( FUNCNAME_ServerToClient_NotifyLeveledUp, "entity" )
+
+
+}
+
+void function EvoLevels_InitTuningValues()
+{
+
+		RunUIScript( "EvoLevels_InitTuningValues" )
+
+
+	
+	Tuning defaultTunings
+
+	tunings.isEnabled = EvoXp_IsEnabled() && GetCurrentPlaylistVarBool( "evo_levels_enabled", true )
+
+	tunings.modesInitialLevel = GetCurrentPlaylistVarInt( "passive_upgrade_core_modes_initial_level", defaultTunings.modesInitialLevel )
+	tunings.awardXpBeyondMaxLevel = GetCurrentPlaylistVarBool( "passive_upgrade_core_allow_xp_beyond_max", defaultTunings.awardXpBeyondMaxLevel )
+}
+
+bool function EvoLevels_IsEnabled()
+{
+	return LegendUpgrades_IsEnabled()
+}
+
+#if INTELLIJ_OUTLINE_SECTION_MARKER
+void function _____________EvoLevels_API___________________________(){}
+#endif
+
+void function EvoLevels_RegisterEvoLevelSystem( EvoLevelSystem system )
+{
+	if ( !EvoLevels_IsEnabled() )
+	{
+		Warning( "Registering Evo Level System, but the Evo Level System is disabled!" )
+	}
+
+
+	
+	Assert( file.sys.systemType == eEvoLevelSystemType.NONE, ("" + file.sys.systemType + " has already been registered as the Evo Level system!" ) )
+
+
+	Assert( system.systemType != eEvoLevelSystemType.NONE, "Trying to register a blank Evo Level system!" )
+
+	Assert( system.GetLevelXpThresholdsCallback != null, "Evo Level system is missing GetLevelXpThresholdsCallback !" )
+
+	Assert( system.GetSpentLevelsForPlayerCallback != null, "Evo Level system is missing GetSpentLevelsForPlayerCallback!" )
+
+
+
+
+
+	file.sys = system
+
+	file.xpLevelThresholds = GetLevelXpThresholds()
+
+
+
+
+
+
+	XpSystem xp
+	xp.systemType = eXpSystemType.LEVEL_BASED
+
+
+
+
+
+
+	xp.IsPlayerAtMaxXpCallback = EvoLevels_IsPlayerAtMaxLevel
+
+	EvoXP_RegisterXpSystem( xp )
+
+}
+
+
+void function EvoLevels_AddCallback_OnPlayerLevelUp( void functionref( entity player, int newLevel ) callbackFunc )
+{
+	Assert( !file.playerLeveledUpCallbacks.contains( callbackFunc ), "Already added " + string( callbackFunc ) + " with EvoLevels_AddCallback_OnPlayerLevelUp" )
+	file.playerLeveledUpCallbacks.append( callbackFunc )
+}
+
+void function EvoLevels_AddCallback_OnPlayerLevelDown( void functionref( entity player, int newLevel ) callbackFunc )
+{
+	Assert( !file.playerLeveledDownCallbacks.contains( callbackFunc ), "Already added " + string( callbackFunc ) + " with EvoLevels_AddCallback_OnPlayerLevelDown" )
+	file.playerLeveledDownCallbacks.append( callbackFunc )
+}
+
+
+
+
+
+
+
+
+
+
+int function EvoLevels_GetSystemType()
+{
+	return file.sys.systemType
+}
+
+int function EvoLevels_GetMaxUpgradeLevels()
+{
+	if ( !EvoLevels_IsEnabled() )
+		return 0
+
+	if ( file.xpLevelThresholds.len() == 0 )
+		return GetLevelXpThresholds().len()
+
+	return file.xpLevelThresholds.len()
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+int function EvoLevels_GetPlayerLevel( entity player )
+{
+	if( !IsValid( player ) || !EvoLevels_IsEnabled() )
+	{
+		return 0
+	}
+
+	return EvoLevels_GetLevelFromXp( EvoXp_GetXP( player ) )
+}
+
+int function EvoLevels_GetLevelFromXp( int xpValue )
+{
+	if( !EvoLevels_IsEnabled() )
+		return 0
+
+	int currentLevel = 0
+
+	array<int> levelThresholds = file.xpLevelThresholds
+	for( int i=0; i < levelThresholds.len(); i++ )
+	{
+		if( xpValue < levelThresholds[i] )
+			break
+		currentLevel = i + 1
+	}
+	currentLevel = minint( EvoLevels_GetMaxUpgradeLevels(), currentLevel )
+
+	return currentLevel
+}
+
+bool function EvoLevels_IsLevelMaxLevel( int curLevel )
+{
+	if ( !EvoLevels_IsEnabled() )
+		return true
+
+	return curLevel == EvoLevels_GetMaxUpgradeLevels()
+}
+
+bool function EvoLevels_IsPlayerAtMaxLevel( entity player )
+{
+	if ( !EvoLevels_IsEnabled() )
+		return true
+
+	int curLevel = EvoLevels_GetPlayerLevel( player )
+
+	return curLevel == EvoLevels_GetMaxUpgradeLevels()
+}
+
+
+int function EvoLevels_GetUnspentUpgradePoints( entity player )
+{
+	if ( file.sys.systemType == eEvoLevelSystemType.NONE )
+		return 0
+
+	int numSelectedUpgrades = EvoLevels_GetNumUpgradePoints( player )
+
+	int curLevel = EvoLevels_GetPlayerLevel( player )
+
+	return curLevel - numSelectedUpgrades
+}
+
+int function EvoLevels_GetNumUpgradePoints( entity player )
+{
+	if ( file.sys.systemType == eEvoLevelSystemType.NONE )
+		return 0
+
+	return file.sys.GetSpentLevelsForPlayerCallback( player )
+}
+
+array<int> function EvoLevels_GetXpRequiredForNextLevel( entity player )
+{
+	if ( !EvoLevels_IsEnabled() )
+		return []
+
+	int curLevel = EvoLevels_GetPlayerLevel( player )
+	if( (curLevel) >= file.xpLevelThresholds.len() )
+		return []
+	int prevLevelReq = curLevel > 0 ? file.xpLevelThresholds[curLevel - 1] : 0
+	return [prevLevelReq, file.xpLevelThresholds[curLevel]]
+}
+
+
+#if INTELLIJ_OUTLINE_SECTION_MARKER
+void function _____________Setup___________________________(){}
+#endif
+array<int> function GetLevelXpThresholds()
+{
+	if ( file.sys.systemType == eEvoLevelSystemType.NONE )
+		return [0]
+
+	return file.sys.GetLevelXpThresholdsCallback()
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#if INTELLIJ_OUTLINE_SECTION_MARKER
+void function _____________InternalLevelHelpers___________________________(){}
+#endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function RunCallbacks_OnPlayerLeveledUp( entity player, int newLevel )
+{
+	foreach( callbackFunc in file.playerLeveledUpCallbacks )
+		callbackFunc( player, newLevel )
+}
+
+void function RunCallbacks_OnPlayerLeveledDown( entity player, int newLevel )
+{
+	foreach( callbackFunc in file.playerLeveledDownCallbacks )
+		callbackFunc( player, newLevel )
+}
+
+
+
+
+void function ResetLevelUpMessage_Thread()
+{
+	Assert( IsNewThread() )
+	Wait( UPGRADE_CORE_LEVEL_UP_NOTI_DURATION )
+	file.displayingLevelUpMessage = false
+}
+
+bool function EvoLevels_IsDisplayingLevelUpMessage()
+{
+	return file.displayingLevelUpMessage
+}
+
+void function EvoLevels_UpgradeReminderThread( entity player, float reminderHintDelay, string extraEndSignal, string bcLineToPlay = "bc_upgradeReminder" )
+{
+	Assert( IsNewThread() )
+
+	EndSignal( player, "OnDeath", "OnDestroy" )
+	if ( extraEndSignal != "" )
+		EndSignal( player, extraEndSignal )
+
+	float timeWithUnspentUpgrade = 0
+	while( IsValid( player ) )
+	{
+		int numUnspentUpgrades = EvoLevels_GetUnspentUpgradePoints( player )
+		if( numUnspentUpgrades > 0 )
+		{
+			timeWithUnspentUpgrade += 1.0
+		}
+		else
+		{
+			timeWithUnspentUpgrade = 0.0
+		}
+
+		if( timeWithUnspentUpgrade > reminderHintDelay )
+		{
+			timeWithUnspentUpgrade -= reminderHintDelay
+			
+
+#if DEV
+			
+			if ( GetConVarInt( "mp_enablematchending" ) != 0 )
+#endif
+			{
+				PlayBattleChatterToSelfOnClient( player, bcLineToPlay )
+
+				CustomTutorialPopup("upgrade_ready_to_select_01" )
+			}
+		}
+
+		Wait( 1.0 )
+	}
+}
+
+void function SFX_PlayLevelUpBC_Thread( entity player, bool maxLevel )
+{
+	if( !IsValid( player ) )
+		return
+
+	if( !player.IsPlayer() )
+		return
+
+	if( player != GetLocalViewPlayer() )
+		return
+
+	Assert( IsNewThread() )
+
+	Wait( 2.0 )
+
+	if ( !IsValid(player) )
+		return
+
+	if( maxLevel )
+	{
+		PlayBattleChatterToSelfOnClient( player, "bc_upgradeLevelMax" )
+	}
+	else
+	{
+		if( EvoLevels_GetUnspentUpgradePoints( player ) > 0 )
+			PlayBattleChatterToSelfOnClient( player, "bc_upgradeLevelUp" )
+	}
+}
+
+void function ServerToClient_NotifyLeveledUp( entity player )
+{
+	thread ServerToClient_NotifyLeveledUp_Delayed( player )
+}
+
+void function ServerToClient_NotifyLeveledUp_Delayed( entity player )
+{
+	entity localPlayer = GetLocalViewPlayer()
+	entity localClient = GetLocalClientPlayer()
+	
+	if( localPlayer != localClient )
+	{
+		player.EndSignal( "OnDestroy", "OnDeath" )
+		Wait( .5 )
+	}
+
+	int curLevel = EvoLevels_GetPlayerLevel( player )
+	bool isMaxLevel = EvoLevels_IsLevelMaxLevel( curLevel )
+
+	RunCallbacks_OnPlayerLeveledUp( player, curLevel )
+
+	AnnouncementData announcement = Announcement_Create( "" )
+	Announcement_SetStyle( announcement, ANNOUNCEMENT_STYLE_LEVEL_UP )
+	Announcement_SetPurge( announcement, true )
+	Announcement_SetOptionalTextArgsArray( announcement, [Localize( isMaxLevel ? "#LEGEND_UPGRADE_MAX_LEVEL" : "#LEGEND_UPGRADE_LEVEL_UP_MESSAGE_DESC" )] )
+	Announcement_SetPriority( announcement, 200 )
+	announcement.duration = UPGRADE_CORE_LEVEL_UP_NOTI_DURATION
+	AnnouncementFromClass( GetLocalViewPlayer(), announcement )
+	file.displayingLevelUpMessage = true
+	
+	thread SFX_PlayLevelUpBC_Thread( player, isMaxLevel )
+	thread ResetLevelUpMessage_Thread()
+}
+

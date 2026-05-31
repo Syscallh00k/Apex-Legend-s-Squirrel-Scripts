@@ -1,0 +1,324 @@
+
+
+
+
+global function ExperimentalHealthBarsInit
+global function ExperimentalHealthBars_ProxyParticleEnabled
+
+
+global function ExperimentalHealthBars_AddProxyParticleToEnemy
+global function ExperimentalHealthBars_RemoveProxyParticleFromEnemy
+global function ExperimentalHealthBars_EnemyHasProxyParticle
+global function ExperimentalHealthBars_DoParticleVisibilityCheck
+global function ExperimentalHealthBars_GetProxyParticleHandleForEnemy
+global function ExperimentalHealthBars_GetProxyParticleVisibilityForEnemy
+global function ExperimentalHealthBars_GetProxyParticleVisibilityThreshold
+global function ExperimentalHealthBars_GetProxyParticleFadeOutTime
+global function ExperimentalHealthBars_SetProxyParticleOnOff
+global function ExperimentalHealthBars_OnSpectatorTargetChanged
+
+#if DEV
+global function ExperimentalHealthBars_DEV_DebugProxyParticle
+#endif
+
+const asset HEALTHBAR_PROXY_PARTICLE = $"P_healthbar_rui_proxy"
+
+
+
+struct
+{
+	bool proxyParticleEnabled = true
+	int maxProxyParticles = 20
+	float maxDistanceSqr = 13000.0 * 13000.0  
+	float proxyParticleVisibilityThreshold = 0.5
+	float proxyParticleFadeOutTime = 0.5
+#if DEV
+		bool debugProxyParticle = false
+#endif
+} tuning
+
+void function ExperimentalHealthBarsInit()
+{
+	tuning.proxyParticleEnabled = GetCurrentPlaylistVarBool( "experimental_health_bars_proxy_particle_enabled", tuning.proxyParticleEnabled )
+	tuning.proxyParticleEnabled = tuning.proxyParticleEnabled && !GetCurrentPlaylistVarBool( "hud_hide_enemyHPBar", false )
+	tuning.maxProxyParticles = GetCurrentPlaylistVarInt( "experimental_health_bars_max_proxy_particles", tuning.maxProxyParticles )
+	tuning.maxDistanceSqr = GetCurrentPlaylistVarFloat( "experimental_health_bars_max_proxy_particle_distance_sqr", tuning.maxDistanceSqr )
+	tuning.proxyParticleVisibilityThreshold = Clamp( GetCurrentPlaylistVarFloat( "experimental_health_bars_proxy_particle_vis_threshold", tuning.proxyParticleVisibilityThreshold ), 0.0, 1.0 )
+	tuning.proxyParticleFadeOutTime = GetCurrentPlaylistVarFloat( "experimental_health_bars_proxy_particle_fade_out_time", tuning.proxyParticleFadeOutTime )
+#if DEV
+		tuning.debugProxyParticle = GetCurrentPlaylistVarBool( "experimental_health_bars_debug_proxy_particle", tuning.debugProxyParticle )
+#endif
+
+
+		if ( tuning.proxyParticleEnabled )
+		{
+			PrecacheParticleSystem( HEALTHBAR_PROXY_PARTICLE )
+			RegisterSignal( "EndProxyParticleCreationThread" )
+			AddCreateCallback( "player", ExperimentalHealthBars_OnPlayerCreated )
+			AddOnDeathOrDestroyCallback( "player", ExperimentalHealthBars_OnPlayerDeathOrDestroy )
+			AddOnSpectatorTargetChangedCallback( ExperimentalHealthBars_OnSpectatorTargetChanged )
+		}
+
+}
+
+bool function ExperimentalHealthBars_ProxyParticleEnabled()
+{
+	return tuning.proxyParticleEnabled
+}
+
+
+
+float function ExperimentalHealthBars_GetProxyParticleVisibilityThreshold()
+{
+	return tuning.proxyParticleVisibilityThreshold
+}
+
+float function ExperimentalHealthBars_GetProxyParticleFadeOutTime()
+{
+	return tuning.proxyParticleFadeOutTime
+}
+
+void function ExperimentalHealthBars_SetProxyParticleOnOff( string onOff )
+{
+	if ( !ExperimentalHealthBars_ProxyParticleEnabled() )
+		return
+
+	entity player = GetLocalViewPlayer()
+	if ( !IsValidPlayer( player ) )
+		return
+
+	if ( onOff == "Off" )
+	{
+		Signal( player, "EndProxyParticleCreationThread" )
+	}
+	else if ( onOff == "On" )
+	{
+		thread ProxyParticleCreationThread( player )
+	}
+}
+
+void function ExperimentalHealthBars_OnSpectatorTargetChanged( entity player, entity prevTarget, entity newTarget )
+{
+	if ( !GetConVarBool( "hud_setting_showEnemyHealthBar" ) )
+		return
+
+	if ( IsValidPlayer( prevTarget ) )
+		Signal( prevTarget, "EndProxyParticleCreationThread" )
+
+	if ( IsValidPlayer( newTarget ) )
+		thread ProxyParticleCreationThread( newTarget )
+}
+
+void function ExperimentalHealthBars_RemoveProxyParticleFromEnemy( entity player, entity enemy )
+{
+	if ( enemy in player.p.proxyParticleFX )
+	{
+		if( EffectDoesExist( player.p.proxyParticleFX[enemy].handle ) )
+		{
+			EffectStop( player.p.proxyParticleFX[enemy].handle, true, false )  
+		}
+		delete player.p.proxyParticleFX[enemy]
+	}
+}
+
+int function AddProxyParticleToPlayerReturnHandle( entity player  )
+{
+	if ( !IsValidPlayer(player ) )
+		return -1
+
+	int attachId = player.LookupAttachment( "HEADFOCUS" )
+	int fx = StartParticleEffectOnEntityWithPos( player, GetParticleSystemIndex( HEALTHBAR_PROXY_PARTICLE ), FX_PATTACH_POINT_FOLLOW_NOROTATE, attachId, <0, 0, 5>, <0, 0, 0> )
+
+	float alpha = 0.0
+
+#if DEV
+		if ( ExperimentalHealthBars_DEV_DebugProxyParticle() )
+		{
+			alpha = 1.0
+		}
+#endif
+
+	EffectSetControlPointVector( fx, 1, <alpha, 0.0, 0.0> )
+
+	return fx
+}
+
+bool function ExperimentalHealthBars_EnemyHasProxyParticle( entity player, entity enemy )
+{
+	return (enemy in player.p.proxyParticleFX) && EffectDoesExist( player.p.proxyParticleFX[enemy].handle )
+}
+
+bool function ExperimentalHealthBars_DoParticleVisibilityCheck( entity player )
+{
+	entity activeWeapon = player.GetActiveWeapon( eActiveInventorySlot.mainHand )
+
+	if ( IsValid( activeWeapon ) && PlayerIsInADS( player ) && activeWeapon.HasMod( "optic_sniper_threat" ) )  
+		return false
+
+	return true
+}
+
+int function ExperimentalHealthBars_GetProxyParticleHandleForEnemy( entity player, entity enemy )
+{
+	if ( ExperimentalHealthBars_EnemyHasProxyParticle( player, enemy ) )
+	{
+		return player.p.proxyParticleFX[enemy].handle
+	}
+
+	return -1
+}
+
+float function ExperimentalHealthBars_GetProxyParticleVisibilityForEnemy( entity player, entity enemy )
+{
+	float result = 1.0
+
+	if ( ExperimentalHealthBars_EnemyHasProxyParticle( player, enemy ) )
+	{
+		int handle = player.p.proxyParticleFX[enemy].handle
+		result = GetParticleEffectLastRawVisibility( handle )
+	}
+
+	return result
+}
+
+void function ExperimentalHealthBars_OnPlayerCreated( entity player )
+{
+	if 	( !IsValid( player ) || player != GetLocalClientPlayer() || player != GetLocalViewPlayer() )
+		return
+
+	if ( ExperimentalHealthBars_ProxyParticleEnabled() && GetConVarBool( "hud_setting_showEnemyHealthBar" ) )
+	{
+		thread ProxyParticleCreationThread( player )
+	}
+}
+
+void function ProxyParticleCreationThread( entity player )
+{
+	if ( !IsValidPlayer( player ) )
+		return
+
+	if ( !GetConVarBool( "hud_setting_showEnemyHealthBar" ) )
+		return
+
+	Signal( player, "EndProxyParticleCreationThread" )
+	EndSignal( player, "EndProxyParticleCreationThread" )
+	EndSignal( player, "OnDeath", "OnDestroy" )
+
+	OnThreadEnd(
+		function ( string signalID, var owner ) : ( player )
+		{
+			if ( IsValid( player ) )
+			{
+				foreach ( entity enemy, ProxyParticleFX fx in player.p.proxyParticleFX )
+				{
+					if ( EffectDoesExist( fx.handle ) )
+					{
+							EffectStop( fx.handle, true, false )
+					}
+				}
+			}
+		}
+	)
+
+	ClWaittillGameStateOrHigher( eGameState.Playing )
+
+	while ( PlayerMatchState_GetFor( GetLocalViewPlayer() ) < ePlayerMatchState.NORMAL )
+	{
+		wait 1.0
+	}
+
+	while ( true )
+	{
+		
+		if ( !GetConVarBool( "healthbar_particles_enabled") )
+		{
+			foreach( entity enemy, ProxyParticleFX fx in clone player.p.proxyParticleFX )
+			{
+				ExperimentalHealthBars_RemoveProxyParticleFromEnemy( player, enemy )
+			}
+		}
+		else
+		{
+			array< EnemyDistanceSqrStruct > enemies = GetArrayOfEnemies_SortedByDistance( player ) 
+
+			int proxyParticleCount = 0
+			foreach ( EnemyDistanceSqrStruct data in enemies )
+			{
+				if ( proxyParticleCount >= tuning.maxProxyParticles )
+				{
+					ExperimentalHealthBars_RemoveProxyParticleFromEnemy( player, data.enemy )
+					continue
+				}
+
+				bool enemyHasProxyParticle = ExperimentalHealthBars_EnemyHasProxyParticle( player, data.enemy )
+
+				if( !enemyHasProxyParticle && data.distanceSqr < tuning.maxDistanceSqr )
+				{
+					ExperimentalHealthBars_AddProxyParticleToEnemy( player, data.enemy )
+					proxyParticleCount++
+				}
+				else if ( enemyHasProxyParticle )
+				{
+					proxyParticleCount++
+				}
+			}
+		}
+
+		wait 1.0
+	}
+}
+
+void function ExperimentalHealthBars_OnPlayerDeathOrDestroy( entity player )
+{
+	entity viewPlayer = GetLocalViewPlayer()
+
+	if ( player == viewPlayer )
+		return
+
+	if ( IsValid( viewPlayer ) && IsValid( player ) )
+	{
+		if ( player in viewPlayer.p.proxyParticleFX )
+		{
+			int handle = viewPlayer.p.proxyParticleFX[player].handle
+			if ( EffectDoesExist( handle ) )
+			{
+				EffectStop( handle, true, false )
+			}
+			delete viewPlayer.p.proxyParticleFX[player]
+		}
+	}
+}
+
+void function ExperimentalHealthBars_AddProxyParticleToEnemy( entity player, entity enemy )
+{
+	if 	( !IsValidPlayer( player ) || !IsValidPlayer( enemy ) )
+		return
+
+	if ( enemy in player.p.proxyParticleFX  )
+	{
+		int fx = player.p.proxyParticleFX[enemy].handle
+		if ( EffectDoesExist( fx ) )
+		{
+			EffectStop( fx, true, false )
+		}
+	}
+
+	ProxyParticleFX ppfx
+	ppfx.handle = AddProxyParticleToPlayerReturnHandle( enemy )
+	player.p.proxyParticleFX[enemy] <- ppfx
+}
+
+#if DEV
+void function DEV_PrintScanCounts( entity player, entity enemy )
+{
+	printt( "[HealthBars]", FUNC_NAME(), "total scans:", GetTotalReconScansForEnemy( player, enemy ), "los:", GetTotalLOSRequiredReconScans( player, enemy ), "losNonPerm:", GetTotalLOSRequiredHideNonPermReconScans( player, enemy ), "losNoRestore:", GetTotalLOSRequiredNoRestoreReconScans( player, enemy ), "always visible:", GetTotalAlwaysVisibleReconScans( player, enemy )  )
+}
+
+bool function ExperimentalHealthBars_DEV_DebugProxyParticle()
+{
+	return tuning.debugProxyParticle
+}
+#endif
+
+
+      

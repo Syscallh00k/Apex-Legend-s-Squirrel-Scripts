@@ -1,0 +1,4572 @@
+global function Sh_Mastery_Init
+global function Mastery_GetVersion
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global function ServerToClient_MasteryInitLocalPlayerInfo
+
+
+
+
+
+
+#if DEV
+global function DEV_RefreshMasteryDevMenuInternal
+global function DEV_ToggleWeaponMasteryDebugWindow
+global function DEV_SetWeaponDebugWindowStyle
+#endif
+
+#if DEV
+global function DEV_MasteryUIInterfaceTest
+global function DEV_TestGetSpecialInfo
+#endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global function Mastery_GetWeaponBaseData
+global function Mastery_GetWeaponTrialList
+global function Mastery_GetWeaponTrialListClonedTrialData
+global function Mastery_GetWeaponFinalTrialData
+global function Mastery_GetWeaponFinalReward
+global function Mastery_GetAllWeaponReward
+global function Mastery_GetPreviousMatchXPUpdates
+global function Mastery_GetPreviousMatchTrialUpdates
+global function Mastery_GetWeaponXP
+global function Mastery_GetWeaponLevel
+global function Mastery_GetTotalXPToCompleteWeaponLevel
+global function Mastery_CalculateLevelFromXP
+global function Mastery_SortTrialQueryResult
+global function Mastery_IsLocalPlayerInfoReady
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global function Mastery_GetStatValue
+global function Mastery_IsValidStatRef
+global function Mastery_DoesStatSatisfyValue
+global function Mastery_IsEnabled
+
+
+global const bool MASTERY_DEBUG = false 
+
+const bool MASTERY_OPEN_GRX = true
+
+const int TRIAL_COUNT = 5
+const int XP_MODIFIER_COUNT = 13
+const int LEVELS_UNLOCK_EACH_TRIAL = 20
+
+const string MASTERY_VERSION_PDEF_KEY = "weaponMasteryVersion"
+
+const string PERSISTENCE_XP_SUFFIX = "xp"
+const string PERSISTENCE_SOPM_XP_SUFFIX = "sopm_xp"
+const string PERSISTENCE_LEVEL_SUFFIX = "level"
+const string PERSISTENCE_STAT_SUFFIX = "stat"
+const string PERSISTENCE_SOPM_STAT_SUFFIX = "sopm_stat"
+const string PERSISTENCE_REWARDSEQ_SUFFIX = "rewardseq"
+const string PERSISTENCE_XP_MODIFIER_LIST = "xp_modifier_list"
+const string PERSISTENCE_TRIAL_LIST = "trial_list"
+const string PERSISTENCE_TRIAL_LIST_V2 = "trial_list_v2"
+const string PERSISTENCE_PROGRESSION_MODIFIER_SUFFIX = "pm_bonus"
+
+
+const string ACTION_PLACEMENT_BONUS = "Placement_Bonus"
+
+const string XP_SPECIAL_MODIFIER_RANK = "placement_held"
+const string XP_SPECIAL_MODIFIER_KILL_BASE = "kill_base"
+const string XP_SPECIAL_MODIFIER_KILL_ADD = "kill_add"
+enum eSpecialModifierType
+{
+	None,
+	Rank,
+	Kill_Base,
+	Kill_Add
+}
+const table<string, int> SPECIAL_MODIFIER_MAP =
+{
+	[XP_SPECIAL_MODIFIER_RANK] = eSpecialModifierType.Rank,
+	[XP_SPECIAL_MODIFIER_KILL_BASE] = eSpecialModifierType.Kill_Base,
+	[XP_SPECIAL_MODIFIER_KILL_ADD] = eSpecialModifierType.Kill_Add
+}
+
+enum eMasteryStatType
+{
+	Trial,
+	XPModifier
+}
+
+
+global const array<int> MASTERY_TRIAL_TIERS_FOR_BADGE = [0, 2]
+const int MASTERY_rt( trialConfig.specialBadge == null || ItemFlavor_GetType( expect ItemFlavor( trialConfig.specialBadge ) ) == eItemType.gladiator_card_badge, "Special badge guid is invalid!" )
+			}
+		}
+	}
+	
+	foreach ( weapon, weaponConfig in fileLevel.weaponConfigMap )
+	{
+		weaponConfig.persistenceKey_XP = BuildPdefKey_WeaponStruct( weapon ) + PERSISTENCE_XP_SUFFIX
+		weaponConfig.persistenceKey_SopmXP = BuildPdefKey_WeaponStruct( weapon ) + PERSISTENCE_SOPM_XP_SUFFIX
+		weaponConfig.persistenceKey_Level = BuildPdefKey_WeaponStruct( weapon ) + PERSISTENCE_LEVEL_SUFFIX
+		weaponConfig.persistenceKey_ProgMod_Bonus = BuildPdefKey_WeaponStruct( weapon ) + PERSISTENCE_PROGRESSION_MODIFIER_SUFFIX
+	}
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+array<TrialConfig> function GetJustUnlockedTrials( ItemFlavor weaponFlavor, int lastLevel, int currentLevel )
+{
+	array<TrialConfig> resultTrialList
+	foreach ( trialConfig in fileLevel.weaponConfigMap[weaponFlavor].trialList )
+	{
+		if ( !IsTrialUnlocked( lastLevel, trialConfig.tierLevel ) && IsTrialUnlocked( currentLevel, trialConfig.tierLevel ) )
+			resultTrialList.append( trialConfig )
+	}
+	return resultTrialList
+}
+
+int function GetXPRankModifierWeight( int placement )
+{
+	int lookupPlacement    = minint( fileLevel.xpRankModifierConfig.len() - 1, placement )
+	int csvValue           = fileLevel.xpRankModifierConfig[ lookupPlacement ].weight
+	return csvValue
+}
+
+int function CalculateXPSpecialModifier_PlacementBonus( int inputValue, int totalHeldTime, int rank, XPModifierConfig xpModifier, bool isBRMode )
+{
+	if ( !isBRMode )
+	{
+		return 0
+	}
+	if( totalHeldTime == 0 )
+	{
+		return 0
+	}
+	int resultValue = int( GetXPRankModifierWeight( rank ) * (inputValue / float( totalHeldTime )) )
+#if MASTERY_DEBUG
+		printf( "[Mastery] CalculateXPSpecialModifier_PlacementBonus, input:%d, rank:%d, totalHeldTime:%d, result:%d", inputValue, rank, totalHeldTime, resultValue )
+#endif
+	return resultValue
+}
+
+int function CalculateXPSpecialModifier_Kill( int inputValue, XPModifierConfig xpModifier, bool isBRMode )
+{
+	float weight = isBRMode ? fileLevel.baseKillWeight : fileLevel.baseNonBRKillWeight
+	if ( xpModifier.specialModifier == eSpecialModifierType.Kill_Add )
+		weight += isBRMode ? xpModifier.weight : xpModifier.nonBRWeight
+	return int( inputValue * weight )
+}
+
+int function GetMatchRank( entity player )
+{
+
+
+
+
+
+		return player.GetPersistentVarAsInt( "lastGameRank" )
+
+}
+
+void function ParseRewards( array<MasteryReward> rewardArray, string rewardString )
+{
+	array<string> pairs = split( rewardString, ";" )
+	foreach ( pairString in pairs )
+	{
+		array<string> pairKv = GetTrimmedSplitString( pairString, "," )
+		MasteryReward reward
+		reward.flav = GetItemFlavorByGUID( ConvertItemFlavorGUIDStringToGUID( pairKv[0] ) )
+		reward.quantity = pairKv.len() == 2 ? int( pairKv[1] ) : 1
+		rewardArray.append( reward )
+	}
+}
+
+int function Mastery_CalculateLevelFromXP( int xp )
+{
+	
+	Assert( xp >= 0, "XP " + xp + " too low" )
+	int levelIndex               = 0
+	array<int> xpToCompleteLevel = fileLevel.totalXPToCompleteLevel
+	if ( xp < xpToCompleteLevel[xpToCompleteLevel.len() - 1] )
+	{
+		for ( ; levelIndex < xpToCompleteLevel.len(); levelIndex ++ )
+		{
+			if ( xp < xpToCompleteLevel[levelIndex] )
+				return levelIndex + 1
+		}
+	}
+	else
+	{
+		levelIndex = xpToCompleteLevel.len()
+	}
+
+	int bonusXP = xp - xpToCompleteLevel[xpToCompleteLevel.len() - 1]
+
+	int xpForBonusLevels = fileLevel.xpForBonusLevels
+	return int( levelIndex + ceil( bonusXP / xpForBonusLevels ) ) + 1
+}
+
+int function Mastery_GetTotalXPToCompleteWeaponLevel( int level ) 
+{
+	int levelIndex = level - 1
+	Assert( levelIndex >= -1 )
+	if ( levelIndex == -1 )
+		return 0
+
+	array<int> totalXPToCompleteLevel = fileLevel.totalXPToCompleteLevel
+	int xpForBonusLevels              = fileLevel.xpForBonusLevels
+
+	if ( levelIndex < totalXPToCompleteLevel.len() )
+		return totalXPToCompleteLevel[levelIndex]
+
+	int numBonusLevels = 1 + (levelIndex - totalXPToCompleteLevel.len())
+	return totalXPToCompleteLevel[totalXPToCompleteLevel.len() - 1] + (numBonusLevels * xpForBonusLevels)
+}
+
+TrialConfig function AddTrial( ItemFlavor weapon, int tierLevel, int goal, string statBehavior, string statValidation, string statParams )
+{
+	if ( !(weapon in fileLevel.weaponConfigMap) )
+	{
+		MasteryWeaponConfig weaponConfig
+		fileLevel.weaponConfigMap[weapon] <- weaponConfig
+	}
+	TrialConfig trialConfig
+	trialConfig.statInstance = CreateStatInstance( ItemFlavor_GetGUID( weapon ), BuildPDefKey_TrialStat( weapon, tierLevel ), statBehavior, statValidation, statParams, eMasteryStatType.Trial )
+#if DEV
+		trialConfig.statInstance.description = format( "<WEAPON:%s--TRIAL:LEVEL %d index[%d]>", DEV_GetWeaponName( weapon ), ConvertTierLevelToDisplayLevel( tierLevel ), tierLevel )
+#endif
+	
+	trialConfig.tierLevel = tierLevel
+	trialConfig.displayLevel = ConvertTierLevelToDisplayLevel( tierLevel )
+	trialConfig.goal = goal
+	fileLevel.weaponConfigMap[weapon].trialList.append( trialConfig )
+	fileLevel.weaponConfigMap[weapon].tierTrialMap[tierLevel] <- trialConfig
+	return trialConfig
+}
+
+XPModifierConfig function AddXPModifier( ItemFlavor weapon, int index, float weight, float nonBRWeight, string specialModifier, string statBehavior, string statValidation, string statParams )
+{
+	if ( !(weapon in fileLevel.weaponConfigMap) )
+	{
+		MasteryWeaponConfig weaponConfig
+		fileLevel.weaponConfigMap[weapon] <- weaponConfig
+	}
+	XPModifierConfig xpModifierConfig
+	xpModifierConfig.statInstance = CreateStatInstance( ItemFlavor_GetGUID( weapon ), BuildPDefKey_XPModifierStat( weapon, index ), statBehavior, statValidation, statParams, eMasteryStatType.XPModifier )
+#if DEV
+		xpModifierConfig.statInstance.description = format( "<WEAPON:%s--XP:index[%d]>", DEV_GetWeaponName( weapon ), index )
+#endif
+	xpModifierConfig.weight = weight
+	xpModifierConfig.nonBRWeight = nonBRWeight
+	xpModifierConfig.index = index
+	if ( specialModifier in SPECIAL_MODIFIER_MAP )
+	{
+		xpModifierConfig.specialModifier = SPECIAL_MODIFIER_MAP[specialModifier]
+		if ( specialModifier == XP_SPECIAL_MODIFIER_KILL_BASE )
+		{
+			fileLevel.baseKillWeight = weight
+			fileLevel.baseNonBRKillWeight = nonBRWeight
+		}
+	}
+	fileLevel.weaponConfigMap[weapon].xpModifierList.append( xpModifierConfig )
+	return xpModifierConfig
+}
+
+StatInstance function CreateStatInstance( int targetTag, string pdefKey, string statBehavior, string statValidation, string statParams, int statType )
+{
+	StatInstance statInstance
+	statInstance.targetTag = targetTag
+	statInstance.persistenceKey = pdefKey
+	statInstance.statType = statType
+
+#if DEV
+	statInstance.cacheIndex = fileLevel.allStatsList.len()
+	fileLevel.allStatsList.append( statInstance )
+#endif
+
+
+
+
+
+
+
+
+	return statInstance
+}
+
+int function Mastery_GetVersion()
+{
+	return GetConVarInt( "weapon_mastery_trials_version" )
+}
+
+bool function IsTrialUnlocked( int weaponLevel, int trialLevel )
+{
+	if ( Mastery_GetVersion() == 2 )
+		return true
+	return weaponLevel / LEVELS_UNLOCK_EACH_TRIAL > trialLevel 
+}
+
+int function ConvertTierLevelToDisplayLevel( int tierLevel )
+{
+	return (tierLevel + 1) * LEVELS_UNLOCK_EACH_TRIAL
+}
+
+int function CalculateXPFromStatValue( int statValue, XPModifierConfig xpModifier, entity player, bool isBRMode )
+{
+	Assert( statValue >= 0, "[Mastery] xp stat value is below 0" )
+	if ( statValue == 0 )
+		return 0
+	if ( xpModifier.specialModifier == eSpecialModifierType.Kill_Base || xpModifier.specialModifier == eSpecialModifierType.Kill_Add )
+		return CalculateXPSpecialModifier_Kill( statValue, xpModifier, isBRMode )
+	float weight = isBRMode ? xpModifier.weight : xpModifier.nonBRWeight
+	return int( floor( statValue * weight ) )
+}
+
+string function BuildPDefKey_XPModifierStat( ItemFlavor weapon, int index )
+{
+	return BuildPdefKey_WeaponStruct( weapon ) + format( "%s[%d]", PERSISTENCE_XP_MODIFIER_LIST, index )
+}
+
+string function BuildPDefKey_TrialStat( ItemFlavor weapon, int tierLevel, bool forceLegacy = false )
+{
+	return BuildPDefKey_TrialStruct( weapon, tierLevel, forceLegacy ) + PERSISTENCE_STAT_SUFFIX
+}
+
+string function BuildPDefKey_TrialStatSopm( ItemFlavor weapon, int tierLevel )
+{
+	return BuildPdefKey_WeaponStruct( weapon ) + format( "%s[%d].%s", PERSISTENCE_TRIAL_LIST, tierLevel, PERSISTENCE_SOPM_STAT_SUFFIX )
+}
+
+string function BuildPDefKey_TrialStruct( ItemFlavor weapon, int tierLevel, bool forceLegacy = false )
+{
+	return BuildPdefKey_WeaponStruct( weapon ) + format( "%s[%d].", !forceLegacy && Mastery_GetVersion() == 2 ? PERSISTENCE_TRIAL_LIST_V2 : PERSISTENCE_TRIAL_LIST, tierLevel )
+}
+
+string function BuildPdefKey_WeaponStruct( ItemFlavor weapon )
+{
+	return format( "mastery_weapons[%s].", ItemFlavor_GetGUIDString( weapon ) )
+}
+
+bool function IsBRMode( entity player )
+{
+	string modeString
+
+
+
+
+
+		modeString = expect string( player.GetPersistentVar( "lastGameMode" ) )
+
+
+	if ( modeString == SURVIVAL ) 
+		return true
+
+
+	if ( modeString == GAMEMODE_HEATWAVE )
+		return true
+
+
+	return false
+}
+
+int function GetTotalWeaponHeldTime( entity player )
+{
+	int totalTime = 0
+	foreach ( weapon, weaponConfig in fileLevel.weaponConfigMap )
+	{
+		foreach ( xpModifier in weaponConfig.xpModifierList )
+		{
+			if ( xpModifier.specialModifier == eSpecialModifierType.Rank )
+				totalTime += player.GetPersistentVarAsInt( xpModifier.statInstance.persistenceKey )
+		}
+	}
+	return totalTime
+}
+
+string function GetActionTextFromTag( string action )
+{
+	return format( "#MASTERY_XP_%s", action.toupper() )
+}
+
+int function Mastery_GetTierFromBitfield( int bitfield )
+{
+	return bitfield & MASTERY_BADGE_TIER_BITMASK
+}
+
+int function Mastery_GetLevelFromBitfield( int bitfield )
+{
+	return bitfield >> MASTERY_BADGE_LEVEL_OFFSET
+}
+
+int function Mastery_SetTierToBitfield( int tier, int bitfield )
+{
+	return tier | ((bitfield >> MASTERY_BADGE_LEVEL_OFFSET) << MASTERY_BADGE_LEVEL_OFFSET)
+}
+
+int function Mastery_SetLevelToBitfield( int level, int bitfield )
+{
+	return (bitfield & MASTERY_BADGE_TIER_BITMASK) | (level << MASTERY_BADGE_LEVEL_OFFSET)
+}
+
+int function Mastery_CreateTierLevelBitfield( int tier, int level )
+{
+	return tier | (level << MASTERY_BADGE_LEVEL_OFFSET)
+}
+
+bool function Mastery_IsTrialCompleted( entity player, ItemFlavor weapon, TrialConfig trialConfig )
+{
+	int currentStat = player.GetPersistentVarAsInt( BuildPDefKey_TrialStat( weapon, trialConfig.tierLevel ) )
+	return currentStat >= trialConfig.goal
+}
+
+#if DEV
+void function DEV_TestGetSpecialInfo()
+{
+	array<MasteryWeapon_BaseQueryResult> allWeaponData
+	foreach ( ItemFlavor weapon in GetAllWeaponItemFlavors( false ) )
+	{
+		MasteryWeapon_BaseQueryResult ornull baseData = Mastery_GetWeaponBaseData( weapon )
+		if ( baseData != null )
+			allWeaponData.append( expect MasteryWeapon_BaseQueryResult( baseData ) )
+	}
+	
+	allWeaponData.sort( int function( MasteryWeapon_BaseQueryResult a, MasteryWeapon_BaseQueryResult b ) {
+		if ( a.level < b.level )
+			return 1
+		if ( a.level > b.level )
+			return -1
+		return 0
+	} )
+	for( int i = 0; i < 3; i++ )
+	{
+		printf( "Top [%d] level weapon-%s", i+1, WeaponItemFlavor_GetClassname( allWeaponData[i].weapon ) )
+	}
+	
+	allWeaponData.sort( int function( MasteryWeapon_BaseQueryResult a, MasteryWeapon_BaseQueryResult b ) {
+		if( a.xp == b.xp )
+			return 0
+		if ( Mastery_GetWeaponXPPercentToNextLevel( a ) < Mastery_GetWeaponXPPercentToNextLevel( b ) )
+			return -1
+		if ( Mastery_GetWeaponXPPercentToNextLevel( a ) > Mastery_GetWeaponXPPercentToNextLevel( b ) )
+			return 1
+		return 0
+	} )
+	printf( "Next level up weapon-%s", WeaponItemFlavor_GetClassname( allWeaponData[0].weapon ) )
+}
+#endif
+
+
+float function Mastery_GetWeaponXPPercentToNextLevel( MasteryWeapon_BaseQueryResult weaponData )
+{
+	Assert( weaponData.level >= 1, "weapon level < 1" )
+	int levelStartXP = weaponData.level == 1 ? 0 : Mastery_GetTotalXPToCompleteWeaponLevel( weaponData.level - 1 )
+	int levelEndXP = Mastery_GetTotalXPToCompleteWeaponLevel( weaponData.level )
+	
+	
+	
+	
+	
+	
+	
+	return float( levelEndXP - weaponData.xp ) / float( levelEndXP - levelStartXP )
+}
+
+
+
+MasteryWeapon_BaseQueryResult ornull function Mastery_GetWeaponBaseData( ItemFlavor weapon )
+{
+	if ( !(weapon in fileLevel.weaponConfigMap) )
+	{
+#if DEV
+			printt( "[Mastery] Can't find request weapon:" + DEV_ItemFlavor_GetCleanedAssetPath( weapon ) )
+#endif
+		return null
+	}
+	entity player = GetLocalClientPlayer()
+	MasteryWeapon_BaseQueryResult result
+	result.xp = player.GetPersistentVarAsInt( fileLevel.weaponConfigMap[weapon].persistenceKey_XP )
+	result.level = Mastery_CalculateLevelFromXP( result.xp )
+	result.weapon = weapon
+	return result
+}
+
+array<MasteryWeapon_TrialQueryResult> ornull function Mastery_GetWeaponTrialList( ItemFlavor weapon )
+{
+	if ( !(weapon in fileLevel.weaponConfigMap) )
+	{
+#if DEV
+			printt( "[Mastery] Can't find request weapon:" + DEV_ItemFlavor_GetCleanedAssetPath( weapon ) )
+#endif
+		return null
+	}
+	array<MasteryWeapon_TrialQueryResult> resultList
+	array<TrialConfig> trialConfigList = fileLevel.weaponConfigMap[weapon]	result.isCompleted = result.curVal == result.goalVal
+		result.rewards = fileLevel.weaponConfigMap[weapon].finalRewardFive
+	}
+	return result
+}
+
+MasteryWeapon_FinalRewardResult function Mastery_GetAllWeaponReward()
+{
+	MasteryWeapon_FinalRewardResult result
+	int finishedWeaponCount = 0
+	foreach( weapon, weaponConfig in fileLevel.weaponConfigMap )
+	{
+		int completedTrialCount               = 0
+		array<TrialConfig> trialConfigList    = fileLevel.weulateXPFromStatValue( statValue, xpModifier, player, isBRMode )
+					AddXPComponent( matchXPPerWeapon, xpModifier, xpValue )
+					
+					if ( xpModifier.specialModifier == eSpecialModifierType.Rank )
+					{
+						int bonusXP = CalculateXPSpecialModifier_PlacementBonus( statValue, totalHeldTime, rank, xpModifier, isBRMode )
+						if ( bonusXP > 0 )
+						{
+							AddXPComponent( matchXPPerWeapon, xpModifier, bonusXP, ACTION_PLACEMENT_BONUS )
+				
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+EvoWeaponXpChanged )
+	AddCallback_OnSelectedWeaponChanged( EvoWeapons_OnSelectedWeaponChanged )
+
+	RegisterSignal( "EvoWeapons_StopWeaponEvoHints" )
+
+	AddCallback_OnInventoryOpened( EvoWeapons_OnInventoryOpened )
+
+}
+
+#if INTELLIJ_OUTLINE_SECTION_MARKER
+void function _____________PlaylistVars___________________________(){}
+#endif
+
+void function EvoWeapons_InitTuningValues()
+{
+	tunings.damageThresholdZero      	= GetCurrentPlaylistVarInt( "evo_weallowTierSkips      				= GetCurrentPlaylistVarBool( "evo_weapon_allow_tier_skips", tunings.allowTierSkips )
+}
+
+bool function EvoWeapons_IsEnabled()
+{
+	return GetCurrentPlaylistVarBool( "enable_survival_evo_weapons", false )
+}
+
+bool function EvoWeapons_PlayerHasEvoWeapon( entity player )
+{
+	return player.GetPlayerNetBool( EVO_WEAPON_EQUIPPED_NETVAR )
+}
+
+bool function EvoWeapons_UsePlayerXPForProgression()
+{
+	return GetCurrentPlaylistVarBool( "ev[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/ui/sh_loadingscreen_hints.nut.client
+[dump] scripts/vscripts/ui/sh_loadingscreen_hints.nut.client (3477 bytes)
+global function ClLoadingHints_Init
+global function LoadingScreenHints_UIToClient_UpdateHintsRui
+
+
+
+
+
+
+const string SHOW_LOADING_HINTS_PVAR = "show_loading_hints"
+const int MAX_HINT_COUNT = 3	
+
+
+struct LoadingScreenHint
+{
+	string title = ""
+	string description = ""
+	asset image = $""
+
+	var nestedHintRui
+}
+
+
+struct
+{
+
+		var                             loadingHintsGroupRui
+		table< int, LoadingScreenHint > loadingScreenHints
+
+} file
+
+
+
+void function ClLoadingHints_Init()
+{
+	AddCallback_GameStateEnter( eGameState.Playing, LoadingScreenHints_OnPlaying )
+	AddCallback_OnControllerModeChanged( LoadingScreenHints_OnControllerModeChanged )
+
+	LoadingScreenHints_CreateHintsForMode()
+}
+
+bool function LoadingScreenHints_ShowLoadingHintsForMode()
+{
+	return IsFullyConnected() && GetCurrentPlaylistVarBool( SHOW_LOADING_HINTS_PVAR, false )
+}
+
+void function LoadingScreenHints_CreateHintsForMode()
+{
+	if ( IsLobby() )
+		return
+
+	
+	thread LoadingScreenHints_CreateHintsForMode_Thread()
+}
+
+void function LoadingScreenHints_CreateHintsForMode_Thread()
+{
+	AssertIsNewThread()
+
+	while ( !IsFullyConnected() )
+	{
+		WaitFrame()
+	}
+
+	if ( !LoadingScreenHints_ShowLoadingHintsForMode() )
+		return
+
+	if ( GetGameState() >= eGameState.Playing )
+		return
+
+	asset loadingHintsHud = LoadingScreenHints_GetHintsGroupAsset()
+	if ( loadingHintsHud != $"" )
+	{
+		file.loadingHintsGroupRui = CreatePermanentCockpitPostFXRui( loadingHintsHud, MINIMAP_Z_BASE + 1 )
+		RunUIScript( "LoadingScreenHints_ClientToUI_GetHintsData" )
+	}
+}
+
+void function LoadingScreenHints_OnPlaying()
+{
+	LoadingScreenHints_DestroyHints()
+}
+
+void function LoadingScreenHints_DestroyHints()
+{
+	if ( file.loadingHintsGroupRui != null )
+		RuiDestroyIfAlive( file.loadingHintsGroupRui )
+
+	file.loadingHintsGroupRui = null
+	file.loadingScreenHints.clear()
+
+	RemoveCallback_OnControllerModeChanged( LoadingScreenHints_OnControllerModeChanged )
+}
+
+asset function LoadingScreenHints_GetHintsGroupAsset()
+{
+	return $"ui/loading_hints_group.rpak"
+}
+
+asset function LoadingScreenHints_GetHintAsset()
+{
+	return $"ui/loading_hint_widget.rpak"
+}
+
+
+void function LoadingScreenHints_UIToClient_UpdateHintsRui( int index, string title, string description, asset image )
+{
+	if ( index in file.loadingScreenHints )
+	{
+		file.loadingScreenHints[ index ].title = title
+		file.loadingScreenHints[ index ].description = description
+		file.loadingScreenHints[ index ].image = image
+	}
+	else
+	{
+		LoadingScreenHint hint
+		hint.title = title
+		hint.description = description
+		hint.image = image
+		file.loadingScreenHints[index] <- hint
+	}
+
+	LoadingScreenHints_CreateOrUpdateHintRui( index, file.loadingScreenHints[ index ] )
+}
+
+void function LoadingScreenHints_CreateOrUpdateHintRui( int index, LoadingScreenHint hint )
+{
+	
+	if ( file.loadingHintsGroupRui == null || !RuiIsAlive( file.loadingHintsGroupRui ) )
+		return
+
+	asset loadingHintAsset = LoadingScreenHints_GetHintAsset()
+	if ( hint.nestedHintRui == null || !RuiIsAlive( hint.nestedHintRui ) )
+	{
+		hint.nestedHintRui = RuiCreateNested( file.loadingHintsGroupRui, "hint" + index + "Handle", loadingHintAsset )
+	}
+
+	RuiSetString( hint.nestedHintRui, "title", hint.title )
+	RuiSetString( hint.nestedHintRui, "description", hint.description )
+	RuiSetImage( hint.nestedHintRui, "hintImage", hint.image )
+}
+
+void function LoadingScreenHints_OnControllerModeChanged( bool isControllerMode )
+{
+	RunUIScript( "LoadingScreenHints_ClientToUI_GetHintsData" )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/sh_capture_room.gnut.client
+[dump] scripts/vscripts/sh_capture_room.gnut.client (4181 bytes)global function ShCaptureRoom_LevelInit
+
+global function ClCaptureRoom_PROTO_AddCaptureRoom
+global function IsCaptureRoomAvailable
+global function TryReserveCaptureRoom
+global function ReserveCaptureRoom
+global function WaitForReserveCaptureRoom
+global function ReleaseCaptureRoom
+
+#if DEV
+global function DEV_GetCaptureRooms
+#endif
+
+global const asset CAPTURE_ROOM_LIGHTING_RIG_MODEL = $"mdl/empty/lights/empty_lights.rmdl"
+const int CAPTURE_ROOM_EXPECTED_TWEAK_LIGHT_COUNT = 4
+
+
+global struct CaptureRoom
+{
+	vector        center
+	vector        ang
+	bool          inUse
+	array<entity> tweakLights
+}
+
+
+struct
+{
+
+		array<CaptureRoom> roomList
+		table              signalDummy
+
+} file
+
+void function ShCaptureRoom_LevelInit()
+{
+
+		PrecacheModel( CAPTURE_ROOM_LIGHTING_RIG_MODEL )
+
+
+
+		AddCallback_EntitiesDidLoad( EntitiesDidLoad )
+
+		RegisterSignal( "CaptureRoomAvailable" )
+
+}
+
+
+void function EntitiesDidLoad()
+{
+	bool didHaveRooms = false
+	foreach( entity target in GetEntArrayByScriptName( "scene_capture_room" ) )
+	{
+		CaptureRoom room
+		room.center = target.GetOrigin()
+		room.ang = target.GetAngles()
+		room.inUse = false
+		file.roomList.append( room )
+		target.Destroy()
+
+		didHaveRooms = true
+	}
+
+	for ( int refIndex = 0; true; refIndex++ )
+	{
+		array<entity> targets = GetEntArrayByScriptName( "scene_capture_room_" + refIndex + "_ref" )
+		Assert( targets.len() < 2, "Multiple entities in level with script name: scene_capture_room_" + refIndex + "_ref" )
+		if ( targets.len() == 0 )
+			break
+		entity target = targets[0]
+
+		CaptureRoom room
+		room.center = target.GetOrigin()
+		room.ang = target.GetAngles()
+		room.inUse = false
+		file.roomList.append( room )
+		target.Destroy()
+		didHaveRooms = true
+
+		for ( int lightIndex = 0; true; lightIndex++ )
+		{
+			array<entity> lights = GetEntArrayByScriptName( "scene_capture_room_" + refIndex + "_light_" + lightIndex )
+			Assert( lights.len() < 2, "Multiple entities in level with script name: scene_capture_room_" + refIndex + "_light_" + lightIndex )
+			if ( lights.len() == 0 )
+				break
+			entity light = lights[0]
+			room.tweakLights.append( light )
+		}
+
+		Assert( room.tweakLights.len() == CAPTURE_ROOM_EXPECTED_TWEAK_LIGHT_COUNT, "Scene capture room does not have the expected four tweak lights" )
+	}
+
+#if DEV
+		if ( !didHaveRooms )
+		{
+			printf( "Found no scene_capture_room entities. Adding three rooms in the sky." )
+			DEV_AddDevCaptureRooms()
+		}
+#endif
+}
+
+
+
+
+void function ClCaptureRoom_PROTO_AddCaptureRoom( vector center )
+{
+	CaptureRoom room
+	room.center = center
+	room.ang = <0, 0, 0>
+	room.inUse = false
+	file.roomList.append( room )
+}
+
+
+
+#if DEV
+void function DEV_AddDevCaptureRooms()
+{
+	ClCaptureRoom_PROTO_AddCaptureRoom( <0, 0, 10000> )
+	ClCaptureRoom_PROTO_AddCaptureRoom( <1000, 0, 10000> )
+	ClCaptureRoom_PROTO_AddCaptureRoom( <0, 1000, 10000> )
+}
+#endif
+
+
+#if DEV
+array<CaptureRoom> function DEV_GetCaptureRooms()
+{
+	return file.roomList
+}
+#endif
+
+
+
+bool function IsCaptureRoomAvailable()
+{
+	foreach( CaptureRoom room in file.roomList )
+	{
+		if ( !room.inUse )
+			return true
+	}
+	return false
+}
+
+
+
+
+CaptureRoom ornull function TryReserveCaptureRoom()
+{
+	foreach( int roomIndex, CaptureRoom room in file.roomList )
+	{
+		if ( room.inUse )
+			continue
+
+		room.inUse = true
+
+		return room
+	}
+
+	return null
+}
+
+
+
+
+CaptureRoom function ReserveCaptureRoom()
+{
+	CaptureRoom ornull captureRoom = TryReserveCaptureRoom()
+	Assert( captureRoom != null, "No free Scene capture rooms." )
+	expect CaptureRoom( captureRoom )
+	return captureRoom
+}
+
+
+
+
+CaptureRoom function WaitForReserveCaptureRoom()
+{
+	
+	
+	
+	while( true )
+	{
+		foreach( int roomIndex, CaptureRoom room in file.roomList )
+		{
+			if ( room.inUse )
+				continue
+
+			room.inUse = true
+
+			return room
+		}
+		WaitSignal( file.signalDummy, "CaptureRoomAvailable" )
+	}
+
+	unreachable
+}
+
+
+
+
+void function ReleaseCaptureRoom( CaptureRoom room )
+{
+	Assert( room.inUse, "Attempted to end release a Scene capture room that was not in use." )
+
+#if DEV
+		foreach( entity light in room.tweakLights )
+			Assert( IsValerbose( state.key, format( "%s = %s", attachmentName, string( lightOrigin ) ) )
+	}
+}
+
+void function TryPlayLightingRigAnimSeq( ClientPIPSceneState state )
+{
+	if ( state.captureRoom == null )
+		return
+
+	if ( state.lightingRig == null )
+		return
+
+	if ( state.lightingRigAnimSeq == "" )
+		return
+
+	if ( !state.lightingRig.Anim_HasSequence( state.lightingRigAnimSeq ) )
+		return
+
+	state.lightingRig.Anim_Play( state.lightingRigAnimSeq )
+
+	SetTweakLightOriginAngles( state )
+}
+
+
+
+bool function IsVerbose()
+{
+#if DEV
+		return GetConVarBool( "pip_scene_verbose" )
+#endif
+	return false
+}
+
+void function PrintIfVerbose( string key, string message )
+{
+	if ( IsVerbose() )
+	{
+		printf( "[PIP_SCENE:%s] %s", key, message )
+	}
+}
+
+PIPSceneTemplate function BuildPIPSceneTemplate( ItemFlavor templateItemFlav )
+{
+	Assert( ItemFlavor_GetType( templateItemFlav ) == eItemType.pip_scene_template )
+	var block = Ite[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/gamemodes/sh_gamemodes.gnut.client
+[dump] scripts/vscripts/gamemodes/sh_gamemodes.gnut.client (21274 bytes)[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/sh_persistent_data.gnut.client
+[dump] scripts/vscripts/sh_persistent_data.gnut.client (4302 bytes)global function ShPersistentData_LevelInit_Begin
+global function ShPersistentData_LevelInit_Finish
+
+
+
+
+
+
+
+
+
+
+global function AddCallback_OnPersistentDataReady
+global function GetPersistentIntArray
+global function IsPersistenceBitSet
+global function IsAnyPersistenceBitSet
+
+
+#if DEV
+global function DEV_ShouldIgnorePersistence
+#endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global function ServerToClient_OnPersistentDataReady
+
+
+
+
+
+
+#if DEV
+global bool dev_should_ignore_persistence = false
+global function SetShouldIgnorePersistence
+#endif
+
+
+
+
+
+
+global function SafeGetPersistentVar
+global function SafeGetPersistentVarAsInt
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global typedef OnPersistentDataReadyCallbackType void functionref( entity player )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+struct FileStruct_LifetimeLevel
+{
+
+
+
+
+
+
+
+
+
+
+
+
+	array<OnPersistentDataReadyCallbackType> onPersistentDataReadyCallbacks
+}
+FileStruct_LifetimeLevel& fileLevel
+
+
+
+
+
+
+#if DEV
+void function SetShouldIgnorePersistence()
+{
+	bool playlistValue	= GetCurrentPlaylistVarBool( "dev_should_ignore_persistence", false )
+	bool convarValue	= GetConVarBool( "persistence_run_pdef_autogen_on_connect" )
+
+	dev_should_ignore_persistence = (playlistValue || convarValue)
+}
+#endif
+
+void function ShPersistentData_LevelInit_Begin()
+{
+	FileStruct_LifetimeLevel newFileLevel
+	fileLevel = newFileLevel
+
+#if DEV
+		SetShouldIgnorePersistence()
+#endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+		Remote_RegisterClientFunction( "ServerToClient_OnPersistentDataReady" )
+
+}
+
+
+void function ShPersistentData_LevelInit_Finish()
+{
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#if DEV
+bool function DEV_ShouldIgnorePersistence()
+{
+	return dev_should_ignore_persistence
+}
+#endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function AddCallback_OnPersistentDataReady( OnPersistentDataReadyCallbackType cb )
+{
+	Assert( !fileLevel.onPersistentDataReadyCallbacks.contains( cb ), "Callback already registered" )
+	fileLevel.onPersistentDataReadyCallbacks.append( cb )
+}
+
+
+
+
+
+array<int> function GetPersistentIntArray( entity player, string variableName )
+{
+	array<int> arr
+	int size = PersistenceGetArrayCount( variableName )
+
+	for ( int i = 0; i < size; i++ )
+	{
+		int element = player.GetPersistentVarAsInt( variableName + "[" + i + "]" )
+
+		arr.append( element )
+	}
+
+	return arr
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+bool function IsPersistenceBitSet( entity player, string persistenceVar, int bitIndex )
+{
+	int arrayIndex = bitIndex / 32
+	int bitOffset  = bitIndex % 32
+
+	int decimalValue = 1 << bitOffset
+
+	Assert( arrayIndex < PersistenceGetArrayCount( persistenceVar ), "Need to increase the array size of the persistenceVar " + persistenceVar )
+	persistenceVar = persistenceVar + "[" + arrayIndex + "]"
+
+	return ((player.GetPersistentVarAsInt( persistenceVar ) & decimalValue) != 0)
+}
+
+
+
+
+bool function IsAnyPersistenceBitSet( entity player, string persistenceVar )
+{
+	int arrayCount = PersistenceGetArrayCount( persistenceVar )
+	for ( int i = 0; i < arrayCount; i++ )
+	{
+		if ( player.GetPersistentVarAsInt( persistenceVar + "[" + i + "]" ) > 0 )
+			return true
+	}
+	return false
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function ServerToClient_OnPersistentDataReady()
+{
+	RunUIScript( "ClientToUI_OnPersistentDataReady" )
+
+	foreach( OnPersistentDataReadyCallbackType cb in fileLevel.onPersistentDataReadyCallbacks )
+		cb( GetLocalClientPlayer() )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+var function SafeGetPersistentVar( entity player, string key )
+{
+	if ( IsValid( player ) && player.IsConnectionActive() )
+		return player.GetPersistentVar( key )
+	return null
+}
+
+int function SafeGetPersistentVarAsInt( entity player, string key )
+{
+	if ( IsValid( player ) && player.IsConnectionActive() )
+		return player.GetPersistentVarAsInt( key )
+	return 0
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/sh_utility_progression_all.gnut.client
+[dump] scripts/vscripts/sh_utility_progression_all.gnut.client (2413 bytes)untyped
+
+globalize_all_functions
+
+bool function MapIsValidForPersistence( string mapName )
+{
+	return PersistenceEnumValueIsValid( "maps", mapName )
+}
+
+
+float function _GetDaysSinceVar( entity player, string variable )
+{
+	
+	Assert( IsValid( player ) )
+	Assert( player.IsPlayer() )
+
+	int storedTime  = player.GetPersistentVarAsInt( variable )
+	int currentTime = GetDailyResetAlignedTime()
+
+	if ( storedTime <= 0 || currentTime <= storedTime )
+		return 0
+
+	int secondsElapsed = currentTime - storedTime
+
+	return (secondsElapsed / float( SECONDS_PER_DAY ))
+}
+
+
+int function GetDailyResetAlignedTime()
+{
+	
+	int currentTime = GetUnixTimestamp()
+	int dstAdjustment = GetIsDSTActiveForTime( currentTime ) ? 1 : 0
+	return currentTime + (DAILY_RESET_TIME_ZONE_OFFSET + dstAdjustment) * SECONDS_PER_HOUR
+}
+
+
+int function GetDSTDeltaSecondsForTime( int targetUnixTime, int referenceUnixTime )
+{
+	
+	int dstDelta = (GetIsDSTActiveForTime( targetUnixTime ) ? 1 : 0) - (GetIsDSTActiveForTime( referenceUnixTime ) ? 1 : 0)
+	return dstDelta * SECONDS_PER_HOUR
+}
+
+
+int function Daily_GetDayForCurrentTime()
+{
+	
+	return Daily_GetDayForTimestamp( GetDailyResetAlignedTime() )
+}
+
+
+int function Daily_GetDayForTimestamp( int timeStamp )
+{
+	return timeStamp / SECONDS_PER_DAY
+}
+
+
+int function Daily_SecondsTillDayEnd()
+{
+	
+	int currentDayStart = Daily_GetDayForCurrentTime() * SECONDS_PER_DAY
+	return currentDayStart + SECONDS_PER_DAY - GetDailyResetAlignedTime()
+}
+
+
+int function Daily_GetEndOfDayForCurrentTime()
+{
+	
+	return GetDailyResetAlignedTime() + Daily_SecondsTillDayEnd()
+}
+
+
+int function ClampChallengeExpireTime( int time )
+{
+	ItemFlavor latestSeason = GetLatestSeason( GetUnixTimestamp() )
+	return ClampInt( time, CalEvent_GetStartUnixTime( latestSeason ), CalEvent_GetFinishUnixTime( latestSeason ) )
+}
+
+
+array<string> function GetPersistenceEnumAsArray( string persistenceEnumName )
+{
+	int enumSize = PersistenceGetEnumCount( persistenceEnumName )
+	array<string> returnArray
+	for ( int i = 0; i < enumSize; i++ )
+	{
+		returnArray.append( PersistenceGetEnumItemNameForIndex( persistenceEnumName, i ) )
+	}
+
+	return returnArray
+}
+
+
+string function SkillToString( val )
+{
+	
+	if ( val % 1 == 0 )
+		return format( "%i", val )
+
+	return format( "%.1f", val )
+}
+
+
+int function SkillToPerformance( float val )
+{
+	return int( val * 100 )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/sh_stats_internals.gnut.client
+[dump] scripts/vscripts/sh_stats_internals.gnut.client (24431 bytes)global function ShStatsInternals_LevelInit
+
+
+global function ResolveStatEntry
+global function GetStat_Int
+global function GetStatEntryByIndex
+global function IsValidStatEntryRef
+global function GetStatEntryByRef
+global function StatEntry_GetIndex
+global function StatEntry_GetRef
+global function StatEntry_GetType
+global function StatEntry_GetBehavior
+global function DoesStatSatisfyValue
+
+global function RegisterAccumulatedStat_Int
+global functioUAL_TRIOS )
+	{
+		return true
+	}
+
+	string mode = GetCurrentPlaylistVarString( "stats_match_type", "survival" )
+
+	Assert( ( mode in STAT_MATCH_TYPE_TO_CHALLENGE_GAMEMODE ), "Invalid Playlist var stats_match_type " + mode )
+
+	int challengeGameMode = STAT_MATCH_TYPE_TO_CHALLENGE_GAMEMODE[ mode ]
+
+	if ( challengeGameMode == CHALLENGE_GAME_MODE_INVALID )
+	{
+		return false
+	}
+
+	if ( gameModeBitField == CHALLENGE_GAME_MODE_EXCEPT_BR )
+	{
+		if ( challengeGameMode == CHALLENGE_GAME_MODE_BATTLE_ROYALE || challengeGameMode == CHALLENGE_GAME_MODE_BATTLE_ROYALE_PLUS_CASUAL_TRIOS )
+		{
+			return false
+		}
+
+		return true
+	}
+
+	if ( IsBitFlagSet( challengeGameMode, gameModeBitField ) )
+	{
+		return true
+	}
+
+	if ( IsBitFlagSet( eChallengeGameMode.RANKED, gameModeBitField ) && GameModeVariant_IsActive( eGameModeVariants.SURVIVAL_RANKED ) )
+	{
+		return true
+	}
+
+	if ( IsBitFlagSet( eChallengeGameMode.UNRANKED_TRIOS, gameModeBitField ) && mode != "casual_trios" && GameMode_IsActive( eGameModes.SURVIVAL ) && GameModeVariant_IsActive( eGameModeVariants.invalid ) )
+	{
+		return true
+	}
+
+	if ( IsBitFlagSet( eChallengeGameMode.SURVIVAL_QUADS, gameModeBitField ) && GameModeVariant_IsActive( eGameModeVariants.SURVIVAL_QUADS ) )
+	{
+		return true
+	}
+
+	if ( IsBitFlagSet( eChallengeGameMode.SURVIVAL_SOLOS, gameModeBitField ) && GameModeVariant_IsActive( eGameModeVariants.SURVIVAL_SOLOS ) )
+	{
+		return true
+	}
+
+	return false
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+StatEntry function ResolveStatEntry( StatTemplate template, ... )
+{
+	Assert( template.type != eStatType.INVALID, "StatTemplate was not initialized." )
+
+	int keyArgCount = expect int(vargc)
+	Assert( keyArgCount == template.enumKeyCount, "Stat '" + GetStatTemplateDebugName( template ) + "' requires " + template.enumKeyCount + " enum keys but ResolveStatEntry was called with " + keyArgCount + "." )
+
+	if ( vargc == 0 )
+		return template.rootEntry
+
+	StatTemplateEnumKeyResolver resolver = template.resolver
+	for ( int resolveDepth = 0; resolveDepth < keyArgCount - 1; resolveDepth++ )
+	{
+		Assert( !resolver.isFinal )
+		string key = expect string(vargv[resolveDepth])
+
+
+
+
+
+
+		resolver = resolver.children[key]
+	}
+	Assert( resolver.isFinal )
+	string key = expect string(vargv[keyArgCount - 1])
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	return resolver.entries[key]
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+StatEnumStruct function RegisterStatEnumStruct( StatEnumStruct ornull parentSESOrNull, string fieldName, string enumName, array<string> choices )
+{
+	StatEnumStruct ses
+	ses.parentEnumStruct = parentSESOrNull
+	ses.fieldName = fieldName
+	ses.enumName = enumName
+	ses.choices = choices
+	ses.choices.shrinktofit()
+
+#if DEV
+		if ( parentSESOrNull == null )
+		{
+			fileLevel.rootFieldsList.childEnumStructs.append( ses )
+		}
+		else
+		{
+			StatEnumStruct parentSES = expect StatEnumStruct(parentSESOrNull)
+			StatEnumStruct_Children sesChildren
+			if ( parentSES in fileLevel.sesChildrenMap )
+				sesChildren = fileLevel.sesChildrenMap[parentSES]
+			else
+				fileLevel.sesChildrenMap[parentSES] <- sesChildren
+			sesChildren.childEnumStructs.append( ses )
+		}
+#endif
+
+	return ses
+}
+
+
+
+
+StatTemplate function InternalRegisterStatCommon( StatEnumStruct ornull parentSESOrNull, string fieldName, int type, int behavior, int stateWriteMode, bool shouldCache, int gameModeBitfield )
+{
+	StatTemplate template
+
+	template.fieldName = fieldName
+	template.type = type
+	template.behavior = behavior
+	template.statWriteMode = stateWriteMode
+	template.shouldCache = shouldCache
+	template.gameModeBitField = gameModeBitfield
+	Assert( !shouldCache || template.behavior == eStatBehavior.CALCULATED )
+
+	if ( parentSESOrNull == null )
+	{
+		template.rootEntry.type = template.type
+		template.rootEntry.behavior = template.behavior
+		template.rootEntry.statWriteMode = template.statWriteMode
+		template.rootEntry.shouldCache = template.shouldCache
+		template.rootEntry.gameModeBitField = template.gameModeBitField
+		template.rootEntry.isTrackedInCurrentMode = Stats_IsStatTrackedInCurrentMode( gameModeBitfield )
+
+
+
+
+
+
+
+
+
+
+		template.rootEntry.persistenceFullKey_Current = STATS_PERSISTENCE_PREFIX_CURRENT + "." + fieldName
+		if ( template.rootEntry.behavior != eStatBehavior.CALCULATED || template.rootEntry.shouldCache )
+		{
+#if DEV
+			
+			if ( !DEV_ShouldIgnorePersistence() )
+#endif
+			{
+				template.rootEntry.persistenceFullKey_Current_Handle = PersistenceGetVarHandle( template.rootEntry.persistenceFullKey_Current )
+			}
+		}
+
+		template.rootEntry.index = fileLevel.allStats.len()
+		fileLevel.allStats.append( template.rootEntry )
+
+		fileLevel.refStatEntryMap[template.rootEntry.persistenceFullKey_Current] <- template.rootEntry
+
+		template.rootEntry.indexWithinType = fileLevel.stats_Int.len()
+		fileLevel.stats_Int.append( template.rootEntry )
+
+#if DEV
+			fileLevel.rootFieldsList.childStatTemplates.append( template )
+#endif
+
+		template.allEntries.append( template.rootEntry )
+	}
+	else
+	{
+		StatEnumStruct parentSES = expect StatEnumStruct( parentSESOrNull )
+
+#if DEV
+			StatEnumStruct_Children sesChildren
+			if ( parentSES in fileLevel.sesChildrenMap )
+				sesChildren = fileLevel.sesChildrenMap[ parentSES ]
+			else
+				fileLevel.sesChildrenMap[ parentSES ] <- sesChildren
+			sesChildren.childStatTemplates.append( template )
+#endif
+
+		array<StatEnumStruct> sesAncestorsReversed = []
+		StatEnumStruct ornull ancestorOrNull       = parentSESOrNull
+		while ( ancestorOrNull != null )
+		{
+			StatEnumStruct ancestor = expect StatEnumStruct(ancestorOrNull)
+			sesAncestorsReversed.append( ancestor )
+			ancestorOrNull = ancestor.parentEnumStruct
+		}
+
+		template.enumKeyCount = sesAncestorsReversed.len()
+		template.resolver = BuildStatTemplateEnumKeyResolversRecursive( template, 0, sesAncestorsReversed, template, "", [] )
+	}
+
+	return template
+}
+
+
+
+
+StatTemplateEnumKeyResolver function BuildStatTemplateEnumKeyResolversRecursive( StatTemplate template, int depth, array<StatEnumStruct> sesAncestorsReversed, StatTemplate stat, string partialKey, array<string> enumKeys )
+{
+	StatTemplateEnumKeyResolver resolver
+
+	StatEnumStruct ancestor = sesAncestorsReversed[sesAncestorsReversed.len() - 1 - depth]
+
+	if ( depth == sesAncestorsReversed.len() - 1 )
+	{
+		resolver.isFinal = true
+		foreach ( string choice in ancestor.choices )
+		{
+			array<string> grownEnumKeys = []
+			grownEnumKeys.extend( enumKeys )
+			grownEnumKeys.append( choice )
+
+			StatEntry entry
+			entry.type = template.type
+			entry.behavior = template.behavior
+			entry.statWriteMode = template.statWriteMode
+			entry.shouldCache = template.shouldCache
+			entry.gameModeBitField = template.gameModeBitField
+
+			entry.persistenceFullKey_Current = format( "%s.%s%s[%s].%s", STATS_PERSISTENCE_PREFIX_CURRENT, partialKey, ancestor.fieldName, choice, stat.fieldName )
+			int entryPersistencePartialKeyOffset = STATS_PERSISTENCE_PREFIX_CURRENT.len() + 1
+
+			entry.isTrackedInCurrentMode = Stats_IsStatTrackedInCurrentMode( template.gameModeBitField )
+
+
+
+
+
+
+
+
+
+
+			if ( template.gameModeBitField == CHALLENGE_GAME_MODE_EXCEPT_BR )
+			{
+				foreach ( int gameModeEnum, string modeRef in GAME_MODE_TO_STAT_REF_MAP )
+				{
+					if ( entry.persistenceFullKey_Current.find( modeRef, entryPersistencePartialKeyOffset ) != -1 )
+					{
+						entry.gameModeBitField = Stats_GetModeBitfieldForGameModes( [gameModeEnum] )
+					}
+				}
+			}
+
+			if ( entry.behavior != eStatBehavior.CALCULATED || entry.shouldCache )
+			{
+#if DEV
+				
+				if ( !DEV_ShouldIgnorePersistence() )
+#endif
+				{
+					entry.persistenceFullKey_Current_Handle = PersistenceGetVarHandle( entry.persistenceFullKey_Current )
+				}
+			}
+
+			entry.enumKeys = grownEnumKeys
+
+			entry.index = fileLevel.allStats.len()
+			fileLevel.allStats.append( entry )
+
+			fileLevel.refStatEntryMap[entry.persistenceFullKey_Current] <- entry
+
+			entry.indexWithinType = fileLevel.stats_Int.len()
+			fileLevel.stats_Int.append( entry )
+
+
+			resolver.entries[choice] <- entry
+
+			template.allEntries.append( entry )
+		}
+	}
+	else
+	{
+		resolver.isFinal = false
+		foreach ( string choice in ancestor.choices )
+		{
+			string grownPartialKey = format( "%s%s[%s].", partialKey, ancestor.fieldName, choice )
+
+			array<string> grownEnumKeys = []
+			grownEnumKeys.extend( enumKeys )
+			grownEnumKeys.append( choice )
+			StatTemplateEnumKeyResolver subResolver = BuildStatTemplateEnumKeyResolversRecursive( stat, depth + 1, sesAncestorsReversed, stat, grownPartialKey, grownEnumKeys )
+			resolver.children[choice] <- subResolver
+		}
+	}
+
+	return resolver
+}
+
+
+
+
+StatTemplate function RegisterAccumulatedStat_Int( StatEnumStruct ornull enumStructOrNull, string fieldName, int gameModeBitfield, int statWriteMode )
+{
+	return InternalRegisterStatCommon( enumStructOrNull, fieldName, eStatType.INT, eStatBehavior.ACCUMULATED, statWriteMode, false, gameModeBitfield )
+}
+
+
+
+
+StatTemplate function RegisterVariableStat_Int( StatEnumStruct ornull enumStructOrNull, string fieldName, int gameModeBitfield, int statWriteMode )
+{
+	return InternalRegisterStatCommon( enumStructOrNull, fieldName, eStatType.INT, eStatBehavior.VARIABLE, statWriteMode, false, gameModeBitfield )
+}
+
+
+
+void function InternalRegisterCalcFunc( StatTemplate stat, StatCalcFuncInfo functionref( StatEntry, array<StatTemplate> ) setupFunc, array<StatTemplate> sourceTemplates )
+{
+	foreach( StatEntry entry in stat.allEntries )
+	{
+		StatCalcFuncInfo calcInfo = setupFunc( entry, sourceTemplates )
+		entry.calcFunc_Int = calcInfo.calcFunc_Int
+		entry.calcSourceEntries = calcInfo.sourceEntries
+
+		if ( calcInfo.sourceEntries != null )
+		{
+			array<StatEntry> sourceEntries = expect array<StatEntry>( calcInfo.sourceEntries )
+			foreach( StatEntry sourceEntry in sourceEntries )
+			{
+				if ( sourceEntry.dependents == null )
+					sourceEntry.dependents = []
+				array<StatEntry> dependents = expect array<StatEntry>( sourceEntry.dependents )
+				dependents.append( entry )
+			}
+		}
+	}
+}
+
+
+
+void function InternalSetupGuardedStatFunctions( StatTemplate stat, int functionref( entity ) resetBeforeSetFunc, int functionref( entity ) resetBeforeGetFunc )
+{
+	foreach ( StatEntry entry in stat.allEntries )
+	{
+		entry.resetBeforeSetFunc = resetBeforeSetFunc
+		entry.resetBeforeGetFunc = resetBeforeGetFunc
+	}
+}
+
+
+
+
+StatTemplate function InternalRegisterCalculatedStatCommon( StatEnumStruct ornull enumStructOrNull, string fieldName, int statWriteMode, bool shouldCache,
+		StatCalcFuncInfo functionref( StatEntry, array<StatTemplate> ) setupFunc, array<StatTemplate> sourceTemplates, int gameModeBitfield )
+{
+	StatTemplate stat = InternalRegisterStatCommon( enumStructOrNull, fieldName, eStatType.INT, eStatBehavior.CALCULATED, statWriteMode, shouldCache, gameModeBitfield )
+
+	InternalRegisterCalcFunc( stat, setupFunc, sourceTemplates )
+
+	return stat
+}
+
+
+
+
+StatTemplate function RegisterExpensiveCalculatedStat_Int( StatEnumStruct ornull enumStructOrNull, string fieldName, int statWriteMode,
+		StatCalcFuncInfo functionref( StatEntry, array<StatTemplate> ) setupFunc, array<StatTemplate> sourceTemplates, int gameModeBitfield )
+{
+	return InternalRegisterCalculatedStatCommon( enumStructOrNull, fieldName, statWriteMode, false, setupFunc, sourceTemplates, gameModeBitfield )
+}
+
+
+
+
+StatTemplate function RegisterCachedCalculatedStat_Int( StatEnumStruct ornull enumStructOrNull, string fieldName, int statWriteMode,
+		StatCalcFuncInfo functionref( StatEntry, array<StatTemplate> ) setupFunc, array<StatTemplate> sourceTemplates, int gameModeBitfield )
+{
+	return InternalRegisterCalculatedStatCommon( enumStructOrNull, fieldName, statWriteMode, true, setupFunc, sourceTemplates, gameModeBitfield )
+}
+
+
+
+StatTemplate function RegisterBitfieldStat_Int( StatEnumStruct ornull enumStructOrNull, string fieldName, int statWriteMode,
+		StatCalcFuncInfo functionref( StatEntry, array<StatTemplate> ) setupFunc, array<StatTemplate> sourceTemplates, int gameModeBitfield )
+{
+	StatTemplate stat = InternalRegisterStatCommon( enumStructOrNull, fieldName, eStatType.INT, eStatBehavior.BITFIELD, statWriteMode, false, gameModeBitfield )
+
+	InternalRegisterCalcFunc( stat, setupFunc, sourceTemplates )
+
+	return stat
+}
+
+
+
+StatTemplate function RegisterGuardedStat_Int( StatEnumStruct ornull enumStructOrNull, string fieldName, int gameModeBitfield, int statWriteMode,
+		int functionref( entity ) resetBeforeSetFunc, int functionref( entity ) resetBeforeGetFunc )
+{
+	StatTemplate stat = InternalRegisterStatCommon( enumStructOrNull, fieldName, eStatType.INT, eStatBehavior.GUARDED, statWriteMode, false, gameModeBitfield )
+	InternalSetupGuardedStatFunctions( stat, resetBeforeSetFunc, resetBeforeGetFunc )
+
+	return stat
+}
+
+
+
+StatTemplate function RegisterCommunityStat_Int( StatEnumStruct ornull enumStructOrNull, string fieldName, int gameModeBitfield, int statWriteMode )
+{
+	return InternalRegisterStatCommon( enumStructOrNull, fieldName, eStatType.INT, eStatBehavior.COMMUNITY, statWriteMode, false, gameModeBitfield )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+void function StatsArraysShrinkToFit()
+{
+	
+	fileLevel.stats_Int.shrinktofit()
+	fileLevel.allStats.shrinktofit()
+#if DEV
+		foreach ( StatTemplate stat in fileLevel.rootFieldsList.childStatTemplates )
+		{
+			stat.allEntries.shrinktofit()
+		}
+#endif
+}
+
+
+array<int> function Stats_GetGameModesFromBitfield( int modeBitfield )
+{
+	array<int> out = []
+
+	foreach ( int entry in eChallengeGameMode )
+	{
+		if ( IsBitFlagSet( modeBitfield, entry ) )
+		{
+			out.append( entry )
+		}
+	}
+
+	return out
+}
+
+
+
+int function Stats_GetModeBitfieldForGameModes( array<int> modes )
+{
+	int bitField
+
+	foreach ( int mode in modes )
+	{
+		bitField = SetBitFlag( bitField, mode )
+	}
+
+	
+	
+
+	return bitField
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/sh_stats_defs.gnut.client
+[dump] scripts/vscripts/sh_stats_defs.gnut.client (43323 bytes)global function ShStatsDefs_Init
+
+global function StatsDefs_GetCharacterGUIDToBitmaskMap
+
+struct FileLevel_Lifetime
+{
+	table< string, int > characterGUIDToBitmask
+}
+FileLevel_Lifetime& file
+
+
+global struct CareerStats
+{
+	StatTemplate& account_level
+	StatTemplate& total_legendary_items
+	StatTemplate& num_characters_with_banners_once_filled
+	StatTemplate& respawn_dev
+	StatTemplate& ea_access_member
+	StatTemplate& fashionista
+	StatTemplate& weapons_with_legendary_skin
+	StatTemplate& well_rounded
+	StatTemplate& times_fully_kitted
+	StatTemplate& distance_kill
+	StatTemplate& placements_win_with_friends
+	StatTemplate& placements_win_with_no_witnessess
+	StatTemplate& placements_win_with_min_executions_per_person
+	StatTemplate& team_work_kill_count
+	StatTemplate& max_placement_win_streak_with_premade_squad
+	StatTemplate& looted_all_launch_loot_once
+	StatTemplate& master_of_all
+	StatTemplate& starter_pack
+	StatTemplate& founder_pack
+	StatTemplate& twitch_pack
+	StatTemplate& daily_challenges_completed
+	StatTemplate& challenge_xp_earned
+
+	
+	
+	
+	StatTemplate& looted_all_nongold_weapons_in_1_match
+
+	StatTemplate& looted_epic_item
+	StatTemplate& looted_epic_item_any_mode
+	StatTemplate& looted_legendary_item
+	StatTemplate& looted_legendary_item_any_mode
+	StatTemplate& looted_legendary_helmet
+	StatTemplate& looted_legendary_armor
+
+	StatTemplate& thanks
+	StatTemplate& dooms
+	StatTemplate& dooms_br_plus_ct
+	StatTemplate& kills
+	StatTemplate& kills_br_plus_ct
+	StatTemplate& times_got_doomed
+	StatTemplate& deaths
+	StatTemplate& assists
+	StatTemplate& kills_or_assists
+	
+	
+	StatTemplate& times_respawned_ally
+	StatTemplate& winning_kills
+	StatTemplate& kills_while_killleader
+	StatTemplate& kills_max_single_game
+	StatTemplate& damage_done
+	StatTemplate& damage_done_br_plus_ct
+	StatTemplate& damage_done_midair
+	StatTemplate& damage_taken
+	StatTemplate& shots
+	StatTemplate& hits
+	StatTemplate& headshots
+	StatTemplate& executions
+	StatTemplate& revived_ally
+	StatTemplate& revived_ally_br_plus_ct
+	StatTemplate& revived_ally_any_mode
+	StatTemplate& respawned_ally
+
+	
+	
+	StatTemplate& akimbo_damage_done
+	StatTemplate& akimbo_dooms
+	StatTemplate& akimbo_kills
+
+	
+	StatTemplate& akimbo_damage_done_any_mode
+	StatTemplate& akimbo_kills_aevent_bat_placements_top_5
+		StatTemplate& gamemode_wildcard_event_bat_pick_up_bat
+
+
+		
+		StatTemplate& gamemode_wildcard_event_flatline_placements_top_5
+		StatTemplate& gamemode_wildcard_event_flatline_pick_up_flatline
+
+		StatTemplate& gamemode_wildcard_event_halloween_equip_demon
+		StatTemplate& gamemode_wildcard_event_halloween_equip_reaper
+
+
+
+
+
+
+		
+		StatTemplate& gamemode_wildcard_event_beamstick_damage_with_drones
+		StatTemplate& gamemode_wildcard_event_beamstick_damage_blocked_in_shield_mode
+
+
+		
+		StatTemplate& gamemode_wildcard_event_vortex_shield_damage_blocked
+		StatTemplate& gamemode_wildcard_event_vortex_shield_emp_enemies_hit
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+		StatTemplate& time_trial_finish_time
+
+} 
+
+global CareerStats CAREER_STATS
+
+global const int WRITE_TO_PERSISTENCE_IMMEDIATELY = eStatWriteMode.WRITE_IMMEDIATELY 
+global const int DELAY_WRITE_BACK_UNTIL_MATCH_END = eStatWriteMode.WRITE_END_OF_MATCH 
+global const int NEVER_WRITE = eStatWriteMode.WRITE_NEVER
+global const int CHALLENGES_CALC_DEPENDS = WRITE_TO_PERSISTENCE_IMMEDIATELY
+global const int BADGES_UNLOCK_NEED = DELAY_WRITE_BACK_UNTIL_MATCH_END
+global const int TRACKERS_NEED = DELAY_WRITE_BACK_UNTIL_MATCH_END
+global const int ACCOLADE_CHALLENGE_ONLY = NEVER_WRITE
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global const array<string> STATS_ALTERNATE_MODE_REFS = [
+	"arenas",
+	"winter_express",
+	"shadowroyale",
+	"control",
+	"gungame",
+	"ftdm",
+	"hardcore_survival",
+	"date_night",
+	"heatwave",
+	"armeddangerous",
+	"swat",
+	"aprilfools_s16",
+	"shadowarmy",
+	"threestrikes",
+	"turbo",
+	"treasurehunt",
+
+
+
+	"objective_br",
+]
+
+
+
+
+
+
+global const string STATS_MATCH_TYPE_NONE	= "none"
+
+
+
+
+
+
+global enum eChallengeGameMode
+{
+	
+	RANKED = (1 << 0),
+	UNRANKED_TRIOS = (1 << 1),
+	SURVIVAL_SOLOS = (1 << 2),
+	SURVIVAL_QUADS = (1 << 3),
+
+	ARENAS = (1 << 4),
+	CONTROL = (1 << 5),
+	GUNGAME = (1 << 6),
+	WINTER_EXPRESS = (1 << 7),
+	SHADOW_ROYALE = (1 << 8),
+	FTDM = (1 << 9),
+	HARD

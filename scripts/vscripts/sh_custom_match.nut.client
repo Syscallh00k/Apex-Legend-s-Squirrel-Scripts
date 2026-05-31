@@ -1,0 +1,61 @@
+
+global function CustomMatch_LoadLegendBanData
+global function CustomMatch_GetBannedLegends
+global function CustomMatch_IsLegendBanned
+
+
+struct
+{
+	array<ItemFlavor> bannedCharacters 
+} file
+
+
+void function CustomMatch_LoadLegendBanData()
+{
+	if ( !GetConVarBool("customMatch_allowBanningLegends") )
+		return
+
+	string convar = GetConVarString( "customMatch_BannedLegends" )
+	printt("LEGENDBAN Loading Banned legends:", convar )
+	array<string> bannedLegends = split( convar, "," )
+	foreach( string shortCharacterName in bannedLegends )
+	{
+		string ref = ( "character_"+ shortCharacterName.tolower() )
+		if ( IsValidItemFlavorCharacterRef( ref ) )
+		{
+			ItemFlavor char = GetItemFlavorByCharacterRef( ref )
+			file.bannedCharacters.append( char )
+		}
+		else
+		{
+			Warning("LEGENDBAN: character '" + shortCharacterName + "' was not ban as it's not a valid character." )
+		}
+	}
+
+	printt("LEGENDBAN Banned legends loaded" )
+}
+
+array<ItemFlavor> function CustomMatch_GetBannedLegends()
+{
+	if ( !GetConVarBool("customMatch_allowBanningLegends") )
+		return []
+
+	printt("LEGENDBAN there are ", string(file.bannedCharacters), "banned legends")
+	return file.bannedCharacters
+}
+
+bool function CustomMatch_IsLegendBanned( ItemFlavor character, entity player )
+{
+	if ( !GetConVarBool("customMatch_allowBanningLegends") )
+		return false
+
+	bool retval = file.bannedCharacters.contains( character )
+
+
+
+		string name = ItemFlavor_GetCharacterRef( character )
+
+	printt("LEGENDBAN ", name, "is locked:", string(retval), "note player:", string(player) )
+	return retval
+}
+

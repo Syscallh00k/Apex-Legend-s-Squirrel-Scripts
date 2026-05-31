@@ -1,0 +1,818 @@
+untyped
+
+global function FlightpathShared_Init
+global function GetAttachPoints
+global function GetPreviewPoint
+global function GetAnalysisOffset
+global function MaskTester
+global function GetAnalysisForModel
+global function HasAnalysisForModel
+global function CopyAttachPoint
+global function IsActiveNodeAnalysis
+
+global function AddDropshipFlightAnalysis
+
+
+
+
+
+
+
+
+
+global const DROP_MIN_X = 0.0
+global const ANALYSIS_STEPS = 8 
+global const ANALYSIS_YAW_STEP = 360.0 / ANALYSIS_STEPS
+global const SPAWNPOINT_USE_TIME = 10.0 
+global const MAX_ANALYSIS_COUNT = 64 
+
+global const DROPSHIP_VERTICAL = "dropship_flyer_attack_vertical_successful"
+global const DROPSHIP_STRAFE = "gd_goblin_zipline_strafe"
+global const DROPSHIP_FLYER_ATTACK_ANIM = "dropship_flyer_attack"
+global const DROPSHIP_FLYER_ATTACK_ANIM_VERTICAL = "dropship_flyer_attack_vertical"
+global const DROPSHIP_DROP_ANIM = "gd_goblin_zipline_strafe"
+global const DROPSHIP_MODEL = $"mdl/vehicle/goblin_dropship/goblin_dropship.rmdl"
+global const DROPSHIP_MODEL_OLD = $"mdl/vehicle/goblin_dropship/goblin_dropship.rmdl"
+
+
+
+
+global const AIRDROP_BASE_ANIM = "dp_droppod_idle"
+global const HOTDROP_TURBO_ANIM = "at_hotdrop_drop_2knee_turbo"
+global const TURBO_WARP_FX = $"P_warp_in_atlas"
+global const TURBO_WARP_COMPANY = $"hotdrop_hld_warp"
+
+global const FX_GUNSHIP_CRASH_EXPLOSION_ENTR
+	string customSnd
+	bool   forcedPosition = false
+}
+
+global struct SpawnPointFP
+{
+	bool   valid
+	vector origin
+	vector angles
+	int    node
+}
+
+global struct AttachPoint
+{
+	vector origin
+	vector angles
+	string name
+	int    node
+}
+
+global NodeFP NullNodeFP
+
+
+
+
+
+global struct FlightPath
+{
+	vector                             mins
+	vector                             maxs
+	int                                traceMask = TRACE_MASK_NPCWORLDSTATIC
+	strintion DrawAnalysis( FlightPath flightPath )
+{
+	array<AttachPoint> points = flightPath.points
+	for ( int i = 1; i < points.len(); i++ )
+	{
+		AttachPoint point1 = points[i - 1]
+		AttachPoint point2 = points[i]
+		DebugDrawLine( point1.origin, point2.origin, COLOR_RED, true, 15.0 )
+	}
+}
+
+bool function HasAnalysisForModel( asset model, string animation )
+{
+	if ( !( model in shFile.flightAnalysis ) )
+		return false
+	return animation in shFile.flightAnaceVectorArray )
+	{
+		vector ridgeOrigin      = traceOrigin + <0, 0, 16> + traceVector * 18
+		vector ridgeTraceOrigin = baseOrigin + <0, 0, -12> + traceVector * 18
+
+		TraceResults ridgeTrace = TraceLine( ridgeOrigin, ridgeTraceOrigin, file.airdropTraceIgnoreEntArray, (TRACE_MASK_PLAYERSOLID | TRACE_MASK_TITANSOLID | CONTENTS_NOAIRDROP), TRACE_COLLISION_GROUP_NONE, realmEnt )
+		float fraction          = ridgeTrace.fraction
+		if ( fraction == 1 )
+		{
+			failCode = failCode | 0x0080
+#if DEBUG_DROP_POINTS_LINES
+				DebugDrawArrow( ridgeOrigin, ridgeTrace.endPos, 4, <0, 128, 128>, true, DEBUG_DRAW_TIME )
+#endif
+			break
+		}
+	}
+
+
+	
+	array<vector> edgeTraceVectorArray = [ <1, 0, 0>, <0.5, 0.86, 0>, <-0.5, 0.86, 0>, <-1, 0, 0>, <-0.5, -0.86, 0>, <0.5, -0.86, 0> ]
+	foreach ( traceVector in edgeTraceVectorArray )
+	{
+		vector edgeOrigin      = baseOrigin + <0, 0, EDGE_TRACE_HEIGHT> + traceVector * edge_trace_dist
+		vector edgeTraceOrigin = baseOrigin + <0, 0, -EDGE_TRACE_HEIGHT> + traceVector * edge_trace_dist
+
+		TraceResults sightTrace = TraceLine( baseOrigin + <0, 0, EDGE_TRACE_HEIGHT>, edgeOrigin, file.airdropTraceIgnoreEntArray, (TRACE_MASK_PLAYERSOLID | TRACE_MASK_TITANSOLID | CONTENTS_NOAIRDROP), TRACE_COLLISION_GROUP_NONE, realmEnt )
+		if ( sightTrace.fraction < 1 )
+		{
+#if DEBUG_DROP_POINTS_LINES
+				 DebugDrawArrow( baseOrigin + <0, 0, EDGE_TRACE_HEIGHT>, sightTrace.endPos, 4, COLOR_GREEN, true, DEBUG_DRAW_TIME )
+#endif
+			continue    
+		}
+
+		TraceResults edgeTrace = TraceLine( edgeOrigin, edgeTraceOrigin, file.airdropTraceIgnoreEntArray, (TRACE_MASK_PLAYERSOLID | TRACE_MASK_TITANSOLID | CONTENTS_NOAIRDROP), TRACE_COLLISION_GROUP_NONE, realmEnt )
+		float fraction         = edgeTrace.fraction
+		if ( fraction == 1 )
+		{
+			failCode = failCode | 0x0020
+#if DEBUG_DROP_POINTS_LINES
+				DebugDrawArrow( edgeOrigin, edgeTraceOrigin, 4, COLOR_RED, true, DEBUG_DRAW_TIME )
+#endif
+			break
+		}
+	}
+
+	
+	array< int > realmsToTest = IsValid( realmEnt ) ? realmEnt.GetRealms() : [ eRealms.DEFAULT ]
+	foreach ( entity trigger in GetTriggersByClassesInRealms_HullSize(
+		["trigger_slip", "trigger_out_of_bounds", "trigger_networked_out_of_bounds"],
+		baseOrigin, baseOrigin,
+		realmsToTest, TRACE_MASK_PLAYERSOLID,
+		< -1, -1, -1 >, < 1, 1, 1 > ) )
+	{
+		failCode = failCode | 0x0100
+#if DEBUG_DROP_POINTS_LINES
+			DebugDrawArrow( baseOrigin, baseOrigin + < 0, 0, 100 >, 4, COLOR_RED, true, DEBUG_DRAW_TIME )
+#endif
+		break
+	}
+
+	
+	vector playerMins = <-16, -16, 0>
+	vector playerMaxs = <16, 16, 72>
+	vector doorOrigin = baseOrigin + <0, 0, DOOR_UP_OFFSET>
+
+	vector base     = <0, yaw, 0>
+	float yawOffset = 360.0 / 3.0
+
+	array<vector> anglesToTest = [ base, AnglesCompose( base, <0, yawOffset, 0> ), AnglesCompose( base, <0, -yawOffset, 0> ) ]
+	if ( isCarePackage )
+		anglesToTest = []
+
+	foreach ( angles in anglesToTest )
+	{
+		forward = AnglesToForward( angles )
+		array<vector> openingTraceVectorArray = [ forward, VectorRotate( forward, <0, 30, 0> ), VectorRotate( forward, <0, -30, 0> ) ]
+		bool failed                           = false
+		foreach ( traceVector in openingTraceVectorArray )
+		{
+			vector doorEndOrigin = doorOrigin + traceVector * door_space_distance
+			vector ledgeOrigin   = doorEndOrigin + <0, 0, -LEDGE_DOWN_OFFSET>
+
+			
+			float fraction = TraceHullSimple( doorOrigin, doorEndOrigin, playerMins, playerMaxs, null )
+			if ( fraction != 1 )
+			{
+				failCode = failCode | 0x0008
+				failed = true
+
+#if DEBUG_DROP_POINTS_LINES
+					DebugDrawArrow( doorOrigin, doorEndOrigin, 4, COLOR_RED, true, DEBUG_DRAW_TIME )
+#endif
+				break
+			}
+
+			
+			fraction = TraceHullSimple( doorEndOrigin, ledgeOrigin, playerMins, playerMaxs, null )
+			if ( fraction == 1 )
+			{
+				failCode = failCode | 0x0010
+				failed = true
+
+#if DEBUG_DROP_POINTS_LINES
+					DebugDrawArrow( doorOrigin, doorEndOrigin, 4, COLOR_RED, true, DEBUG_DRAW_TIME )
+					DebugDrawArrow( doorEndOrigin, ledgeOrigin, 4, COLOR_MAGENTA, true, DEBUG_DRAW_TIME )
+#endif
+				break
+			}
+		}
+
+		foreach ( entity trigger in GetTriggersByClassesInRealms(
+			["trigger_hurt"],
+			baseOrigin + < 0, 0, 512>, baseOrigin, realmsToTest
+			, TRACE_MASK_PLAYERSOLID ) )
+		{
+			if ( trigger.HasKey( "damageSourceId" ) && trigger.GetValueForKey( "damageSourceId" ) != "" )
+			{
+				failCode = failCode | 0x0400
+				failed = true
+				break
+			}
+		}
+
+		if ( failed )
+			break
+	}
+
+
+
+
+#if DEBUG_DROP_POINTS
+		if ( DEBUG_DROP_POINTS_LINES && (failCode & 0x0005) != 0 )
+		{
+			DebugDrawCylinder( trace.endPos, < -90, 0, 0 >, maxs.x, maxs.z, <250, 50, 0>, false, DEBUG_DRAW_TIME )
+			DebugDrawCylinder( baseOrigin, < -90, 0, 0 >, maxs.x, maxs.z, <70, 70, 70>, false, DEBUG_DRAW_TIME )
+		}
+
+		if ( failCode != 0 )
+			printt( "dropPoint check faild at origin:", baseOrigin, "yaw:", yaw )
+		if ( IsBitFlagSet( failCode, 0x0001 ) )
+			printt( "\t- Surface angle to steep. Slope angle:", DotToAngle( dot ) )
+		if ( IsBitFlagSet( failCode, 0x0002 ) )
+			printt( "\t- Didn't land on the worldspawn entity. Ground Ent:", groundEnt )
+		if ( IsBitFlagSet( failCode, 0x0004 ) )
+			printt( "\t- Didn't reach the ground. Dist from ground:", sqrt( distToNodeSqr ), distToNode )
+		if ( IsBitFlagSet( failCode, 0x0008 ) )
+			printt( "\t- Door area was not clear." )
+		if ( IsBitFlagSet( failCode, 0x0010 ) )
+			printt( "\t- Door opened towards a ledge." )
+		if ( IsBitFlagSet( failCode, 0x0020 ) )
+			printt( "\t- Part of the Pod was sticking out over an ledge." )
+		if ( IsBitFlagSet( failCode, 0x0040 ) )
+			printt( "\t- To close to an Airdrop Bad Place." )
+		if ( IsBitFlagSet( failCode, 0x0080 ) )
+			printt( "\t- Part might have been on a narrow ridge or low wall etc." )
+		if ( IsBitFlagSet( failCode, 0x0100 ) )
+			printt( "\t- Point was touching out of bound trigger." )
+		if ( IsBitFlagSet( failCode, 0x0200 ) )
+			printt( "\t- Trace started in solid." )
+		if ( IsBitFlagSet( failCode, 0x0400 ) )
+			printt( "\t- Trace passes through a hurt trigger." )
+#endif
+
+	if ( failCode != 0 )
+		return false
+
+	
+	return true
+}
+
+
+void function AddAirdropTraceIgnoreEnt( entity ent )
+{
+	file.airdropTraceIgnoreEntArray.append( ent )
+	AddEntityDestroyedCallback( ent, RemoveAirdropTraceIgnoreEntOnDestroy )
+}
+
+
+void function RemoveAirdropTraceIgnoreEntOnDestroy( entity ent )
+{
+	file.airdropTraceIgnoreEntArray.fastremovebyvalue[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/sh_paths_preprocess.gnut.client
+[dump] scripts/vscripts/sh_paths_preprocess.gnut.client (17931 bytes)[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/sh_flyers.gnut.client
+[dump] scripts/vscripts/sh_flyers.gnut.client (7559 bytes)global function ShFlyers_Init
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global function ServerToClient_PlayLootRarityFXOnDeathboxDrop
+global function Flyer_ServerToClient_DisplayFlyerDeathboxPrompt
+
+
+global function Flyers_GetAllFlyers
+global function AreFlyersEnabled
+
+global const FLYER_MODEL = $"mdl/Creatures/flyer/flyer_kingscanyon_animated.rmdl"
+const FLYER_1000X_MODEL = $"mdl/Creatures/flyer/flyer_kingscanyon_animated.rmdl"
+const FLYER_500X_MODEL = $"mdl/Creatures/flyer/flyer_kingscanyon_animated.rmdl"
+const FLYER_MODEL_STATIC = $"mdl/Creatures/flyer/flyer_kingscanyon_animated.rmdl"
+const asset DEATHBOX_DROP_FX = $"P_loot_flyer"
+
+const TIME_BEFORE_FLYER_DROPS_LOOT = 3.0
+const TIME_FOR_CAGED_FLYER_DAMAGED_STATE_TRANSITIONS = 10.0
+const TIME_FOR_CAGED_FLYER_TRIGGER_VACATED_STATE_TRANSITIONS = 10.0
+float TIME_FOR_CAGED_FLYER_STAY_IN_CAUTIOUS_STATE = 5.0 
+const TIME_FOR_CAGED_FLYER_STAY_IN_ANGRY_STATE = 10.0
+const DIST_THRESHOLD_FOR_ANGRY_CAGED_FLYER = 275
+
+const bool FLYER_WITH_DEATHBOX_FLYING_IDLE_ALWAYS = false
+const float FLYER_WITH_DEATHBOX_FLYING_IDLE_RADIUS = 1500
+const int FLYER_WITH_DEATHBOX_HEALTH = 250
+const int CAGED_FLYER_HEALTH = 100
+
+
+const float FLYER_LOOT_LEGENDARY_TIER_PROBABILTY = 0.02
+const float FLYER_LOOT_EPIC_TIER_PROBABILITY = 0.38
+const int FLYER_LOOT_CAP_ON_EPIC_OR_HIGHER_ITEM_COUNT = 3
+
+const float FLYER_LOOT_TIE[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/worldsystems/sh_deathbox.nut.client
+[dump] scripts/vscripts/worldsystems/sh_deathbox.nut.client (31747 bytes)dout_GladiatorCardStance( character )
+	SetNestedGladiatorCardOverrideStance( nestedGCHandle, ConvertLoadoutSlotContentsIndexToItemFlavor( stanceLoadoutEntry, stanceIndex ) )
+
+	int firstBadgeIndex                 = deathbox.GetNetInt( "firstBadgeIndex" )
+	LoadoutEntry firstBadgeLoadoutEntry = Loadout_GladiatorCardBadge( character, 0 )
+	int firstBadgeDataInt               = deathbox.GetNetInt( "firstBadgeDataInt" )
+	SetNestedGladiatorCardOverrideBadge( nestedGCHandle, 0, ConvertLoadoutSlotContentsIndexToItemFlavor( firstBadgeLoadoutEntry, firstBadgeIndex ), firstBadgeDataInt )
+
+	int secondBadgeIndex                 = deathbox.GetNetInt( "secondBadgeIndex" )
+	LoadoutEntry secondBadgeLoadoutEntry = Loadout_GladiatorCardBadge( character, 1 )
+	int secondBadgeDataInt               = deathbox.GetNetInt( "secondBadgeDataInt" )
+	SetNestedGladiatorCardOverrideBadge( nestedGCHandle, 1, ConvertLoadoutSlotContentsIndexToItemFlavor( secondBadgeLoadoutEntry, secondBadgeIndex ), secondBadgeDataInt )
+
+	int thirdBadgeIndex                 = deathbox.GetNetInt( "thirdBadgeIndex" )
+	LoadoutEntry thirdBadgeLoadoutEntry = Loadout_GladiatorCardBadge( character, 2 )
+	int thirdBadgeDataInt               = deathbox.GetNetInt( "thirdBadgeDataInt" )
+	SetNestedGladiatorCardOverrideBadge( nestedGCHandle, 2, ConvertLoadoutSlotContentsIndexToItemFlavor( thirdBadgeLoadoutEntry, thirdBadgeIndex ), thirdBadgeDataInt )
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/sh_highlight.gnut.client
+[dump] scripts/vscripts/sh_highlight.gnut.client (62484 bytes)global function Highlight_Init
+
+global function GetHighlightContextForEnt
+global function Highlight_SetPureObserverHighlightParam
+global function GetSurvialPropColorFromRarity
+
+
+global function GetHighlightId
+
+global function Highlight_SetNeutralHighlight
+global function Highlight_ClearNeutralHighlight
+
+global function SetSurvivalPropHighlight
+global function ClearSurvivalPropHighlight
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global function ClInitHighlight
+global function ClientCodeCallback_HighlightUpdate
+global function ManageHighlightEntity
+
+global function FiringRangeSupplyBoxHighlight
+
+global function SpotViewModelHighlight
+global function SonarViewModelHighlight
+global function SonarViewModelClearHighlight
+global function SonarPlayerCloneHighlight
+global function DeployableModelHighlight
+global function DeployableModelInvalidHighlight
+global function DeployableModelHighlightNewcastle
+global function PlayWeaponEvolveHighlight
+global function PingViewModelHighlight
+global function PingViewModelClearHighlight
+global function ClHighlight_YouRespawned
+global function ClHighlight_YouDied
+global function ReconScan_ShowHudForSimpleEntity
+global function ReconScan_RemoveHudForSimpleEntity
+global function ReconScan_ShowHudForTarget
+global function ReconScan_RemoveHudForTarget
+
+global function GetTotalReconScansForEnemy
+global function GetTotalLOSRequiredReconScans
+global function GetTotalAlwaysVisibleReconScans
+global function GetTotalLOSRequiredHideNonPermReconScans
+global function GetTotalLOSRequiredNoRestoreReconScans
+global function GetActiveReconScanMode
+
+#if DEV
+global function DumpEntityHighlight
+#endif
+global function AddCallback_HighlightContextChanged
+global function Highlight_SetAllianceProximityDrawFunc
+
+
+global function ServerCallback_ManageHighlights
+global function ServerCallback_CreateSonarClone
+
+
+global function Highlight_SetGameModeEnemyHighlight
+global function Highlight_IsUsingGameModeEnemyVehicleHighlights
+global function Highlight_GetGameModeEnemyVehicleHighlightString
+global function Highlight_IsUsingGameModeFriendlyVehicleHighlights
+global function Highlight_GetGameModeFriendlyVehicleHighlightString
+
+const string NV_OBSERVER_HIGHLIGHT_ENABLED = "Highlight_ObserverHighlightEnabled"
+
+global const PVEMULTI_SQUAD_COLOR_0 = < 57.0 / 255.0, 181.0 / 255.0, 74.0 / 255.0 >
+global const PVEMULTI_SQUAD_COLOR_1 = < 242.0 / 255.0, 101.0 / 255.0, 34.0 / 255.0 >
+global const PVEMULTI_SQUAD_COLOR_2 = < 0 / 255.0, 191.0 / 255.0, 243.0 / 255.0 >
+global const PVEMULTI_SQUAD_COLOR_3 = < 255.0 / 255.0, 222.0 / 255.0, 0 / 255.0 >
+global const vector[4] SQUAD_TEAM_COLORVECS = [ PVEMULTI_SQUAD_COLOR_0, PVEMULTI_SQUAD_COLOR_1, PVEMULTI_SQUAD_COLOR_2, PVEMULTI_SQUAD_COLOR_3 ]
+global const string[4] SQUAD_TEAM_HIGHLIGHTS = ["PVE_multisquad_0", "PVE_multisquad_1", "PVE_multisquad_2", "PVE_multisquad_3"]
+
+global const HIGHLIGHT_COLOR_NEUTRAL = <1, 1, 1> 
+global const HIGHLIGHT_COLOR_FRIENDLY = <0.34, 0.59, 0.86> 
+global const HIGHLIGHT_COLOR_ENEMY = <1, 0.36, 0.12> 
+
+
+const float ENEMY_ASSIST_HIGHLIGHT_MAX_RADIUS = 8.0
+
+
+global string HIGHLIGHT_BLOODHOUND_SONAR = "bloodhound_sonar"
+global const string HIGHLIGHT_NOVA_BLACKHOLE_THREAT = "nova_blackhole_threat"
+global string HIGHLIGHT_ABILITY_REVEAL = "ability_reveal"
+global const string HIGHLIGHT_FRIENDLY_PLAYER_DECOY = "friendly_player_decoy"
+global const string HIGHLIGHT_REVEALED_FRIENDLY = "revealed_friendly"
+const string HIGHLIGHT_SONAR_CLONE_REFRESHED = "SonarCloneRefreshed"
+
+global enum eHighlightGenericType
+{
+	NEUTRAL
+	FRIENDLY
+	ENEMY
+	OWNED
+
+	_count
+}
+
+global enum eShowHealthbarMode
+{
+	ALWAYS,
+	REQUIRE_LOS,
+	REQUIRE_LOS_NO_RESTORE
+}
+
+
+struct HighlightContextResult
+{
+	int contextId = HIGHLIGHT_INVALID_ID
+	int genericType = -1
+}
+
+
+struct
+{
+	bool                                        registeringHighlights = false
+	int                                         colorblindMode
+	array<void functionref( entity, int, int )> highlightChangedCallbacks
+
+	table< entity, entity > localSonarTargetToCloneTable
+
+} file
+
+void function AddCallback_HighlightContextChanged( 

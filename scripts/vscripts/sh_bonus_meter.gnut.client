@@ -1,0 +1,627 @@
+
+global function Sh_BonusMeter_Init
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#if DEV
+global function BonusMeter_Print
+#endif
+
+const string BONUS_METER_OFFER_LOCATION = "bonusMeter"
+const int BONUS_METER_GOAL = 10
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+struct FileStruct_BonusMeter
+{
+	
+	
+	array<int> validPackTypes
+	array<ItemFlavor> includedPacks
+	array<ItemFlavor> excludedPacks
+
+
+
+
+
+}
+
+FileStruct_BonusMeter& fileLevel
+
+void function Sh_BonusMeter_Init()
+{
+	if ( !GetConVarBool( "mtx_bonus_meter_enabled" ) )
+	{
+		return
+	}
+	AddCallback_RegisterRootItemFlavors( void function()
+	{
+		fileLevel.validPackTypes.clear()
+		fileLevel.includedPacks.clear()
+		fileLevel.excludedPacks.clear()
+		int activeMeterCount = 0
+		foreach ( asset activationConfig in GetBaseItemFlavorsFromArray( "bonusMeterConfigs" ) )
+		{
+
+			ItemFlavor ornull flavor = RegisterItemFlavorFromSettingsAsset( activationConfig )
+			int startTime = expect int( DateTimeStringToUnixTimestamp( GetGlobalSettingsString( activationConfig, "defaultStartTime" ) ) )
+			int endTime = expect int( DateTimeStringToUnixTimestamp( GetGlobalSettingsString( activationConfig, "defaultFinishTime" ) ) )
+			int now = GetUnixTimestamp()
+			if ( startTime <= now && now < endTime )
+			{
+				Assert( activeMeterCount == 0, "Found two active bonus meter activations." )
+				activeMeterCount++
+				foreach( int index, var block in IterateSettingsArray( GetSettingsBlockArray( GetSettingsBlockForAsset( activationConfig ), "qualifyingPackTypes" ) ) )
+				{
+					fileLevel.validPackTypes.append( ItemFlavor_ConvertPackTypeStringToEnum( GetSettingsBlockString( block, "packType" ) ) )
+				}
+				foreach( int index, var block in IterateSettingsArray( GetSettingsBlockArray( GetSettingsBlockForAsset( activationConfig ), "includedPacks" ) ) )
+				{
+					fileLevel.includedPacks.append( GetItemFlavorByAsset( GetSettingsBlockAsset( block, "packFlav" ) ) )
+				}
+				foreach( int index, var block in IterateSettingsArray( GetSettingsBlockArray( GetSettingsBlockForAsset( activationConfig ), "excludedPacks" ) ) )
+				{
+					fileLevel.excludedPacks.append( GetItemFlavorByAsset( GetSettingsBlockAsset( block, "packFlav" ) ) )
+				}
+			}
+		}
+	} )
+
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#if DEV
+void function BonusMeter_Print()
+{
+	if ( !GetConVarBool( "mtx_bonus_meter_enabled" ) )
+	{
+		printt("Whoops. You tried to print Bonus Meter info but mtx_bonus_meter_enabled is 0.")
+		return
+	}
+	printt("---------Bonus Meter Info Start-----------")
+
+	printt( "Current unix timestamp: ", GetUnixTimestamp() )
+
+	string packTypes = "Valid Pack Types: "
+	foreach ( int packType in fileLevel.validPackTypes )
+	{
+		packTypes += format("%d, ", packType)
+	}
+	printt( packTypes )
+
+	string includedPacks = "Included Packs: "
+	foreach ( ItemFlavor pack in fileLevel.includedPacks )
+	{
+		includedPacks += format("%s, ", ItemFlavor_GetGRXAlias( pack ) )
+	}
+	printt( includedPacks )
+
+	string excludedPacks = "Excluded Packs: "
+	foreach ( ItemFlavor pack in fileLevel.excludedPacks )
+	{
+		excludedPacks += format("%s, ", ItemFlavor_GetGRXAlias( pack ) )
+	}
+	printt( excludedPacks )
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	printt("---------Bonus Meter Info End-----------")
+}
+#endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

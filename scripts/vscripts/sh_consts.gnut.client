@@ -1,0 +1,3307 @@
+
+global const float DEFAULT_FOV = 70.0
+
+global const int INT_MIN = (1 << 31)
+global const int INT_MAX = (1 << 31) - 1
+global const float FLT_MAX = 3.40282e+38
+global const float FLT_EPSILON = 1.0e-6
+
+global const void IN_SET = null
+global typedef IntSet table<int, void>
+global typedef EntitySet table<entity, void>
+global typedef StringSet table<string, void>
+
+global typedef IntFromEntityCompare int functionref( entity, entity )
+
+global const EMPTY_MODEL = $"mdl/dev/empty_model.rmdl"
+
+global const DIFFICULTY_EASY = 0
+global const DIFFICULTY_NORMAL = 1
+global const DIFFICULTY_HARD = 2
+global const DIFFICULTY_MASTER = 3
+
+
+
+
+
+global const bool MEMBER_COLORS = true
+
+
+global enum eGameState	
+{
+	WaitingForCustomStart,
+	WaitingForPlayers,
+	PreGamePreview,
+	PickLoadout,
+	Prematch,
+	Playing,
+	SuddenDeath,
+	SwitchingSides,
+	WinnerDetermined,
+	Epilogue,
+	Resolution,
+	Postmatch,
+
+	_count_
+}
+
+global enum eLossForgivenessReason
+{
+	NONE,
+	NOT_FULL_TEAM,
+	TEAMMATE_ABANDON,
+	CRASH
+}
+
+global enum eMatchPreferenceFlags
+{
+	LAST_SQUAD_INVITE_OPT_OUT			= (1 << 0)
+	CROSSPLAY_INVITE_AUTO_DENY			= (1 << 1)
+	JUMPMASTER_OPT_IN					= (1 << 2)
+}
+
+
+global enum eDeathScreenTab
+{
+	NONE = -1,
+	LIVE,
+	SUMMARY,
+
+
+
+	ABOUT,
+}
+
+
+
+global enum eDeathScreenPanel
+{
+	NONE = -1,
+	
+	SPECTATE,
+	SCOREBOARD,
+	SQUAD,
+	
+	KILLREPLAY,
+	DEATH_RECAP,
+	SQUAD_SUMMARY,
+	PROGRESSION,
+	PASSES,
+
+
+
+
+
+	
+	ABOUT,
+	_COUNT
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global enum eFreespawns_AggroType
+{
+	NONE,
+	DOWNED_ENEMY,
+	KILLED_ENEMY,
+	EXECUTED_ENEMY,
+	PENALTY_ALLYDEATH,
+	EVO,
+	COUNT_
+}
+
+
+global struct Cylinder
+{
+	vector origin
+	float  radius
+}
+
+global struct Point
+{
+	vector origin
+	vector angles
+}
+
+global struct Color
+{
+	int r
+	int g
+	int b
+}
+
+global struct RGBA
+{
+	float r
+	float g
+	float b
+	float a
+}
+
+global struct UIPos
+{
+	int x = 0
+	int y = 0
+}
+
+global struct UISize
+{
+	int width = 0
+	int height = 0
+}
+
+global struct UIScaleFactor
+{
+	float x = 1.0
+	float y = 1.0
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global const asset TITLE_FONT = $"TitleRegularFont"
+global const asset TITLE_BOLD_FONT = $"TitleBoldFont"
+
+global const asset HEADER_FONT = $"DefaultRegularFont"
+global const asset HEADER_FONT_COMPACT_UI = $"DefaultBoldFont"
+global const asset HEADER_BOLD_FONT = $"DefaultBoldFont"
+global const asset HEADER_BOLD_FONT_COMPACT_UI = $"DefaultBoldFont"
+
+global const asset DEFAULT_FONT = $"DefaultRegularFont"
+global const asset DEFAULT_FONT_COMPACT_UI = $"DefaultBoldFont"
+global const asset DEFAULT_COMPACT_FONT = $"DefaultCompactFont"
+global const asset DEFAULT_COMPACT_FONT_COMPACT_UI = $"DefaultBoldFont"
+global const asset DEFAULT_BOLD_FONT = $"DefaultBoldFont"
+
+global const SPECTATOR_SETTINGS = $"settings/player/mp/spectator.rpak"
+global const DEFAULT_PILOT_SETTINGS = $"settings/player/mp/pilot_survival_gunner.rpak"
+
+global const TEAM_DEATHMATCH = "tdm"
+global const TDM_SWAT = "swat"
+global const SURVIVAL = "survival"
+global const GAMEMODE_SURVIVAL_RANKED = "survival_ranked"
+
+
+global const GAMEMODE_ARENAS = "arenas"
+
+
+
+
+
+global const GAMEMODE_CONTROL = "control"
+
+global const GAMEMODE_FREELANCE = "freelance"
+
+global const GAMEMODE_FREEDM = "freedm"
+
+
+global const GAMEMODE_GUN[LoadScriptFile] self 0x7ff67896f188  out 0x24c2dacb30  path : maps/mp_lobby.bsp.000F.bsp_lump.client
+GAME = "gungame"
+
+
+
+
+
+global const GAMEMODE_WINTER_EXPRESS = "winter_express"
+
+
+global const GAMEMODE_HEATWAVE = "survival_heatwave"
+
+
+
+
+
+
+global const GAMEMODE_CASUAL_TRIOS = "survival_casual_trios"
+
+
+global const GAMEMODE_SURVIVAL_HARDCORE = "survival_hardcore"
+
+global const GAMEMODE_DATE_NIGHT = "date_night_duos"
+
+
+
+
+
+
+
+global const GAMEMODE_GOLDEN_HORSE = "golden_horse_trios"
+
+
+
+
+
+
+
+
+
+
+global const GAMEMODE_STRIKEOUT = "strikeout"
+
+
+
+
+
+
+glo[dump] maps/mp_lobby.bsp.000F.bsp_lump.client (17 bytes)bal const GAMEMODE_BANNERBOMB = "bannerbomb"
+
+
+
+
+
+global const GAMEMODE_TREASURE_HUNT = "treasure_hunt"
+
+
+global const GAMEMODE_THE_HUNT_20 = "the_hunt_20"
+
+
+
+
+
+
+global const GAMEMODE_ARMED_AND_DANGEROUS = "armed_and_dangerous"
+
+
+
+
+
+
+
+
+
+
+global const GAMEMODE_QUICK_MATCH = "quick_match"
+
+
+
+global const GAMEMODE_SURVIVAL_SOLOS = "survival_solos"
+
+
+
+
+
+
+
+global const GAMEMODE_SURVIVAL_QUADS = "survival_quads"
+
+
+
+global const GAMEMODE_BIGTEAM_DEATHTOOLS\TOOLSSKYBOXMATCH = "freedm_bigtdm"
+
+
+
+global const GAMEMODE_SURVIVAL_FREE_RESPAWNS = "survival_free_respawns"
+
+
+
+
+
+
+
+
+
+
+
+global const GAMEMODE_SURVIVAL_MYTHIC_S24 = "survival_mythic_s24"
+
+global const GAMEMODE_ROCKET_BR = "survival_rocketbr"
+
+global const GAMEMODE_MYSTERY_LEGENDS = "survival_mystery_legends"
+
+
+global const GAMEMODE_SURVIVAL_UNHINGED = "survival_unhinged"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global const GAMEMODE_SECOND_CHANCE_TOKENS = "survival_secondchancetoken"
+
+
+global const GAMEMODE_POWER_SWORD = "survival_power_sword"
+
+
+
+
+
+global const string PLAYLIST_TRAINING = "training.survival_training"
+
+global const string PLAYLIST_NEW_PLAYER_ORIENTATION = "survival_bots_vs_humanteams"
+global const string PLAYLIST_FIRING_RANGE = "firing_range.survival_firingrange"
+global const int PLAYLIST_ID_SURVIVAL = 0
+global const int PLAYLIST_ID_NEW_PLAYER_ORIENTATION = 1
+
+
+global const string COMBATRANGE = "combatrange"
+
+
+global const string BOTPLAYGROUND = "survival_bot_playground"
+
+global const string SELECTED_UPGRADE_SHARED_NETVAR = "upgrade_core_selected_upgrades"
+
+global const bool R2_SCOREBOARD = false
+global const bool MINIMAP_DEBUG = false
+
+global const bool CHALLENGE_DEBUG = false
+
+global const bool VERBOSE_DAMAGE_PRINTOUTS = false
+
+
+global const INTELLIJ_OUTLINE_SECTION_MARKER = false
+
+global const MAX_GAME_HISTORY = 20 
+
+global const float METERS_TO_INCHES = 39.3701
+global const float INCHES_TO_METERS = 0.0254
+global const float KILOMETERS_TO_INCHES = 39370.1
+
+global const float MAX_WORLD_COORD = (1 << 16) - 1 
+global const float MAX_WORLD_COORD_BUFFER = MAX_WORLD_COORD - 512
+global const float COORD_RANGE = MAX_WORLD_COORD + MAX_WORLD_COORD + 1 
+global const float MAX_WORLD_RANGE = sqrt( COORD_RANGE * COORD_RANGE + COORD_RANGE * COORD_RANGE + COORD_RANGE * COORD_RANGE )
+
+global const vector ZERO_VECTOR = <0, 0, 0>
+global const vector UP_VECTOR = <0, 0, 1>
+
+global const bool HAS_SNIPERCAM = false
+
+
+
+
+
+
+
+
+global const bool GRUNTCHATTER_ENABLED = false
+global const bool FACTION_DIALOGUE_ENABLED = false
+global const bool GRUNT_CHATTER_MP_ENABLED = false
+global const bool SPECTRE_CHATTER_MP_ENABLED = false
+
+
+
+
+global const OUT_OF_BOUNDS_TIME_LIMIT = 15.0
+global const OUT_OF_BOUNDS_DECAY_TIME = 15.0
+global const OUT_OF_BOUNDS_DECAY_DELAY = 1.0
+global const OUT_OF_BOUNDS_GRACE_PERIOD = 5.0
+global const OUT_OF_BOUNDS_GRACE_PERIOD_DELAY = 5.0
+
+
+global const int FRIENDLY_R = 161
+global const int FRIENDLY_G = 196
+global const int FRIENDLY_B = 255
+
+
+global const int ENEMY_R = 255
+global const int ENEMY_G = 120
+global const int ENEMY_B = 32
+
+
+global const int LOCAL_R = 254
+global const int LOCAL_G = 184
+global const int LOCAL_B = 0
+
+
+global const int FRIENDLY_FX_R = 87
+global const int FRIENDLY_FX_G = 151
+global const int FRIENDLY_FX_B = 219
+
+
+global const int ENEMY_FX_R = 255
+global const int ENEMY_FX_G = 120
+global const int ENEMY_FX_B = 32
+
+
+global const int PARTY_R = 91
+global const int PARTY_G = 255
+global const int PARTY_B = 31
+
+global const int BURN_R = 246
+global const int BURN_G = 134
+global const int BURN_B = 40
+
+global const int CRAFTING_R = 0
+global const int CRAFTING_G = 255
+global const int CRAFTING_B = 204
+
+global const vector TEAM_COLOR_ENEMY = <ENEMY_R, ENEMY_G, ENEMY_B>
+global const vector TEAM_COLOR_FRIENDLY = <FRIENDLY_R, FRIENDLY_G, FRIENDLY_B>
+global const vector TEAM_COLOR_PARTY = <PARTY_R, PARTY_G, PARTY_B>
+global const vector TEAM_COLOR_YOU = <LOCAL_R, LOCAL_G, LOCAL_B>
+global const vector BURN_COLOR = <BURN_R, BURN_G, BURN_B>
+global const vector CRAFTING_COLOR = <CRAFTING_R, CRAFTING_G, CRAFTING_B>
+global const vector CRAFTING_2PT0_COLOR = <57, 150, 255>
+global const vector COLOR_AIRDROP = <128, 188, 255>
+global const vector COLOR_AIRDROP_RARITY_COMMON = <192, 192, 192>
+global const vector COLOR_AIRDROP_RARITY_RARE = <80, 160, 215>
+global const vector COLOR_AIRDROP_RARITY_EPIC= <170, 78, 198>
+global const vector COLOR_AIRDROP_RARITY_LEGENDARY = <220, 185, 39>
+global const vector COLOR_AIRDROP_RARITY_HEIRLOOM = <255, 0, 0>
+global const vector COLOR_OBITUARY_DEFAULT = <255,255,255>		
+
+
+global const FRIENDLY_COLOR_FX = <FRIENDLY_FX_R, FRIENDLY_FX_G, FRIENDLY_FX_B>
+global const ENEMY_COLOR_FX = <ENEMY_FX_R, ENEMY_FX_G, ENEMY_FX_B>
+global const NEUTRAL_COLOR_FX = <220, 220, 220>
+
+
+
+global const FRIENDLY_COLOR = TEAM_COLOR_FRIENDLY
+global const ENEMY_COLOR = TEAM_COLOR_ENEMY
+
+
+global const int WP_STYLE_OBJECTIVE = 0
+global const int WP_STYLE_PVEQUEST = 1
+global const int WP_STYLE_DEATHBOX_NORMAL = 2
+global[LoadScriptFile] self 0x7ff67896f188  out 0x24c2dacb30  path : maps/mp_lobby.bsp.0012.bsp_lump.client
+ const int WP_STYLE_DEATHBOX_CORPSERUN = 3
+global const int WP_STYLE_LOOT_DROPOFF = 4
+global const int WP_STYLE_MSOBJ_CENTER = 5
+global const int WP_STYLE_MSOBJ_LEFT = 6
+global const int WP_STYLE_MSOBJ_RIGHT = 7
+
+
+global const BURN_CARD_WEAPON_HUD_COLOR = [ 246, 134, 40, 255 ]
+global const BURN_CARD_WEAPON_HUD_COLOR_VECTOR = <0.965, 0.525, 0.157>
+
+
+
+
+global enum eTargetGrade
+{
+	CHAMPION = (1 << 0),
+	CHAMP_KILLLEADER = (1 << 1),
+	KILLLEADER = (1[dump] maps/mp_lobby.bsp.0012.bsp_lump.client (48 bytes) << 2),
+	JUMPMASTER = (1 << 3),
+	EXP_LEADER = (1 <<4)
+}
+
+global enum eWeaponProficiency
+{
+	POOR
+	AVERAGE
+	GOOD
+	VERYGOOD
+	PERFECT
+}
+
+global enum eCodeDialogueID
+{
+	MAN_DOWN        
+	SALUTE            
+	ENEMY_CONTACT    
+	RUN_FROM_ENEMY    
+	RELOADING        
+	MOVE_TO_ASSAULT    
+	MOVE_TO_SQUAD_LEADER    
+	FAN_OUT                    
+	TAKE_COVER_FROM_ENEMY    
+	CHASE_ENEMY                
+	GRENADE_OUT            
+	DANGEROUS_AREA_DISPLACE 
+	REACTBÂÂÜþÿ>r>r¾r»­»­ÄQ»­ERÅQERERW¿W¿W¿W¿©@©@©@©@_SURPRISED        
+	DIALOGUE_COUNT
+}
+
+
+global const CURRENT_TARGET_FORGET_TIME = 8.0
+
+global enum scoreEventPointType
+{
+	DEFAULT
+	ASSAULT
+	DEFENSE
+	DETONATION
+	DISTANCE
+}
+
+
+
+
+
+global enum crosshairPriorityLevel
+{
+	ROUND_WINNING_KILL_REPLAY,
+	MENU,
+	PREMATCH,
+	TITANHUD,
+	POSTMATCH,
+	DEFAULT
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global const CLUSTER_ROCKET_DURATION = 5.0 
+global const CLUSTER_ROCKET_FX_TABLE = "exp_rocket_cluster_secondary"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global enum eRespawnStatus
+{
+	NONE,
+	WAITING_FOR_PICKUP,
+	WAITING_FOR_DELIVERY,
+	WAITING_FOR_DROPPOD,
+	WAITING_FOR_RESPAWN,
+	WAITING_FOR_BEACON,
+	PICKUP_DESTROYED,
+	PLAYER_ELIMINATED,
+	SQUAD_ELIMINATED,
+
+
+
+	_COUNT,
+}
+
+global const table< int, string > respawnStatus_EnumToStringMap = {
+	[ eRespawnStatus.NONE ] = "none",
+	[ eRespawnStatus.WAITING_FOR_PICKUP ] 	= "WAITING_FOR_PICKUP",
+	[ eRespawnStatus.WAITING_FOR_DELIVERY ] = "WAITING_FOR_DELIVERY",
+	[ eRespawnStatus.WAITING_FOR_DROPPOD ] 	= "WAITING_FOR_DROPPOD",
+	[ eRespawnStatus.WAITING_FOR_RESPAWN ] 	= "WAITING_FOR_RESPAWN",
+	[ eRespawnStatus.WAITING_FOR_BEACON ] 	= "WAITING_FOR_BEACON",
+	[ eRespawnStatus.PICKUP_DESTROYED ] 	= "PICKUP_DESTROYED",
+	[ eRespawnStatus.PLAYER_ELIMINATED ] 	= "PLAYER_ELIMINATED",
+	[ eRespawnStatus.SQUAD_ELIMINATED ] 	= "SQUAD_ELIMINATED",
+
+
+
+	[ eRespawnStatus._COUNT ] 	= "_COUNT"
+}
+
+global enum eRespawnStyle
+{
+	
+
+	NONE,
+	RESPAWN_CHAMBERS,
+	WAVE_SPAWN_ON_SQUAD,
+	SPAWN_NEAR_SQUAD,
+	CUSTOM_RESPAWN,
+	SPAWN_GROUP_SKYDIVE,
+
+
+
+
+		ROLLING_RESPAWN,
+
+
+
+
+
+
+
+	_COUNT,
+}
+
+
+global enum eDropStyle
+{
+	NONE = 0
+	NEAREST
+	NEAREST_YAW            
+	FORCED                
+	NEAREST_YAW_FALLBACK           
+	FROM_SET_DISTANCE                
+	ZIPLINE_NPC                
+	RANDOM_FROM_YAW        
+	FLYER_PICKUP        
+}
+
+
+global enum eEliminationStyle
+{
+	NONE = 0
+	KILLED
+	SCORE
+}
+
+
+global enum eStickState
+{
+	NEUTRAL = 0,
+	LEFT = 1,
+	RIGHT = 2,
+	_count,
+}
+
+global const DEFAULT_SCRIPTED_ANIMATION_BLEND_TIME = 0.2
+
+global const bool USE_OLD_STYLE_SADDLE = true 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global const EMP_GRENADE_PILOT_SCREEN_EFFECTS_DURATION_MIN = 0.2 
+global const EMP_GRENADE_PILOT_SCREEN_EFFECTS_DURATION_MAX = 2.5 
+global const EMP_GRENADE_PILOT_SCREEN_EFFECTS_FADE = 1.0
+global const EMP_GRENADE_PILOT_SCREEN_EFFECTS_MIN = 0.15
+global const EMP_GRENADE_PILOT_SCREEN_EFFECTS_MAX = 0.4
+
+global const EMP_IMPARED_SOUND = "EMP_VisualImpair"
+
+
+
+global const AIN_REV = 21
+
+
+
+global const VOICE_COUNT = 6
+
+
+
+
+
+
+global const ARMOR_TYPE_HEAVY = 1
+
+global const WARPINFXTIME = 2.7
+
+
+
+
+global const EVO_ARMOR_RED_TIER = 4
+
+
+
+
+
+
+global enum PerfIndexClient
+{
+	str1,
+	PlayerCanEmbarkTitan1,
+	PlayerCanEmbarkTitan2,
+	FindBestEmbark,
+	FindUserEvent,
+
+	RunThreadsFrame,
+	HudElementUpdate,
+	HudElemUpdateLoop,
+	CodeCallback_PreClientThreads,
+	HUDThink,
+	HUDThink_1,
+	HUDThink_2,
+	HUDThink_3,
+	HUDThink_4,
+	HUDThink_5,
+	HUDThink_6,
+	HUDThink_7,
+
+	GameStatePlaying,
+
+	ScoreBoard,
+	ScoreBoardUpdate,
+	SUR_ScoreBoardRules_1,
+	SUR_ScoreBoardRules_2,
+	SUR_ScoreBoardRules_3,
+	SUR_HudRefresh,
+	SUR_HudRefresh_1,
+	SUR_HudRefresh_2,
+	SUR_HudRefresh_3,
+	SUR_HudRefresh_4,
+
+	FriendIconsTrace_Update,
+	FriendIconsHUD_Update,
+	HealthBarOverlayHUD_Update,
+	UpdateCrosshair,
+	SmartAmmo_UpdateHUD,
+	OnEntityCreation,
+	OnEntityDestroy,
+	DamageIndicator,
+	GrenadeIndicator,
+	PilotThreatHud_Update,
+	UpdateThreatIcons,
+	UpdateDamageStates,
+	UpdateEscalationDpadIcons,
+	UpdateTitanModeHUD,
+	Fracture_AATracers_1,
+	Fracture_AATracers_2,
+	Fracture_RefuelShips,
+	ClusterShipsFireRocketsThink,
+	CreateIndividualShipsFromCluster,
+	InventoryRefreshTotal,
+	InventoryRefreshStart,
+	InventoryRefreshEnd,
+	UpdateLootRui,
+	LootGoesInPack,
+	CarePackagePerkLookatUpdate,
+
+	PrivateLobbyThread,
+
+	PhaseBreach_GetPosition_OLD,
+	PhaseBreach_GetPosition,
+	PhaseBreach_WallToTop,
+	PhaseBreach_ScorePos,
+	PhaseBreach_ScorePos_Generate,
+	SortChalFlavsByProgCache,
+	SortChalFlavsByProgLegacy,
+	ChallengeTileRefresh,
+
+	FragDroneClientPreviewFX,
+}
+
+global enum PerfIndexServer
+{
+	str1,
+	PlayerCanEmbarkTitan1,
+	PlayerCanEmbarkTitan2,
+	FindBestEmbark,
+	FindUserEvent,
+
+	GetSpawnPointForStyle,
+	CB_FindLeechTarget,
+	CB_OnServerAnimEvent,
+	CB_ClientCommand,
+	TraceLine,
+	GetZiplineForPlayer,
+	RespawnTitanPilot,
+	NoSpawnAreaCheck,
+	AIChatter,
+
+	PersistentStatTracking,
+	AirtimeChecks,
+	DroneLogic,
+	BirdCluster,
+	BirdCluster_perch,
+	BirdCluster_perch_trace,
+	BirdCluster_perch_angle,
+	BirdCluster_spawn,
+	SurvivalLootCache,
+	ThreatDetection,
+	HoverTankPathCalc,
+	HoverTankFlyPathCalc,
+	HoverTankThink,
+	GetRandomSpawnPoint,
+	CleanupServerPets,
+	SniperReconInfo,
+	AreaSonarScan,
+	AreaSonarScanPropsList,
+	AreaSonarScanPropsTrigger,
+	AreaSonarScanTriggers,
+	AreaSonarTargetList,
+
+	DR_GatherData,
+	DR_SendData,
+
+	AddToInventory,
+
+	SmartLoot,
+
+	WreckingBall,
+
+	LeftoverLootWeightingFix,
+
+	LoadLootTable,
+}
+
+global const SharedPerfIndexStart = 100
+
+global enum PerfIndexShared
+{
+	RunThread,
+	SmartAmmo_UpdateTargets,
+	StringToColors,
+	CB_IsLeechable,
+	ItemFlavorRegistration,
+}
+
+global const HOTDROP_IMPACT_FX_TABLE = "droppod_impact"
+
+global const int PICKUP_FLAG_ALT = (1 << 0)
+global const int PICKUP_FLAG_AUTO = (1 << 1)
+gl[LoadScriptFile] self 0x7ff67896f188  out 0x24c2dac990  path : maps/mp_lobby.bsp.0013.bsp_lump.client
+obal const int PICKUP_FLAG_FROM_MENU = (1 << 2)
+global const int PICKUP_FLAG_ATTACH_ACTIVE_ONLY = (1 << 3)
+global const int PICKUP_FLAG_ATTACH_STOWED_ONLY = (1 << 4)
+global const int PICKUP_FLAG_LONG = (1 << 5)
+global const int PICKUP_FLAG_DONT_SWITCH_WEAPONS = (1 << 6)
+global const int PICKUP_FLAG_SUPPRESS_LOOT_FEED_MESSAGES = (1 << 7)
+global const int PICKUP_FLAG_DONT_COUNT_TOWARD_BLACK_MARKET_QUOTA = (1 << 8)
+global const int PICKUP_FLAG_MAX[dump] maps/mp_lobby.bsp.0013.bsp_lump.client (0 bytes) = (1 << 9)
+
+
+
+global const CE_FLAG_INTRO = 0x0002
+global const CE_FLAG_EXECUTION = 0x0004 
+global const CE_FLAG_EMBARK = 0x0008
+global const CE_FLAG_DISEMBARK = 0x0010
+global const CE_FLAG_HIDE_MAIN_HUD_INSTANT = 0x0020
+global const CE_FLAG_CLASSIC_MP_SPAWNING = 0x0040
+global const CE_FLAG_HIDE_MAIN_HUD = 0x0080
+global const CE_FLAG_TITAN_3P_CAM = 0x0100
+global const CE_FLAG_WAVE_SPAWNING = 0x0200
+global const CE_FLAG_EOG_STAT_DISPLAY = 0x0400
+global const CE_FLAG_HIDE_PERMANENT_HUD = 0x0800
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global const float SONAR_PULSE_SPACE = 400.0
+global const float SONAR_PULSE_SPEED = 300.0
+
+global enum eOffhandInv
+{
+	BOMBARDMENT,
+	TACTICAL,
+	CONSUMABLE,
+	EQUIPMENT,
+	ULTIMATE,
+	MELEE,
+	EMOTE,
+	GENERIC,
+
+	COUNT
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global const bool SHOW_SATCHEL_DETONATION_HINT_WITH_CLACKER = false
+
+global enum userSignInState
+{
+	ERROR,
+	SIGNING_IN,
+	SIGNED_IN,
+	SIGNED_OUT
+}
+
+global enum eEventNotifications
+{
+	Clear,
+	RoundWinningKillReplayCancelled,
+	Grapple_WasGrappled_ByTitan,
+	Grapple_WasGrappled_ByPilot,
+	WEAP_GotAmmo,
+	BLEEDOUT_SelfHealPrompt,
+	SURVIVAL_GladiatorCardCollected,
+	SURVIVAL_RelinquishedJumpmaster,
+	SURVIVAL_NewJumpmaster,
+	SURVIVAL_RejoinedSquad,
+	SURVIVAL_DroppingSolo,
+}
+
+global const MINION_BUBBLE_SHIELD_RADIUS = 230
+global const MINION_BUBBLE_SHIELD_RADIUS_SQR = 51984        
+
+global const CLOAKED_DRONE_CLOAK_START_SFX = "CloakDrone_Cloak_On"
+global const CLOAKED_DRONE_CLOAK_LOOP_SFX = "CloakDrone_Cloak_Sustain_Loop"
+
+
+
+
+
+global const SECONDS_PER_WEEK = 604800
+global const SECONDS_PER_DAY = 86400
+global const SECONDS_PER_HOUR = 3600
+global const SECONDS_PER_MINUTE = 60
+global const HOURS_PER_DAY = 24
+global const MINUTES_PER_HOUR = 60
+global const DAYS_PER_WEEK = 7
+global const FNF_SCHEDULE_RESET_SECONDS = 27000 
+global const DAILY_RESET_TIME_ZONE_OFFSET = -11    
+
+
+global enum eNumericDisplayType
+{
+	INT
+	FLOAT2F
+	TIME_SECONDS_SHORT
+	TIME_SECONDS_LONG
+	TIME_MINUTES_LONG
+	SHORT_INT
+}
+
+global const ZIPLINE_IDLE_ANIM = "pt_zipline_slide_idle"
+
+global const DEFAULT_CONVERSATION_DEBOUNCE_TIME = 10.0
+global const AI_CONVERSATION_RANGE_SQR = 20250000
+global const AI_CONVERSATION_RANGE = 4500 
+
+global const MAX_VOICE_DIST_SQRD = 9000000 
+
+global const AI_FRIENDLY_CHATTER_RANGE_SQR = 4410000
+global const AI_FRIENDLY_CHATTER_RANGE = 2100 
+
+global const REQUIRES_ANY = 0
+global const REQUIRES_PILOT = 1
+global const REQUIRES_TITAN = 2
+
+global const HIGHLIGHT_USE_DEFAULT = -1
+
+global struct ShGlobals
+{
+	table<string, array<void functionref(entity, var)> >    deathCallbacks
+	table<int, array<void functionref(entity, var)> >       damageSourceIdCallbacks
+	table<int, bool functionref(entity, var)> 				damageSourceIdShouldDamageCallbacks
+}
+
+global ShGlobals shGlobal
+
+global const HEALTH_PER_HEALTH_BAR_SEGMENT = 500
+
+global enum ePresentationType
+{
+	INACTIVE,
+	PLAY,
+	PLAY_SHIFTED,
+	CHARACTER_SELECT,
+	CHARACTER_SKIN,
+	CHARACTER_CARD,
+	CHARACTER_QUIPS,
+	HOLOSPRAYS,
+	WEAPON_CATEGORY,
+	WEAPON_OVERVIEW,
+	WEAPON_SKIN,
+	WEAPON_CHARMS,
+	WEAPON,
+	POSTGAME,
+	STORE,
+	NO_MODELS,
+	LOOT,
+	BATTLE_PASS,
+	BATTLE_PASS_3,
+	LEGEND_PASS,
+	COLLECTION_EVENT,
+	QUEST_PANEL,
+	STORE_INSPECT,
+	STORE_INSPECT_LOOT_POOL,
+	CLUB_LANDING,
+	CLUB_DISCOVERY,
+	ARENAS_RANKED,
+	APPLIED_STICKER_INJECTOR,
+	APPLIED_STICKER_SMALL_CELL,
+	APPLIED_STICKER_LARGE_CELL,
+	UNAPPLIED_STICKER,
+	WEAPON_TRIAL_CELEBRATIONS,
+	MELEE_INSPECT,
+	PLAY_QUADS,
+	PLAY_STAGE_B_TRIOS,
+	PLAY_STAGE_B_QUADS,
+	PLAY_STAGE_C_TRIOS,
+	PLAY_STAGE_C_QUADS,
+	LOOT_CEREMONY,
+
+	PLAY_CORE,
+
+	PLAY_UNHINGED,
+
+
+	CHARACTER_SELECTS_CUSTOMIZATION,
+	REWARD_SUMMARY_SEQUENCE,
+
+	COUNT
+}
+
+global enum eMenuModelFlashType
+{
+	DEFAULT,
+	CHARACTER_SELECT,
+	VICTORY_SEQUENCE,
+	LOOT_CEREMONY_LOW_RARITY,
+	LOOT_CEREMONY_HIGH_RARITY,
+	LOOT_CEREMONY_QUICK,
+	BATTLEPASS,
+	QUEST_MODEL_PIECE,
+
+	COUNT
+}
+
+global enum ePlayerMovementEvents
+{
+	JUMP,
+	DOUBLE_JUMP,
+	SLIDE_SUPER_JUMP,
+	DODGE,
+	LEAVE_GROUND,
+	TOUCH_GROUND,
+	MANTLE,
+	BEGIN_WALLRUN,
+	END_WALLRUN,
+	BEGIN_WALLHANG,
+	END_WALLHANG,
+	BEGIN_SLIDE,
+	END_SLIDE,
+	FAST_FALL
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+global enum eUIEvent
+{
+	MENU_OPEN,
+	MENU_PRECLOSE,
+	MENU_CLOSE,
+	MENU_SHOW,
+	MENU_HIDE,
+	MENU_NAVIGATE_BACK,
+	
+	MENU_INPUT_MODE_CHANGED,
+	MENU_GET_TOP_LEVEL,
+	MENU_LOSE_TOP_LEVEL,
+	PANEL_SHOW,
+	PANEL_HIDE,
+	PANEL_NAVUP,
+	PANEL_NAVDOWN
+	PANEL_NAVBACK
+}
+
+global const int PHYS_EXPLOSION_LARGE = 500
+
+global const float DEFAULT_PODIUM_DURATION = 11.5
+
+global const ASPECT_RATIO_16_BY_9 = 16.0 / 9.0
+global const ASPECT_RATIO_21_BY_9 = 64.0 / 26.5
+global const ASPECT_RATIO_16_BY_10 = 16.0 / 10.0
+
+global const float COCKPIT_UI_XOFFSET = 22
+global const float COCKPIT_UI_WIDTH = 41.4
+global const float COCKPIT_UI_HEIGHT = COCKPIT_UI_WIDTH / 1.7665
+
+global const float COCKPIT_RUI_WIDTH = 100
+global const float COCKPIT_RUI_HEIGHT = COCKPIT_RUI_WIDTH / (1920.0 / 1080.0)
+global const vector COCKPIT_RUI_OFFSET = <53.6, 0, 0>
+global const vector COCKPIT_RUI_OFFSET_1610_TEMP = <58, 0, 0>
+global const float TITAN_COCKPIT_RUI_SUBDIV = 3.5
+
+global const float TITAN_COCKPIT_RUI_SCREEN_WIDTH = 21.0
+global const float TITAN_COCKPIT_TOPO_RADIUS = 150.0
+global const float TITAN_COCKPIT_ROTATION_ANGLE = 0.0
+global const float TITAN_COCKPIT_LOWER_RUI_SCREEN_SQUARE_SIZE = 24.0
+global const float TITAN_COCKPIT_LOWER_RUI_SCREEN_HEIGHT_SCALE = 1.3125
+global const float TITAN_COCKPIT_INSTRUMENT1_RUI_SCREEN_SQUARE_SIZE = 4.5
+
+global const float SPOT_HIGHLIGHT_TIME = 5.0
+global const float SPOT_HIGHLIGHT_FADE_IN_TIME = 0.15
+global const float SPOT_HIGHLIGHT_FADE_OUT_TIME = 3.0
+
+global const int RUI_SORT_SCREENFADE = 1000
+global const int RUI_SORT_GLADCARD = 990
+
+
+
+
+
+global const int HUD_Z_BASE = 300
+
+global const int FULLMAP_Z_BASE = 600
+
+global const int MINIMAP_Z_BASE = 500
+global const int MINIMAP_Z_LAYER = MINIMAP_Z_BASE + 1
+global const int MINIMAP_Z_THREAT_WEDGES = MINIMAP_Z_BASE + 2
+global const int MINIMAP_Z_YOU = MINIMAP_Z_BASE + 200
+global const int MINIMAP_Z_FRAME = MINIMAP_Z_BASE + 201
+
+global const int MINIMAP_Z_OBJECT = 25
+global const int MINIMAP_Z_OBJECTIVE = 50
+global const int MINIMAP_Z_PING = 60
+global const int MINIMAP_Z_NPC = 75
+global const int MINIMAP_Z_PLAYER = 100
+
+
+global const int IMAGE_ATLAS_MENU = 0
+global const int IMAGE_ATLAS_HUD = 1
+global const int IMAGE_ATLAS_COMMS = 3
+
+
+global const float COCKPIT_COLOR_BLUE = 0.0
+global const float COCKPIT_COLOR_YELLOW = 0.05
+global const float COCKPIT_COLOR_RED = 0.15
+global const float COCKPIT_COLOR_SIEGE = 0.25
+global const float COCKPIT_COLOR_THREAT = 0.35
+global const float COCKPIT_COLOR_HIDDEN = 0.45
+global const float COCKPIT_COLOR_VANGUARD = 0.55
+
+
+global const int MAX_WORLD_COORD_INTEGER	= 1 << 16
+global const int WORLD_COORD_EXTENT = 2 * MAX_WORLD_COORD_INTEGER
+global const float MAX_TRACE_LENGTH = 1.732050807569 * float( WORLD_COORD_EXTENT )
+
+
+global enum achievements
+{
+	PLAYER_LEVEL = 0, 
+	DECKED_OUT, 
+	RESPAWN_TEAMMATE, 
+	FULLY_KITTED, 
+	JUMPMASTER, 
+	WELL_ROUNDED, 
+	KILL_LEADER, 
+	APEX_OFFENSE, 
+	APEX_DEFENSE, 
+	APEX_SUPPORT, 
+	APEX_RECON, 
+	APEX_LEGEND, 
+	MAX_ACHIVEMENTS
+}
+
+global enum eNewPlayerState
+{
+	NEVER_PLAYED = 0
+	SEEN_INTRO
+	TRAINING_COMPLETED
+	FIRING_RANGE_COMPLETED
+
+	FIRST_MATCH_PLAYED
+}
+
+global enum eFeatureSuppressionFlags
+{
+	NONE								= 0x0000
+
+	
+	PROMO_USER_MESSAGES_DIALOG			= 0x0001
+	RANKED_DIALOG						= 0x0002
+	RANKED_ARENAS_DIALOG				= 0x0004
+	RANKED_SPLIT_DIALOG					= 0x0008
+
+	
+	STORY_EVENT_CHALLENGES_POPUP		= 0x0010
+	CURRENCY_EXPIRATION_POPUP			= 0x0020
+	STORY_EVENT_AUTOPLAY_DIALOGUE_POPUP	= 0x0040
+	BATTLE_PASS_POPUP					= 0x0080
+	HEIRLOOM_SHOP_POPUP					= 0x0100
+	QUEST_POPUP							= 0x0200
+
+	
+	TRAINING_RETURN_TO_LOBBY			=[LoadScriptFile] self 0x7ff67896f188  out 0x24c2dac960  path : maps/mp_lobby.bsp.000E.bsp_lump.client
+ 0x0400
+
+	ALL									= 0x07FF
+}
+
+
+global enum eLaunchState
+{
+	WORKING,
+	WAIT_TO_CONTINUE,
+	CANT_CONTINUE
+}
+
+global enum eLaunching
+{
+	FALSE,
+	MULTIPLAYER,
+	MULTIPLAYER_INVITE,
+	COUNT
+}
+
+
+
+
+
+
+global const int WEAPONFLAG_AMPED = (1 << 0)
+
+
+global const DATA_KNIFE_MODEL = $"mdl/weapons/data_knife/v_data_knife.rmdl"
+
+global const float PHASE_TUNNEL_PLACEMENT_DURATION = 10.0
+
+global struct UseFuncData
+{
+	entity                                     u[dump] maps/mp_lobby.bsp.000E.bsp_lump.client (0 bytes)seEnt
+	void functionref( entity, entity, entity ) useFunc
+}
+
+
+global enum eHitType
+{
+	NORMAL
+	CRIT,
+	INEFFECTIVE,
+	MID_RANGE,
+	SHIELD,
+	ARMOR,
+	VORTEX,
+	SHADOW,
+	OVERSHIELD,
+
+	EXTRA_SHIELD,
+
+
+
+
+
+
+
+}
+
+global const vector TEMPSHIELD_COLOR = <19, 207, 69>
+
+global const int DAMAGEFLAG_ARMOR1 = 64
+global const int DAMAGEFLAG_ARMOR2 = 128
+global const int DAMAGEFLAG_ARMOR3 = 256
+global const int DAMAGEFLAG_ARMOR4 = 512
+global const int DAMAGEFLAG_ARMOR5 = 1024
+
+global enum eCommsAction
+{
+	BLANK = 0,
+
+	PING_WEAPON_KRABER,
+	PING_WEAPON_MASTIFF,
+	PING_WEAPON_LSTAR,
+	PING_WEAPON_ENERGY_AR,
+	PING_WEAPON_DEVOTION,
+	PING_WEAPON_TRIPLETAKE,
+	PING_WEAPON_FLATLINE,
+	PING_WEAPON_HEMLOK,
+	PING_WEAPON_G7,
+	PING_WEAPON_ALTERNATOR,
+	PING_WEAPON_R97,
+	PING_WEAPON_PROWLER,
+	PING_WEAPON_DMR,
+	PING_WEAPON_SPITFIRE,
+	PING_WEAPON_R201,
+	PING_WEAPON_EVA,
+	PING_WEAPON_PEACEKEEPER,
+	PING_WEAPON_MOZAMBIQUE,
+	PING_WEAPON_WINGMAN,
+	PING_WEAPON_SEMIPISTOL,
+	PING_WEAPON_AUTOPISTOL,
+	PING_WEAPON_VOLT_SMG,
+	PING_WEAPON_DEFENDER,
+	PING_WEAPON_SENTINEL,
+
+
+
+
+
+		PING_WEAPON_EPG,
+		
+
+	PING_WEAPON_BOW,
+
+
+
+
+	PING_WEAPON_CAR,
+	PING_WEAPON_NEMESIS,
+
+		PING_WEAPON_TITAN_SWORD,
+		QUICKCHAT_TITAN_SWORD_READY_FULL,
+
+	PING_ATTACHMENT_HOPUP_GOLDEN_HORSE,
+	PING_NPC_LOOT_TICK_GH,
+	QUICKCHAT_GH_MARK_LOOT_TICKS,
+	PING_WEAPON_POWER_SWORD,
+
+		PING_WEAPON_MELEE_BAT,
+
+
+
+
+	
+	PING_OFFHAND_GRENADE_FIRESTAR,
+	PING_OFFHAND_GRENADE_FRAG,
+	PING_OFFHAND_GRENADE_ARC,
+
+
+
+	
+	PING_AMMO_BULLET,
+	PING_AMMO_SPECIAL,
+	PING_AMMO_SHOTGUN,
+	PING_AMMO_HIGHCAL,
+
+
+
+	PING_AMMO_SNIPER,
+	PING_AMMO_ARROWS,
+	PING_AMMO_ARROWS_BUNDLE,
+	
+	PING_EQUIPMENT_ARMOR_1,
+	PING_EQUIPMENT_ARMOR_2,
+	PING_EQUIPMENT_ARMOR_3,
+	PING_EQUIPMENT_ARMOR_4,
+	PING_EQUIPMENT_ARMOR_1_EVO,
+	PING_EQUIPMENT_ARMOR_2_EVO,
+	PING_EQUIPMENT_ARMOR_3_EVO,
+	PING_EQUIPMENT_ARMOR_5_EVO,
+
+
+
+
+	PING_EQUIPMENT_SHIELD_CORE_1,
+	PING_EQUIPMENT_SHIELD_CORE_2,
+	PING_EQUIPMENT_SHIELD_CORE_3,
+	PING_EQUIPMENT_SHIELD_CORE_5,
+
+	PING_EQUIPMENT_HELMET_1,
+	PING_EQUIPMENT_HELMET_2,
+	PING_EQUIPMENT_HELMET_3,
+	PING_EQUIPMENT_HELMET_4,
+
+	PING_EQUIPMENT_HELMET_5,
+
+	PING_EQUIPMENT_BACKPACK_1,
+	PING_EQUIPMENT_BACKPACK_2,
+	PING_EQUIPMENT_BACKPACK_3,
+	PING_EQUIPMENT_BACKPACK_4,
+	PING_EQUIPMENT_INCAPSHIELD_1,
+	PING_EQUIPMENT_INCAPSHIELD_2,
+	PING_EQUIPMENT_INCAPSHIELD_3,
+	PING_EQUIPMENT_INCAPSHIELD_4,
+
+
+
+
+
+
+
+
+
+
+		PING_EQUIPMENT_AUGMENT,
+
+
+
+
+
+
+		PING_WEAPON_AUTOPISTOL_FUSION,
+
+	
+	PING_ATTACHMENT_OPTIC_CQ_HCOG_1,
+	PING_ATTACHMENT_OPTIC_CQ_HCOG_2,
+	PING_ATTACHMENT_OPTIC_CQ_HOLOSIGHT_1,
+	PING_ATTACHMENT_OPTIC_CQ_HOLOSIGHT_2,
+	PING_ATTACHMENT_OPTIC_CQ_THREAT,
+	PING_ATTACHMENT_OPTIC_RANGED_HCOG,
+	PING_ATTACHMENT_OPTIC_RANGED_AOG,
+	PING_ATTACHMENT_OPTIC_SNIPER,
+	PING_ATTACHMENT_OPTIC_SNIPER_VARIABLE,
+	PING_ATTACHMENT_OPTIC_SNIPER_THREAT,
+	
+	PING_ATTACHMENT_MAG_BULLET_1,
+	PING_ATTACHMENT_MAG_BULLET_2,
+	PING_ATTACHMENT_MAG_BULLET_3,
+	PING_ATTACHMENT_MAG_HIGHCAL_1,
+	PING_ATTACHMENT_MAG_HIGHCAL_2,
+	PING_ATTACHMENT_MAG_HIGHCAL_3,
+	PING_ATTACHMENT_MAG_ENERGY_1,
+	PING_ATTACHMENT_MAG_ENERGY_2,
+	PING_ATTACHMENT_MAG_ENERGY_3,
+	PING_ATTACHMENT_MAG_SNIPER_1,
+	PING_ATTACHMENT_MAG_SNIPER_2,
+	PING_ATTACHMENT_MAG_SNIPER_3,
+	
+	PING_ATTACHMENT_SHOTGUN_BOLT_1,
+	PING_ATTACHMENT_SHOTGUN_BOLT_2,
+	PING_ATTACHMENT_SHOTGUN_BOLT_3,
+	PING_ATTACHMENT_SHOTGUN_BOLT_4,
+	
+	PING_ATTACHMENT_STOCK_STANDARD_1,
+	PING_ATTACHMENT_STOCK_STANDARD_2,
+	PING_ATTACHMENT_STOCK_STANDARD_3,
+	PING_ATTACHMENT_STOCK_SNIPER_1,
+	PING_ATTACHMENT_STOCK_SNIPER_2,
+	PING_ATTACHMENT_STOCK_SNIPER_3,
+	PING_ATTACHMENT_STOCK_SNIPER_4,
+	
+	PING_ATTACHMENT_BARREL_STABILIZER_1,
+	PING_ATTACHMENT_BARREL_STABILIZER_2,
+	PING_ATTACHMENT_BARREL_STABILIZER_3,
+	PING_ATTACHMENT_BARREL_STABILIZER_4_FLASH_HIDER,
+	
+	PING_ATTACHMENT_LASER_SIGHT_1,
+	PING_ATTACHMENT_LASER_SIGHT_2,
+	PING_ATTACHMENT_LASER_SIGHT_3,
+	PING_ATTACHMENT_LASER_SIGHT_4,
+	
+	PING_ATTACHMENT_HOPUP_TURBOCHARGER,
+	PING_ATTACHMENT_HOPUP_SELECTFIRE,
+	PING_ATTACHMENT_HOPUP_ENERGY_CHOKE,
+	PING_ATTACHMENT_HOPUP_HEADSHOT_DMG,
+	PING_ATTACHMENT_HOPUP_SHIELD_BREAKER,
+	PING_ATTACHMENT_HOPUP_UNSHIELDED_DMG,
+
+
+
+	PING_ATTACHMENT_HOPUP_DOUBLE_TAP,
+	PING_ATTACHMENT_HOPUP_SMART_RELOAD,
+	PING_ATTACHMENT_HOPUP_PAINTBALL,
+	PING_ATTACHMENT_HOPUP_MARKSMANS_TEMPO,
+	PING_ATTACHMENT_HOPUP_QUICKDRAW_HOLSTER,
+	PING_ATTACHMENT_HOPUP_SHATTER_ROUNDS,
+	PING_ATTACHMENT_HOPUP_DUAL_SHELL
+	PING_ATTACHMENT_HOPUP_KINETIC_FEEDER
+	PING_ATTACHMENT_HOPUP_GUNSHIELD,
+	
+	PING_ITEM_COMBO_FULL,
+	PING_ITEM_SHIELD_SMALL,
+	PING_ITEM_SHIELD_LARGE,
+	PING_ITEM_HEALTH_SMALL,
+	PING_ITEM_HEALTH_MEDIUM,
+	PING_ITEM_HEALTH_LARGE,
+	PING_ITEM_HEALTH_SYRINGE,
+	PING_ITEM_ULTIMATE_ENERGY,
+
+
+
+
+
+
+
+
+
+
+
+		PING_ITEM_REV_SHELL
+		PING_ITEM_REV_SHELL_INAIR
+
+			PING_ITEM_PATHY_SHELL
+			PING_ITEM_PATHY_SHELL_INAIR
+
+
+
+
+		PING_ITEM_THE_HUNT
+		PING_AREA_THE_HUNT_HUNTER
+		PING_AREA_THE_HUNT_PREY
+
+
+
+		PING_ITEM_XP_CACHE
+		PING_ITEM_XP_CACHE_FULL
+		PING_XP_LEVEL_UP_ARMOR,
+		PING_XP_LEVEL_UP_ABILITY,
+		PING_UPGRADE_STATION,
+		PING_HAS_UPGRADE_0,
+		PING_HAS_UPGRADE_1,
+		PING_HAS_UPGRADE_2,
+		PING_HAS_UPGRADE_3,
+
+
+
+		PING_ITEM_XP_CACHE_TINY,
+
+
+
+
+
+
+
+		PING_ARSENAL,
+		PING_ARSENAL_LIGHT,
+		PING_ARSENAL_HEAVY,
+		PING_ARSENAL_ENERGY,
+		PING_ARSENAL_SHOTGUN,
+		PING_ARSENAL_SNIPER,
+		PING_ARSENAL_LIGHT_FROM_INVENTORY,
+		PING_ARSENAL_HEAVY_FROM_INVENTORY,
+		PING_ARSENAL_ENERGY_FROM_INVENTORY,
+		PING_ARSENAL_SHOTGUN_FROM_INVENTORY,
+		PING_ARSENAL_SNIPER_FROM_INVENTORY,
+
+
+
+		PING_COLLECTIBLE_NESSIE,
+
+	PING_ITEM_ARMOR_SMALL,
+	PING_ITEM_TREASURE_BOX,
+	
+
+
+
+
+
+
+
+
+		PING_HOVERVEHICLE,
+		PING_HOVERVEHICLE_DAMAGED,
+		PING_HOVERVEHICLE_ALLY,
+		PING_HOVERVEHICLE_ENEMY,
+		PING_HOVERVEHICLE_NAG,
+
+
+		PING_LOOT_DRONE,
+		PING_LOOT_ROLLER,
+	
+
+		PING_ITEM_DATA_KNIFE,
+		FLAVOR_ITEM_DATA_KNIFE,
+
+
+		PING_LOOT_VAULT,
+		PING_LOOT_VAULT_OPEN,
+		PING_LOOT_VAULT_REVEAL,
+		PING_LOOT_VAULT_HAS_KEY_SQUAD,
+		PING_LOOT_VAULT_HAS_KEY_SELF,
+		SUB_TYPE_VAULT_KEY_NEED,
+		SUB_TYPE_VAULT_KEY_HAS_SQUAD,
+		SUB_T[dump] maps/mp_lobby.bsp.0018.bsp_lump.client (27 bytes)[LoadScriptFile] self 0x7ff67896f188  out 0x24c2dacd20  path : maps/mp_lobby.bsp.0001.bsp_lump.client
+[dump] maps/mp_lobby.bsp.0001.bsp_lump.client (0 bytes)[LoadScriptFile] self 0x7ff67896f188  out 0x24c2dac860  path : maps/mp_lobby.bsp.0068.bsp_lump.client
+[LoadScriptFile] self 0x7ff67896f188  out 0x24c2dac9d0  path : maps/mp_lobby.bsp.0004.bsp_lump.client
+[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/sh_utility_all.gnut.client
+ val = GetWeaponInfoFileKeyField_Global( ref, variable )
+	return val != null ? expect float( val ) : defaultVal
+}
+
+bool function GetWeaponInfoFileKeyField_GlobalBool( string ref, string variable )
+{
+	var val = GetWeaponInfoFileKeyField_Global( ref, variable )
+	Assert( val != null, "Weapon key \"" + variable + "\" does not exist in weapon \"" + ref + "\" !" )
+	return expect bool( val )
+}
+
+vector function GetWeaponInfoFileKeyField_GlobalVectorFloif ( index == val )
+			return name
+	}
+	return format( "%s() - INVALID: %d", FUNC_NAME(), val )
+}
+
+table<string, table<int, string> > reverseEnumLookupMap = {}
+bool function BuildEnumReverseLookup( string enumName, bool assertOnDuplicates = true )
+{
+	table enumTableCopy = expect table(getconsttable()[enumName])
+
+	table<int, string> reverseLookup = {}
+	foreach ( string key, int value in enumTableCopy )
+	{
+		if ( value in reverseLookup )
+		{
+			As[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/sh_utility_math_all.gnut.client
+[dump] scripts/vscripts/sh_utility_math_all.gnut.client (10585 bytes)globalize_all_functions
+
+global const float FLOAT_INFINITY = 3.40282e+38 + 3.40282e+38
+global const float FLOAT_INDETERMINATE = FLOAT_INFINITY * 0.0
+global const float FLOAT_NAN = -FLOAT_INDETERMINATE
+
+global const float DEG_TO_RAD = 0.01745329251994 
+global const float RAD_TO_DEG = 57.29577951308232 
+
+global const float DOT_1DEGREE =	0.9998476951564
+global const float DOT_2DEGREE =	0.9993908270191
+global const float DOT_3DEGREE =	0.9986295347546
+global const float DOT_4DEGREE =	0.9975640502598
+global const float DOT_5DEGREE =	0.9961946980917
+global const float DOT_6DEGREE =	0.9945218953683
+global const float DOT_7DEGREE =	0.9925461516413
+global const float DOT_8DEGREE =	0.9902680687416
+global const float DOT_9DEGREE =	0.9876883405951
+global const float DOT_10DEGREE =	0.9848077530122
+global const float DOT_15DEGREE =	0.9659258262891
+global const float DOT_20DEGREE =	0.9396926207859
+global const float DOT_25DEGREE =	0.9063077870367
+global const float DOT_30DEGREE =	0.866025403784
+global const float DOT_45DEGREE =	0.707106781187
+global const float DOT_50DEGREE =	0.64278760968
+global const float DOT_60DEGREE =	0.5
+global const float DOT_75DEGREE =	0.2588190451025
+global const float DOT_80DEGREE =	0.17364817766
+global const float DOT_85DEGREE =	0.0871557427477
+
+global const float LOG_2		= 	0.301029995664
+
+global struct ShuffleData
+{
+	array<int> _indices
+	int        _pos
+}
+
+bool function IsOdd( int num )
+{
+	return (num % 2) == 1
+}
+
+bool function IsEven( int num )
+{
+	return !IsOdd( num )
+}
+
+bool function IsEqualFloat( float left, float right )
+{
+	return fabs( left - right ) < FLT_EPSILON
+}
+
+float function Round( float num, float decimalPoints )
+{
+	float retVal = num
+	if ( decimalPoints >= 0 )
+	{
+		float factor = pow(10, decimalPoints)
+		retVal *= factor
+		retVal = floor( retVal + 0.5 )
+		retVal /= factor
+
+	}
+	return retVal
+}
+
+float function RoundToNearestInt( float value )
+{
+	return floor( value + 0.5 )
+}
+
+float function RoundToNearestMultiplier( float value, float multiplier )
+{
+	Assert( multiplier > 0 )
+	bool neg = value < 0
+	value = fabs( value )
+
+	float remainder = value % multiplier
+
+	value -= remainder
+
+	if ( remainder >= (multiplier / 2) )
+		value += multiplier
+
+	return neg ? -value : value
+}
+
+float [LoadScriptFile] self 0x7ff67896f188  out 0x24c2dabe60  path : maps/mp_lobby.bsp.006C.bsp_lump.client
+function DegToRad( float degrees )
+{
+	return degrees * DEG_TO_RAD
+}
+
+float function RadToDeg( float radians )
+{
+	return radians * RAD_TO_DEG
+}
+
+float function RadWrap( float ang, float lowValue = -PI )
+{
+	return ((ang - lowValue) % (2.0 * PI)) + lowValue
+}
+
+float function GetArcLengthDeg( float startDeg, float endDeg )
+{
+	if ( endDeg < startDeg )
+		endDeg += 360
+
+	return fabs( startDeg - endDeg )
+}
+
+bool function CirclesAreIntersecting( vector org1, float rad1, vector org2, float rad2 )
+{
+	float distBetweenCircles = Distance( org1, org2 )
+	float epsilon = 1
+
+	
+	if ( distBetweenCircles < fabs( rad1 - rad2 ) + epsilon )
+		return false
+	else if ( distBetweenCircles < fabs( rad2 - rad1 ) + epsilon )
+		return false
+
+	
+	else if ( distBetweenCircles == 0 && rad2 == rad1 )
+		return false
+
+	
+	else if ( distBetweenCircles > ( rad1 + rad2 + epsilon ) )
+		return false
+
+	return true
+}
+
+bool funct[dump] maps/mp_lobby.bsp.006C.bsp_lump.client (0 bytes)ion IsCircleAEncompassingCircleB( vector org1, float rad1, vector org2, float rad2 )
+{
+	float epsilon
+	float distBetweenCircles = Distance( org1, org2 )
+	if ( ( distBetweenCircles < fabs( rad1 - rad2 ) + epsilon ) && ( rad1 > rad2 ) )
+		return true
+
+	return false
+}
+
+array<vector> function GetCircleToCircleIntersectionPoints( vector org1, float rad1, vector org2, float rad2, vector up = < 0, 0, 1 >, bool debugDraw = false )
+{
+	float distBetweenCircles        = Distance( org1, org2 )
+	float distOrg1ToIntersectCenter = ( ( rad1 * rad1 ) - ( rad2 * rad2 ) + ( distBetweenCircles * distBetweenCircles ) ) / ( 2.0 * distBetweenCircles )
+
+	vector intersectDir    = Normalize( org2 - org1 )
+	vector intersectCenter = intersectDir * distOrg1ToIntersectCenter
+
+	float intersectHeight = sqrt( ( rad1 * rad1 ) - ( distOrg1ToIntersectCenter * distOrg1ToIntersectCenter ) )
+	vector heightDir      = CrossProduct( up, intersectDir )
+
+	array<vector> intersectionPoints = [ intersectCenter + ( heightDir * intersectHeight ), intersectCenter - ( heightDir * intersectHeight ) ]
+
+	if ( debugDraw )
+	{
+
+			
+			DebugDrawLine( org1, org1 + < 0, 0, 32 >, COLOR_RED, true, 1.0 )
+			DebugDrawLine( org2, org2 + < 0, 0, 32 >, COLOR_GREEN, true, 1.0 )
+
+			
+			DebugDrawLine( org2, intersectionPoints[ 0 ] + org1, COLOR_WHITE, true, 1.0 )
+			DebugDrawLine( org2, intersectionPoints[ 1 ] + org1, COLOR_BLACK, true, 1.0 )
+
+	}
+
+	return intersectionPoints
+}
+
+float function LerpFloat( float startValue, float endValue, float time )
+{
+	return ((1 - time) * startValue + time * endValue)
+}
+
+
+
+float function EaseIn( float val )
+{
+	return AttackDecay( 0, 2, val )
+}
+
+
+float function EaseOut( float val )
+{
+	return AttackDecay( 2, 0, val )
+}
+
+float function AttackDecay( float attack, float decay, float time )
+{
+	float sum = attack + decay
+	float a   = sum - 2.0
+	float b   = (3.0 - attack) - sum
+	float c   = attack
+	float t   = max( min( time, 1.0 ), 0.0 )
+
+	return t * (c + t * (b + t * a))
+}
+
+
+
+
+
+
+
+
+
+float function Tween_Linear( float frac )
+{
+	Assert( frac >= 0.0 && frac <= 1.0 )
+	return frac
+}
+
+
+float function Tween_QuadEaseOut( float frac )
+{
+	Assert( frac >= 0.0 && frac <= 1.0 )
+	return -1.0 * frac * (frac - 2)
+}
+
+
+float function Tween_ExpoEaseOut( float frac )
+{
+	Assert( frac >= 0.0 && frac <= 1.0 )
+	return -pow( 2.0, -10.0 * frac ) + 1.0
+}
+
+
+float function Tween_QuadEaseIn( float frac )
+{
+	return 1 * frac * frac
+}
+
+
+float function Tween_QuadEaseInOut( float frac )
+{
+	frac *= 2
+	if ( frac < 1 )
+		return 0.5 * frac * frac
+	frac--
+	return -0.5 * frac * (frac - 2) + 0.5
+}
+
+
+float function Tween_ExpoEaseIn( float frac )
+{
+	Assert( frac >= 0.0 && frac <= 1.0 )
+	return pow( 2, 10 * (frac - 1) )
+}
+
+float function GetFraction( float value, float min, float max )
+{
+	return ( value - min ) / ( max - min )
+}
+
+float function GetFractionClamped( float value, float min, float max )
+{
+	float frac = GetFraction( value, min, max )
+	return clamp( frac, 0.0, 1.0 )
+}
+
+float function GetValueFromFraction( float value, float value_min, float value_max, float return_min, float return_max )
+{
+	float frac = GetFractionClamped( value, value_min, value_max )
+	float retVal = return_min + ( ( return_max - return_min ) * frac )
+	return clamp( retVal, return_min, return_max )
+}
+
+float function Clamp( float value, float minValue, float maxValue )
+{
+	return max( min( value, maxValue ), minValue )
+}
+
+
+float function ClampFloor( float value, float floor )
+{
+	return max( value, floor )
+}
+
+
+float function ClampCeiling( float value, float ceiling )
+{
+	return min( value, ceiling )
+}
+
+int function ClampInt( int value, int minValue, int maxValue )
+{
+	return maxint( minint( value, maxValue ), minValue )
+}
+
+
+int function ClampFloorInt( int value, int floor )
+{
+	return maxint( value, floor )
+}
+
+
+int function ClampCeilingInt( int value, int ceiling )
+{
+	return minint( value, ceiling )
+}
+
+float function real_float_modulo( float x, float n )
+{
+	return ((x % n) + n) % n
+}
+
+
+int function real_int_modulo( int x, int n )
+{
+	return ((x % n) + n) % n
+}
+
+bool function CoinFlip()
+{
+	return RandomInt( 2 ) != 0
+}
+
+
+
+
+void function Shuffle_Init( ShuffleData sd, int count )
+{
+	Assert( count > 0 )
+	sd._indices.resize( count )
+	for ( int idx = 0; idx < count; ++idx )
+		sd._indices[idx] = idx
+
+	sd._pos = count
+}
+
+
+int function Shuffle_GetNextIndex( ShuffleData sd )
+{
+	Assert( sd._indices.len() > 0 )
+
+	array<int> idxs = sd._indices
+	int count       = idxs.len()
+	if ( count == 1 )
+		return idxs[0]
+
+	++(sd._pos)
+	if ( sd._pos >= count )
+	{
+		int lastIndexPlayed = ((sd._pos == count) ? idxs.top() : -1)
+		idxs.randomize()
+		if ( idxs[0] == lastIndexPlayed )
+			idxs.reverse()    
+
+		sd._pos = 0
+	}
+
+	return idxs[sd._pos]
+}
+
+
+int function Shuffle_GetCount( ShuffleData sd )
+{
+	return sd._indices.len()
+}
+
+var function GetRandomWeighted( ... )
+{
+	Assert( int(vargc) % 2 == 0, "Must pass pairs to GetRandomWeighted!" )
+	float total = 0.0
+	for ( int argIdx = 0; argIdx < vargc; argIdx += 2 )
+		total += expect float(vargv[argIdx + 0])
+
+	float choice = RandomFloat( total )
+	total = 0.0
+	for ( int argIdx = 0; argIdx < vargc; argIdx += 2 )
+	{
+		total += expect float(vargv[argIdx + 0])
+		if ( choice < total )
+			return vargv[argIdx + 1]
+	}
+
+	Assert( false )
+	return null
+}
+
+float function GetAverageValueInArray( array<float> values )
+{
+	Assert( values.len() > 0, "Can not get average of empty float array" )
+	floa[LoadScriptFile] self 0x7ff67896f188  out 0x24c2dabcf0  path : maps/mp_lobby.bsp.006D.bsp_lump.client
+t sum
+	foreach ( float value in values )
+		sum += value
+	return (sum / values.len())
+}
+
+
+float function CalculateFloatArrayVarianceWithGivenPercentile( array<float> inArr, float percentile )
+{
+	array<float> arr = inArr
+	arr.sort()
+
+	
+	int maxIndex = int( percentile * arr.len() )
+
+	float average = 0
+	for( int i = 0; i < maxIndex; i++ )
+	{
+		average += arr[i]
+	}
+
+	average /= maxIndex
+
+	float sumOfSquares = 0
+	for( int i = 0; i < maxIndex; i++ )
+	{
+		float deviationFromAvg = arr[i] - average
+		sumOfSquares += ( deviationFromAvg * deviationFromAvg )
+	}
+
+	return sumOfSquares / maxIndex
+}
+
+float function CalculateIntArrayVarianceWithGivenPercentile( array<int> inArr, float percentile )
+{
+	array<int> arr = inArr
+	arr.sort()
+
+	
+	int maxIndex = int( 0.9 * arr.len() )
+
+	float average = 0
+	for( int i = 0; i < maxIndex; i++ )
+	{
+		average += float( arr[i] )
+	}
+
+	average /= maxIndex
+
+	float sumOf[dump] maps/mp_lobby.bsp.006D.bsp_lump.client (0 bytes)Squares = 0
+	for( int i = 0; i < maxIndex; i++ )
+	{
+		float deviationFromAvg = ( float( arr[i] ) - average )
+		sumOfSquares += ( deviationFromAvg * deviationFromAvg )
+	}
+
+	return sumOfSquares / maxIndex
+}
+
+
+
+
+
+
+float function EvaluatePolynomial( float x, array<float> coefficientArray )
+{
+	float sum = 0.0
+
+	for ( int i = 0; i < coefficientArray.len() - 1; ++i )
+		sum += coefficientArray[ i ] * pow( x, coefficientArray.len() - 1 - i )
+
+	if ( coefficientArray.len() >= 1 )
+		sum += coefficientArray[ coefficientArray.len() - 1 ]
+
+	return sum
+}
+
+int function RandomWeightedIndex( array Array )
+{
+	int count = Array.len()
+	Assert( count != 0, "Array is empty" )
+
+	int sum     = int( (count * (count + 1)) / 2.0 )        
+	int randInt = RandomInt( sum )
+	for ( int i = 0; i < count; i++ )
+	{
+		int rangeForThisIndex = count - i
+		if ( randInt < rangeForThisIndex )
+			return i
+
+		randInt -= rangeForThisIndex
+	}
+
+	Assert( false )
+	unreachable
+}
+
+
+
+int function SortLowestFloat( float a, float b )
+{
+	if ( a > b )
+		return 1
+
+	if ( a < b )
+		return -1
+
+	return 0
+}
+
+
+int function SortLowestInt( int a, int b )
+{
+	if ( a > b )
+		return 1
+
+	if ( a < b )
+		return -1
+
+	return 0
+}
+
+
+
+[LoadScriptFile] self 0x7ff67896f188  out 0x24c2dabb80  path : maps/mp_lobby.bsp.006E.bsp_lump.client
+[dump] maps/mp_lobby.bsp.006E.bsp_lump.client (1 bytes)[LoadScriptFile] self 0x7ff67896f188  out 0x24c2dac700  path : maps/mp_lobby.bsp.006F.bsp_lump.client
+[dump] maps/mp_lobby.bsp.006F.bsp_lump.client (16 bytes)ÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿÿ[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/sh_utility_string_all.gnut.client
+globalize_all_functions
+
+struct
+{
+
+	int functionref()            getNumTeamsRemainingCallback
+
+} file
+
+int function GetEnemyTeam( int team )
+{
+	if ( IsMultiTeamPvPGame() )
+		return TEAM_UNASSIGNED
+
+	if ( team == TEAM_SPECTATOR )
+		return TEAM_UNASSIGNED
+
+	Assert( team == TEAM_IMC || team == TEAM_MILITIA )
+
+	return (TEAM_IMC + TEAM_MILITIA) - team
+}
+
+
+array<int> function GetAllEnemyTeams( int team )
+{
+	array<int> resultArray
+	if ( Is2TeamPvPGameeams()
+{
+	array<int> teams
+	foreach ( player in GetPlayerArray() )
+	{
+		int t = player.GetTeam()
+		if ( !teams.contains( t ) )
+		{
+			teams.append( t )
+		}
+	}
+	return teams
+}
+
+array<int> function GetAllValidConnectedPlayerTeams()
+{
+	array<int> teams
+	foreach ( player in GetPlayerArray() )
+	{
+
+
+
+
+
+		int t = player.GetTeam()
+		if ( !teams.contains( t ) )
+		{
+			teams.append( t )
+		}
+	}
+	return teams
+}
+
+int function GetOtherTeam( int team )
+{
+	if [LoadScriptFile] self 0x7ff67896f188  out 0x24c2dacb60  path : maps/mp_lobby.bsp.002A.bsp_lump.client
+[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/sh_gameplay_currency.gnut.client
+[dump] scripts/vscripts/sh_gameplay_currency.gnut.client (3211 bytes)[LoadScriptFile] self 0x7ff67896f188  out 0x24cf1d9040  path : scripts/vscripts/sh_networkvars.gnut.client
+[dump] scripts/vscripts/sh_networkvars.gnut.client (7640 bytes)
+global function RegisterNetVarBoolChangeCallback
+global function RegisterNetVarIntChangeCallback
+global function RegisterNetVarFloatChangeCallback
+global function RegisterNetVarTimeChangeCallback
+global function RegisterNetVarEntityChangeCallback
+
+
+
+global function ExecuteNetBufferedCallbacks
+global function ClientCodeCallback_IsNetworkReady
+
+
+struct BufferedCallback
+{
+	string varName
+	entity player
+	var newValue
+	int callbackType
+}
+
+
+struct
+{f DEV
+		if ( localizationKey != "" && localizationKey.slice( 0, 1 ) != "#" )
+			localizationKey = format( "%s !UNLOCALIZED!", localizationKey )
+#endif
+	return localizationKey
+}
+
+
+
+string function ItemFlavor_GetRewardShortDescription( ItemFlavor flav )
+{
+	switch( ItemFlavor_GetType( flav ) )
+	{
+		case eItemType.weapon_skin:
+			ItemFlavor ref = WeaponSkin_GetWeaponFlavor( flav )
+			return Localize( "#REWARD_SKIN_WEAPON", Localize( ItemFlavor_GetSItemFlavor_GetLongName( ref ) ) )
+
+		case eItemType.character_select:
+			ItemFlavor ref = CharacterSelect_GetCharacterFlavor( flav )
+			return Localize( "#REWARD_CHARACTER_SELECT", Localize( ItemFlavor_GetLongName( ref ) ) )
+
+		case eItemType.character_emote:
+			ItemFlavor ornull ref = CharacterQuip_GetCharacterFlavor( flav )
+			if ( ref == null )
+				return Localize( "#REWARD_EMOTE_GENERIC" )
+
+			expect ItemFlavor( ref )
+
+			return Localize( "#REWARD_EMOTE", Localize( ItemFlavor_GetLongName( ref ) ) )
+
+		
+		case eItemType.gladiator_card_stat_tracker:
+			if ( GladiatorCardStatTracker_GetTrackerType( flav ) == eTrackerType.ART )
+				return Localize( "#REWARD_TRACKER_ART" )
+
+			if ( GladiatorCardStatTracker_GetTrackerType( flav ) == eTrackerType.BOTH )
+				return Localize( "#REWARD_TRACKER_STAT_AND_ART" )
+
+			ItemFlavor ornull ref = GladiatorCardStatTracker_GetCharacterFlavor( flav )
+			if ( ref == null )
+				return Localize( "#REWARD_TRACKER_GENERIC" )
+
+			expect ItemFlavor( ref )
+
+			return Localize( "#REWARD_TRACKER", Localize( ItemFlavor_GetLongName( ref ) ) )
+
+		case eItemType.gladiator_card_intro_quip:
+			ItemFlavor ref = CharacterIntroQuip_GetCharacterFlavor( flav )
+			return Localize( "#REWARD_INTRO_QUIP", Localize( ItemFlavor_GetLongName( ref ) ) )
+
+		case eItemType.gladiator_card_kill_quip:
+			ItemFlavor ref = CharacterKillQuip_GetCharacterFlavor( flav )
+			return Localize( "#REWARD_KILL_QUIP", Localize( ItemFlavor_GetLongName( ref ) ) )
+
+		case eItemType.gladiator_card_frame:
+			ItemFlavor ornull ref = GladiatorCardFrame_GetCharacterFlavor( flav )
+			if ( ref == null )
+				return Localize( "#REWARD_FRAME_GENERIC" )
+
+			expect ItemFlavor( ref )
+
+			return Localize( "#REWARD_FRAME", Localize( ItemFlavor_GetLongName( ref ) ) )
+
+		case eItemType.gladiator_card_stance:
+			ItemFlavor ref = GladiatorCardStance_GetCharacterFlavor( flav )
+			return Localize( "#REWARD_STANCE", Localize( ItemFlavor_GetLongName( ref ) ) )
+
+		case eItemType.gladiator_card_badge:
+			return Localize( "#REWARD_BADGE" )
+
+		case eItemType.music_pack:
+			return Localize( "#itemtype_music_pack_NAME" )
+
+		case eItemType.loadscreen:
+			return Localize( "#itemtype_loadscreen_NAME" )
+
+		case eItemType.skydive_emote:
+			ItemFlavor ref = SkydiveEmote_GetCharacterFlavor( flav )
+			return Localize( "#REWARD_SKYDIVE_EMOTE", Localize( ItemFlavor_GetLongName( ref ) ) )
+
+		case eItemType.weapon_charm:
+		case eItemType.sticker:
+			return Localize( ItemFlavor_GetTypeName( flav ) )
+
+		
+		case eItemType.emote_icon:
+			ItemFlavor ornull ref = CharacterEmoteIcon_GetCharacterFlavor( flav )
+			if ( ref == null )
+				return Localize( "#REWARD_EMOTE_ICON_GENERIC" )
+
+			return Localize( "#REWARD_EMOTE_ICON", Localize( ItemFlavor_GetLongName( expect ItemFlavor( ref ) ) ) )
+
+		case eItemType.quest_comic:
+			return Localize( ItemFlavor_GetTypeName( flav ) )
+
+		case eItemType.account_flag:
+			return Localize( ItemFlavor_GetTypeName( flav ) )
+
+		case eItemType.melee_skin:
+			return Localize( "#itemtype_melee_skin_NAME" )
+
+		case eItemType.battlepass:
+
+			if ( PlayerPass_IsLegendPass( flav ) )
+				return Localize( "#LEGENDPASS" )
+
+			return Localize( "#itemtype_battlepass_NAME" )
+
+		case eItemType.account_currency_bundle:
+			return Localize( "#itemtype_account_currency_bundle_NAME" )
+
+		case eItemType.account_currency:
+			return Localize( "#itemtype_account_currency_NAME" )
+
+		case eItemType.reward_set_tracker:
+			return Localize( ItemFlavor_GetShortDescription( flav ) )
+		case eItemType.account_pack:
+			if ( ItemFlavor_IsWishlistPack( flav ) )
+				return Localize( "#WISHLIST_PACK_ENABLED_ICON" )
+
+			if ( ItemFlavor_IsWishlistUpgradablePack( flav ) )
+				return Localize( "#WISHLIST_PACK_UPGRADABLE_ICON" )
+
+			return ""
+	}
+
+	return ""
+}
+
+
+
+
+asset function ItemFlavor_GetIcon( ItemFlavor flavor )
+{
+	Assert( IsItemFlavorStructValid( flavor.guid, eValidation.ASSERT ) )
+	return GetGlobalSettingsAsset( ItemFlavor_GetAsset( flavor ), "icon" )
+}
+
+
+
+asset function ItemFlavor_GetChallengeIcon( ItemFlavor flavor )
+{
+	Assert( IsItemFlavorStructValid( flavor.guid, eValidation.ASSERT ) )
+	return GetGlobalSettingsAsset( ItemFlavor_GetAsset( flavor ), "challengeIcon" )
+}
+
+
+
+asset function ItemFlavor_GetBattlepassIcon( ItemFlavor flavor )
+{
+	Assert( IsItemFlavorStructValid( flavor.guid, eValidation.ASSERT ) )
+	return GetGlobalSettingsAsset( ItemFlavor_GetAsset( flavor ), "battlepassIcon" )
+}
+
+
+
+string function ItemFlavor_GetInspectMenuSound( ItemFlavor flavor )
+{
+	Assert( IsItemFlavorStructValid( flavor.guid, eValidation.ASSERT ) )
+	return GetGlobalSettingsString( ItemFlavor_GetAsset( flavor ), "inspectMenuSound" )
+}
+
+
+
+vector function ItemFlavor_GetInspectMenuCameraOffset( ItemFlavor flavor )
+{
+	Assert( IsItemFlavorStructValid( flavor.guid, eValidation.ASSERT ) )
+	return GetGlobalSettingsVector( ItemFlavor_GetAsset( flavor ), "inspectMenuCameraOffset" )
+}
+
+
+
+asset function ItemFlavor_GetSourceIcon( ItemFlavor flavor )
+{
+	Assert( IsItemFlavorStructValid( flavor.guid, eValidation.ASSERT ) )
+	return GetGlobalSettingsAsset( ItemFlavor_GetAsset( flavor ), "tagIcon" )
+}
+
+ItemFlavor ornull function ItemFlavor_GetParentFlavor( ItemFlavor flavor )
+{
+	asset parentAsset = GetGlobalSettingsAsset( ItemFlavor_GetAsset( flavor ), "parentItemFlavor" )
+	if ( parentAsset == $"" )
+		return null
+
+	if ( IsValidItemFlavorSettingsAsset( parentAsset ) )
+		return GetItemFlavorByAsset( parentAsset )
+
+	return null
+}
+
+ItemFlavor function ItemFlavor_GetParentFlavorOFType( ItemFlavor flavor, int expectedItemType )
+{
+	ItemFlavor parentItemFlavor = expect ItemFlavor( ItemFlavor_GetParentFlavor( flavor ) )
+	Assert( ItemFlavor_GetType( parentItemFlavor ) == expectedItemType )
+	return parentItemFlavor
+}
+
+int function ItemFlavor_GetAccountPackType( ItemFlavor pack )
+{
+	Assert( IsItemFlavorStructValid( pack.guid, eValidation.ASSERT ) )
+	Assert( ItemFlavor_GetType( pack ) == eItemType.account_pack )
+
+	asset itemAsset = ItemFlavor_GetAsset( pack )
+	string settingsString = GetGlobalSettingsString( itemAsset, "packType" )
+	return ItemFlavor_ConvertPackTypeStringToEnum( settingsString )
+}
+
+int function ItemFlavor_ConvertPackTypeStringToEnum( string packTypeString )
+{
+	switch ( packTypeString )
+	{
+		case "APEX_PACK":
+			return eAccountPackType.APEX
+		case "EVENT_PACK":
+			return eAccountPackType.EVENT
+		case "EVENT_THEMATIC_PACK":
+			return eAccountPackType.EVENT_THEMATIC
+		case "THEMATIC_PACK":
+			return eAccountPackType.THEMATIC
+		case "MYTHIC_PACK":
+			return eAccountPackType.MYTHIC
+		case "SIRNGE_PACK":
+			return eAccountPackType.SIRNGE
+		case "RETRO_PACK":
+			return eAccountPackType.RETRO_PACK
+		case "RETRO_BACKFILL_PACK":
+			return eAccountPackType.RETRO_BACKFILL_PACK
+		case "RETRO_ESCALATING_PACK":
+			return eAccountPackType.RETRO_ESCALATING_PACK
+		case "RETRO_ESCALATING_BACKFILL_PACK":
+			return eAccountPackType.RETRO_ESCALATING_BACKFILL_PACK
+		case "WISHLIST_PACK":
+			return eAccountPackType.WISHLIST_PACK
+
+		default:
+			
+			
+			return eAccountPackType.APEX 
+	}
+	unreachable
+}
+
+bool function ItemFlavor_IsApexPack( ItemFlavor pack )
+{
+	if ( ItemFlavor_GetType( pack ) == eItemType.account_pack && ItemFlavor_GetAccountPackType( pack ) == eAccountPackType.APEX )
+		return true
+
+	return false
+}
+
+
+
+
+bool function ItemFlavor_IsWishlistSirngePack( ItemFlavor pack )
+{
+	Assert( IsItemFlavorStructValid( pack.guid, eValidation.ASSERT ) )
+	Assert( ItemFlavor_GetType( pack ) == eItemType.account_pack && ItemFlavor_GetAccountPackType( pack ) == eAccountPackType.SIRNGE )
+
+	if ( ItemFlavor_GetAccountPackType( pack ) != eAccountPackType.SIRNGE )
+		return false
+
+	asset itemAsset = ItemFlavor_GetAsset( pack )
+	return GetGlobalSettingsBool( itemAsset, "isWishlistSirngePack" )
+}
+
+bool function ItemFlavor_IsWishlistPack( ItemFlavor pack )
+{
+	if ( ItemFlavor_GetType( pack ) != eItemType.account_pack )
+		return false
+
+	int accountPackType = ItemFlavor_GetAccountPackType( pack )
+	if ( accountPackType == eAccountPackType.SIRNGE )
+		return ItemFlavor_IsWishlistSirngePack( pack )
+	else if ( accountPackType == eAccountPackType.WISHLIST_PACK )
+		return true
+
+	return false
+}
+
+
+bool function ItemFlavor_IsWishlistUpgradablePack( ItemFlavor pack )
+{
+	if ( !ItemFlavor_IsApexPack( pack ) )
+	{
+		return false
+	}
+
+	
+	SettingsAssetGUID guid = ItemFlavor_GetGUID( pack )
+	return 	guid == 1124352130 || 	
+			guid == 1133168882 || 	
+			guid == 491582306 		
+}
+
+bool function ItemFlavor_IsWishlistRelatedPack( ItemFlavor pack )
+{
+	return ItemFlavor_IsWishlistPack( pack ) || ItemFlavor_IsWishlistUpgradablePack( pack )
+}
+
+
+int function GetPlaylistAvailabilityByRef( array< string > refs )
+{
+	
+	foreach ( ref in refs )
+	{
+		if ( HIDDEN_CHARACTER_REFS.len() > 0 && HIDDEN_CHARACTER_REFS.contains( ref ) )
+			return eItemFlavorPlaylistAvailability.HIDDEN
+
+		string playlistVar = GetCurrentPlaylistVarString( ref, "none" ).tolower()
+
+		
+		if ( refs.len() == 1 && playlistVar == "none" )
+			return eItemFlavorPlaylistAvailability.NONE
+
+		else if ( playlistVar == "enable" )
+			return eItemFlavorPlaylistAvailability.ENABLED
+
+		else if ( playlistVar == "disable_grx_ops" )
+			return eItemFlavorPlaylistAvailability.GRX_DISABLED
+
+		else if ( playlistVar == "lock" )
+			return eItemFlavorPlaylistAvailability.LOCKED
+
+		else if ( playlistVar == "hide" )
+			return eItemFlavorPlaylistAvailability.HIDDEN
+
+		else if ( playlistVar == "disable" )
+			return eItemFlavorPlaylistAvailability.DISABLED
+
+		else if ( playlistVar == "force_unlock_for_special_event" )
+			return eItemFlavorPlaylistAvailability.FORCE_UNLOCK_FOR_SPECIAL_EVENT
+
+
+
+
+
+	}
+
+	return eItemFlavorPlaylistAvailability.NONE
+}
+
+
+int function ItemFlavor_GetPlaylistAvailability( ItemFlavor flavor )
+{
+	Assert( IsItemFlavorStructValid( flavor.guid, eValidation.ASSERT ) )
+
+	if ( flavor.metaData == null )
+		return eItemFlavorPlaylistAvailability.NONE
+
+	table<string, string> ornull metaData = flavor.metaData
+	expect table<string, string>(metaData)
+
+	if ( PLAYLIST_AVAILABILITY_META_DATA_KEY in metaData )
+		return int(metaData[ PLAYLIST_AVAILABILITY_META_DATA_KEY ])
+
+	return eItemFlavorPlaylistAvailability.NONE
+}
+
+
+bool function ItemFlavor_IsAvailableInPlaylist( ItemFlavor flavor )
+{
+	int op = ItemFlavor_GetPlaylistAvailability( flavor )
+
+	if ( op == eItemFlavorPlaylistAvailability.NONE )
+		return true
+
+	if ( op == eItemFlavorPlaylistAvailability.ENABLED )
+		return true
+
+	if ( op == eItemFlavorPlaylistAvailability.FORCE_UNLOCK_FOR_SPECIAL_EVENT )
+		return true
+
+	return false
+}
+
+
+bool function ItemFlavor_IsItemDisabledForGRX( ItemFlavor flavor )
+{
+	if ( ItemFlavor_GetPlaylistAvailability( flavor ) == eItemFlavorPlaylistAvailability.GRX_DISABLED )
+		return true
+
+	return false
+}
+
+
+bool function ItemFlavor_ShouldBeVisible( ItemFlavor flavor, entity player, int ornull overrideEditionOrNull = null )
+{
+	int availableState = ItemFlavor_GetPlaylistAvailability( flavor )
+	if ( availableState == eItemFlavorPlaylistAvailability.HIDDEN )
+		return false
+	else if ( availableState == eItemFlavorPlaylistAvailability.DISABLED )
+		return false
+
+	int edition
+	if ( overrideEditionOrNull == null )
+	{
+		Assert( player != null )
+		edition = GRX_GetPlayerEdition( player )
+	}
+	else
+	{
+		Assert( player == null )
+		edition = expect int(overrideEditionOrNull)
+	}
+
+	return ItemFlavor_IsActiveForEdition( flavor, edition )
+}
+
+
+bool function ItemFlavor_IsTheFavoriteSentinel( ItemFlavor flavor )
+{
+	return GetGlobalSettingsBool( ItemFlavor_GetAsset( flavor ), "isTheFavoriteSentinel" )
+}
+
+
+bool function ItemFlavor_IsActiveForEdition( ItemFlavor flavor, int edition )
+{
+	switch ( ItemFlavor_GetType( flavor ) )
+	{
+		case eItemType.loot_main_weapon:
+			if ( MainWeapon_GetIsShippingWeapon( flavor ) )
+				return true
+			if ( edition < GetItemFlavorPlaylistEdition( flavor ) )
+				return false
+			break
+
+		case eItemType.character:
+			if ( CharacterClass_GetIsShippingCharacter( flavor ) )
+				return true
+			if ( edition < GetItemFlavorPlaylistEdition( flavor ) )
+				return false
+			break
+	}
+
+	return true
+}
+
+
+bool function ItemFlavor_CheckType( ItemFlavor flavor, int expectedTypeIndex, int validationBehavior = eValidation.DONT_ASSERT )
+{
+	Assert( IsItemFlavorStructValid( flavor.guid, eValidation.ASSERT ) )
+	int typeIndex = ItemFlavor_GetType( flavor )
+	bool good     = (typeIndex == expectedTypeIndex)
+
+	Assert( good || validationBehavior != eValidation.ASSERT, "Item flavor type validation failed."
+	+ " Expected type " + GetEnumString( "eItemType", expectedTypeIndex ) + " but got "
+	+ DEV_GetEnumStringSafe( "eItemType", typeIndex ) + "."
+	)
+	return good
+}
+
+
+bool function ItemFlavor_HasQualityAndRarityIsAtLeast( ItemFlavor flavor, int rarity )
+{
+	Assert( IsItemFlavorStructValid( flavor.guid, eValidation.ASSERT ) )
+	string enumKey = GetGlobalSettingsString( ItemFlavor_GetAsset( flavor ), "quality" )
+	if ( enumKey == "NONE" )
+		return false
+
+	Assert( enumKey in eRarityTier, "Invalid eQuality enum value: " + enumKey )
+
+	return ( eRarityTier[enumKey] >= rarity )
+}
+
+bool function ItemFlavor_HasQuality( ItemFlavor flavor )
+{
+	Assert( IsItemFlavorStructValid( flavor.guid, eValidation.ASSERT ) )
+	string enumKey = GetGlobalSettingsString( ItemFlavor_GetAsset( flavor ), "quality" )
+	return enumKey != "NONE"
+}
+
+
+int function ItemFlavor_GetQuality( ItemFlavor flavor, int ornull fallbackValue = null )
+{
+	Assert( IsItemFlavorStructValid( flavor.guid, eValidation.ASSERT ) )
+	string enumKey = GetGlobalSettingsString( ItemFlavor_GetAsset( flavor ), "quality" )
+	if ( enumKey == "NONE" )
+	{
+		if ( fallbackValue != null )
+			return expect int(fallbackValue)
+		else
+		{
+			printf( "Item flavor %s has no quality.", string(ItemFlavor_GetAsset( flavor )) )
+			return eRarityTier.NONE
+		}
+	}
+	Assert( enumKey in eRarityTier, "Invalid eQuality enum value: " + enumKey )
+
+	return eRarityTier[enumKey]
+}
+
+
+vector function ItemFlavor_GetQualityColor( ItemFlavor flavor )
+{
+	Assert( IsItemFlavorStructValid( flavor.guid, eValidation.ASSERT ) )
+	return GetFXRarityColorForUnlockable( ItemFlavor_GetQuality( flavor ) )
+}
+
+
+string function ItemFlavor_GetQualityName( ItemFlavor flavor, bool isPlural = false )
+{
+	Assert( IsItemFlavorStructValid( flavor.guid, eValidation.ASSERT ) )
+	return ItemQuality_GetQualityName( ItemFlavor_GetQuality( flavor ), isPlural )
+}
+
+bool function ItemFlavor_IsThematic( ItemFlavor flavor )
+{
+	Assert( IsItemFlavorStructValid( flavor.guid, eValidation.ASSERT ) )
+
+	if ( ItemFlavor_GetType( flavor ) != eItemType.account_pack )
+		return false
+
+	var packType = ItemFlavor_GetAccountPackType( flavor )
+	return packType == eAccountPackType.THEMATIC || packType == eAccountPackType.EVENT_THEMATIC
+}
+
+bool function ItemFlavor_IsCurrency( ItemFlavor flavor )
+{
+	Assert( IsItemFlavorStructValid( flavor.guid, eValidation.ASSERT ) )
+
+	switch ( ItemFlavor_GetType( flavor ) )
+	{
+		case eItemType.account_currency:
+		case eItemType.account_currency_bundle:
+		case eItemType.apex_coins:
+			return true
+	}
+
+	return false
+}
+
+bool function ItemFlavor_IsApexPackBrowsable( ItemFlavor flavor )
+{
+	return ItemFlavor_GetType( flavor ) == eItemType.account_pack ? GRXPack_GetIsLootPoolBrowsable( flavor ) : false
+}
+
+string function ItemQuality_GetQualityName( int quality, bool isPlural = false)
+{
+	switch ( quality )
+	{
+		case 5:
+			return isPlural ? "#LOOT_TIER6_PLURAL" : "#LOOT_TIER6"
+
+		case 4:
+			return isPlural ? "#LOOT_TIER5_PLURAL" : "#LOOT_TIER5"
+
+		case 3:
+			return isPlural ? "#LOOT_TIER4_PLURAL" : "#LOOT_TIER4"
+
+		case 2:
+			return isPlural ? "#LOOT_TIER3_PLURAL" : "#LOOT_TIER3"
+
+		case 1:
+			return isPlural ? "#LOOT_TIER2_PLURAL" : "#LOOT_TIER2"
+
+		case 0:
+			return isPlural ? "#LOOT_TIER1_PLURAL" : "#LOOT_TIER1"
+
+		case -1:
+			return ""
+	}
+	unreachable
+}
+
+
+
+
+
+
+
+string function DEV_DescItemFlavor( ItemFlavor ornull flav, bool short = false )
+{
+	if ( flav == null )
+		return "~~null~~"
+	expect ItemFlavor( flav )
+
+	if ( !IsItemFlavorStructValid( flav.guid, eValidation.DONT_ASSERT ) )
+		return "~~invalid~~"
+
+	if ( short )
+		return string(ItemFlavor_GetAsset( flav ))
+
+	return format( "~~%s:%s:%s~~", DEV_GetEnumStringSafe( "eItemType", ItemFlavor_GetType( flav ) ), string(ItemFlavor_GetAsset( flav )), ItemFlavor_GetGUIDString( flav ) )
+}
+
+
+
+int function GetItemFlavorPlaylistEdition( ItemFlavor flavor )
+{
+	string ref      = ItemFlavor_GetGUIDString( flavor )
+	int playlistVar = GetCurrentPlaylistVarInt( ref + "_edition", -1 )
+
+	if ( playlistVar <= 0 )
+		return 99999
+
+	return playlistVar
+}
+
+
+array<var> function IterateSettingsAssetArray( asset settingsAsset, string arrayFieldName )
+{
+	var assetBlock       = GetSettingsBlockForAsset( settingsAsset )
+	var arr              = GetSettingsBlockArray( assetBlock, arrayFieldName )
+	int arraySize        = GetSettingsArraySize( arr )
+
+	array<var> arrBlocks = []
+	arrBlocks.resize( arraySize )
+
+	for ( int entryIdx = 0; entryIdx < arraySize; entryIdx++ )
+	{
+		arrBlocks[entryIdx] = GetSettingsArrayElem( arr, entryIdx )
+	}
+	return arrBlocks
+}
+
+
+array<var> function IterateSettingsArray( var arr )
+{
+	int arraySize        = GetSettingsArraySize( arr )
+
+	array<var> arrBlocks = []
+	arrBlocks.resize( arraySize )
+
+	for ( int entryIdx = 0; entryIdx < arraySize; entryIdx++ )
+	{
+		arrBlocks[entryIdx] = GetSettingsArrayElem( arr, entryIdx )
+	}
+	return arrBlocks
+}
+
+
+array<ItemFlavor> function RegisterReferencedItemFlavorsFromArray( ItemFlavor parentFlavor, string arrayFieldName, string refFieldName )
+{
+	array<ItemFlavor> loaded = []
+	var parentBlock          = ItemFlavor_GetSettingsBlock( parentFlavor )
+	var arrField             = GetSettingsBlockArray( parentBlock, arrayFieldName )
+
+
+
+	foreach ( var entryBlock in IterateSettingsArray( arrField ) )
+	{
+		asset entryAsset = GetSettingsBlockAsset( entryBlock, refFieldName )
+		if ( entryAsset == $"" )
+		{
+			Warning( "Warning: Asset \"" + ItemFlavor_GetAsset( parentFlavor ) + "\" has an empt
